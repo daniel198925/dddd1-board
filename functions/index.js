@@ -24,9 +24,17 @@ exports.deleteUser = onRequest((req, res) => {
     const idToken = authHeader.split("Bearer ")[1];
 
     try {
-      await admin.auth().verifyIdToken(idToken);
-      const targetUid = req.body.data.uid;
-      
+      const decoded = await admin.auth().verifyIdToken(idToken);
+
+      // 驗證呼叫者本人是 admin，避免任何登入者都能刪除他人帳號
+      const callerSnap = await admin.firestore().collection("users").doc(decoded.uid).get();
+      if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+        return res.status(403).send({ error: "權限不足，僅 admin 可執行此操作" });
+      }
+
+      const targetUid = req.body?.data?.uid;
+      if (!targetUid) return res.status(400).send({ error: "缺少 uid" });
+
       // 先試著刪除 Auth 帳號，找不到就忽略
       try {
         await admin.auth().deleteUser(targetUid);

@@ -462,6 +462,13 @@
         // ✅ 修復：用變數保存 sales onSnapshot 的 unsubscribe，換年份前先取消
         let salesUnsubscribe = null;
 
+        // ── HTML 跳脫（防止使用者輸入內容造成 XSS） ─────────────────
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
         // ── Toast ─────────────────────────────────────────────────
         function showSavingToast(msg = '雲端同步完成') {
             const toast = document.getElementById('saving-toast');
@@ -596,7 +603,7 @@
                                 <i class="fas ${isApp ? 'fa-check' : 'fa-plane-departure'} text-sm"></i>
                             </div>
                             <div>
-                                <p class="text-base font-bold text-gray-800">${l.name} - ${l.reason}</p>
+                                <p class="text-base font-bold text-gray-800">${escapeHtml(l.name)} - ${escapeHtml(l.reason)}</p>
                                 <p class="text-[12px] font-bold text-blue-500 mt-1 tracking-wide">${displayDates} <span class="text-gray-500 ml-1 font-medium">${durationHtml}</span></p>
                                 ${actionInfo}
                             </div>
@@ -635,9 +642,9 @@
                         <span class="px-3 py-1 ${badgeClass} text-[10px] font-black rounded-lg border uppercase tracking-widest">${r.category || '一般'}</span>
                         <span class="text-[10px] font-bold text-gray-300">${r.createdAt ? new Date(r.createdAt.toDate()).toLocaleDateString() : '最新'}</span>
                     </div>
-                    <p class="leading-relaxed text-gray-700 font-medium whitespace-pre-wrap ${isGen ? 'announcement-text' : 'text-base'}">${r.content}</p>
+                    <p class="leading-relaxed text-gray-700 font-medium whitespace-pre-wrap ${isGen ? 'announcement-text' : 'text-base'}">${escapeHtml(r.content)}</p>
                     <div class="mt-6 pt-4 border-t border-gray-50 text-[10px] font-black text-gray-400 uppercase flex justify-between items-center">
-                        <span>AUTH: ${r.authorNickname}</span>
+                        <span>AUTH: ${escapeHtml(r.authorNickname)}</span>
                         ${currentUserData.role === 'admin' ? `<button onclick="handleDeleteDoc('records', '${r.id}')" class="text-red-400 hover:text-red-600 font-bold tracking-widest transition">DEL</button>` : ''}
                     </div>
                 </div>`;
@@ -675,7 +682,7 @@
                 grouped[team].forEach(u => {
                     const canEdit = (u.id === currentUserData.uid) || (currentUserData.role === 'admin');
                     let rowSum = 0;
-                    html += `<tr class="hover:bg-gray-50/50 transition"><td class="sticky-col px-4 text-xs text-gray-900">${u.nickname}</td>`;
+                    html += `<tr class="hover:bg-gray-50/50 transition"><td class="sticky-col px-4 text-xs text-gray-900">${escapeHtml(u.nickname)}</td>`;
                     for (let m = 1; m <= 12; m++) {
                         const val = Number(salesData[u.id]?.[m] || 0);
                         rowSum += val; teamTotals[m] += val; grandTotals[m] += val;
@@ -698,8 +705,8 @@
             const sorted = [...allUsers].sort(accountComparator);
             tbody.innerHTML = sorted.map(u => `
                 <tr class="hover:bg-gray-50 transition">
-                    <td class="px-6 py-4 text-[12px] font-mono font-black text-gray-400 uppercase">${u.account || '---'}</td>
-                    <td class="px-6 py-4 font-bold text-gray-800">${u.nickname}</td>
+                    <td class="px-6 py-4 text-[12px] font-mono font-black text-gray-400 uppercase">${escapeHtml(u.account) || '---'}</td>
+                    <td class="px-6 py-4 font-bold text-gray-800">${escapeHtml(u.nickname)}</td>
                     <td class="px-6 py-4 text-center">
                         <select onchange="updateUserAttr('${u.id}', 'role', this.value)" class="bg-white border rounded px-2 py-1 text-xs font-bold text-gray-900">
                             <option value="user"    ${u.role==='user'   ?'selected':''}>viewer</option>
@@ -711,11 +718,11 @@
                     <td class="px-6 py-4 text-center">
                         <select onchange="updateUserAttr('${u.id}', 'team', this.value)" class="bg-white border rounded px-2 py-1 text-xs font-bold text-gray-900">
                             <option value="">未分組</option>
-                            ${teamOptions.map(t => `<option value="${t}" ${u.team===t?'selected':''}>${t}</option>`).join('')}
+                            ${teamOptions.map(t => `<option value="${escapeHtml(t)}" ${u.team===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}
                         </select>
                     </td>
                     <td class="px-6 py-4 text-center">
-                        <button onclick="handleUserAction('delete','${u.id}','${u.nickname}')" class="text-red-400 hover:text-red-600 font-bold text-[10px] uppercase transition">DEL</button>
+                        <button onclick="handleUserAction('delete','${u.id}')" class="text-red-400 hover:text-red-600 font-bold text-[10px] uppercase transition">DEL</button>
                     </td>
                 </tr>`).join('');
         }
@@ -726,8 +733,8 @@
             container.innerHTML = teamOptions.map((t, i) =>
                 `<div draggable="true" ondragstart="window.dragT=${i}" ondragover="event.preventDefault()" ondrop="handleTeamDrop(event,${i})"
                       class="flex justify-between items-center bg-gray-50 border border-gray-200 p-4 rounded-xl cursor-move shadow-sm">
-                    <span class="font-bold text-gray-700"><i class="fas fa-bars mr-4 text-gray-300"></i> ${t}</span>
-                    <button onclick="handleTeamAction('delete','${t}')" class="text-red-500 font-black text-[10px] uppercase">DEL</button>
+                    <span class="font-bold text-gray-700"><i class="fas fa-bars mr-4 text-gray-300"></i> ${escapeHtml(t)}</span>
+                    <button onclick="handleTeamAction('delete', teamOptions[${i}])" class="text-red-500 font-black text-[10px] uppercase">DEL</button>
                 </div>`
             ).join('');
         }
@@ -866,7 +873,9 @@
             }
         };
 
-        window.handleUserAction = async (action, uid, name) => {
+        window.handleUserAction = async (action, uid) => {
+            const target = allUsers.find(u => u.id === uid);
+            const name = target ? target.nickname : '';
             if (confirm(`永久刪除 ${name}？`)) await deleteDoc(doc(db, "users", uid));
         };
 
