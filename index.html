@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>D1組公佈欄 | Pro Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <script>
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const icon = document.querySelector('#theme-toggle i');
+            if (isDark) {
+                document.documentElement.classList.remove('dark');
+                if (icon) icon.className = 'fas fa-moon text-gray-500 text-sm pointer-events-none';
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                if (icon) icon.className = 'fas fa-sun text-yellow-500 text-sm pointer-events-none';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+        const userPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const currentTheme = localStorage.getItem('theme');
+        if (currentTheme === 'dark' || (!currentTheme && userPrefersDark)) {
+            document.documentElement.classList.add('dark');
+            document.addEventListener("DOMContentLoaded", () => {
+                const icon = document.querySelector('#theme-toggle i');
+                if(icon) icon.className = 'fas fa-sun text-yellow-500 text-sm pointer-events-none';
+            });
+        }
+    </script>
+
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", "Microsoft JhengHei", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background-color: #F5F5F7;
+            color: #1D1D1F;
+            font-size: 17px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .hidden { display: none !important; }
+
+        .glass-nav {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 1000;
+            position: sticky;
+            top: 0;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        .nav-tabs-container {
+            background-color: rgba(229, 229, 231, 0.6);
+            border-color: #E5E5E7;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .tab-btn {
+            padding: 0.6rem 1rem; font-size: 0.95rem; font-weight: 600; border-radius: 12px;
+            color: #86868B; transition: all 0.2s; white-space: nowrap;
+        }
+        .tab-btn.active { color: #007AFF; background-color: #FFFFFF; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+
+        .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; max-height: calc(100vh - 180px); position: relative; }
+        .sales-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1000px; }
+        .sales-table td, .sales-table th { border-bottom: 1px solid #E5E5E7; padding: 10px 8px; text-align: center; font-size: 15px; transition: border-color 0.3s; }
+        .sales-table thead th { position: sticky; top: 0; background-color: #F9F9FB; z-index: 50; box-shadow: inset 0 -1px 0 #E5E5E7; transition: background-color 0.3s; }
+        .sales-table .sticky-col { position: sticky; left: 0; z-index: 60; background-color: #FFFFFF; border-right: 1px solid #E5E5E7; min-width: 120px; font-weight: 600; transition: background-color 0.3s; }
+        .sales-table thead th.sticky-col { z-index: 70; background-color: #F9F9FB; }
+        .sales-table input { width: 100%; background: transparent; text-align: center; border: none; outline: none; font-size: 16px; -moz-appearance: textfield; font-weight: 500; color: inherit; }
+        .sales-table input::-webkit-outer-spin-button, .sales-table input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        .low-performance { color: #FF3B30 !important; font-weight: 800 !important; }
+        .team-subtotal-row { background-color: #F8FAFC !important; font-weight: 700; color: #475569; }
+        .team-subtotal-row .sticky-col { background-color: #F8FAFC !important; }
+        .grand-total-row { background-color: #EBF5FF !important; border-top: 2px solid #BAE0FF !important; }
+        .grand-total-row td { color: #004085 !important; font-weight: 900 !important; font-size: 1.1rem !important; }
+        .grand-total-row .sticky-col { background-color: #EBF5FF !important; }
+
+        .apple-card { background-color: #FFFFFF; border-radius: 20px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04); transition: background-color 0.3s, border-color 0.3s; }
+        .input-style { padding: 0.8rem; border-radius: 12px; border: 1px solid #D2D2D7; background-color: #FFFFFF; font-size: 16px; transition: background-color 0.3s, border-color 0.3s, color 0.3s; }
+        .history-section { opacity: 0.6; filter: grayscale(80%); transition: all 0.3s; }
+        .history-section:hover { opacity: 1; filter: grayscale(0%); }
+        .announcement-text { font-size: 14px !important; line-height: 1.5; }
+
+        /* ── 新增員工 Modal ── */
+        #add-user-modal {
+            position: fixed; inset: 0; z-index: 3000;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(6px);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        #add-user-modal.open { opacity: 1; pointer-events: all; }
+        #add-user-modal .modal-card {
+            background: #FFFFFF; border-radius: 24px;
+            padding: 2rem; width: 90%; max-width: 420px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.2);
+            transform: translateY(20px);
+            transition: transform 0.25s ease;
+        }
+        #add-user-modal.open .modal-card { transform: translateY(0); }
+
+        #saving-toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: #1D1D1F; color: white; padding: 10px 20px; border-radius: 10px; 
+            font-size: 14px; z-index: 2000; opacity: 0; transition: all 0.3s; pointer-events: none;
+        }
+        #saving-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* =========================================
+           🌙 深色模式
+           ========================================= */
+        html.dark body { background-color: #000000; color: #E5E5E7; }
+        html.dark .glass-nav { background-color: rgba(28, 28, 30, 0.85); border-color: #2C2C2E; }
+        html.dark .nav-tabs-container { background-color: rgba(28, 28, 30, 0.9); border-color: #3A3A3C; }
+        html.dark .tab-btn { color: #98989D; }
+        html.dark .tab-btn:hover { color: #FFFFFF; }
+        html.dark .tab-btn.active { background-color: #3A3A3C; color: #0A84FF; box-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+        html.dark .apple-card { background-color: #1C1C1E; border-color: #2C2C2E; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        html.dark .input-style { background-color: #2C2C2E; border-color: #3A3A3C; color: #E5E5E7; }
+        html.dark .input-style:focus { border-color: #0A84FF; }
+        html.dark .sales-table th, html.dark .sales-table td { border-color: #2C2C2E; }
+        html.dark .sales-table thead th { background-color: #1C1C1E; box-shadow: inset 0 -1px 0 #2C2C2E; color: #8E8E93; }
+        html.dark .sales-table .sticky-col { background-color: #1C1C1E; border-color: #2C2C2E; }
+        html.dark .sales-table thead th.sticky-col { background-color: #1C1C1E; }
+        html.dark .sales-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.05) !important; }
+        html.dark .team-subtotal-row { background-color: #2C2C2E !important; color: #A1A1AA; }
+        html.dark .team-subtotal-row .sticky-col { background-color: #2C2C2E !important; }
+        html.dark .grand-total-row { background-color: #0A192F !important; border-top-color: #002855 !important; }
+        html.dark .grand-total-row td, html.dark .grand-total-row .sticky-col { background-color: #0A192F !important; color: #66B2FF !important; }
+        html.dark .low-performance { color: #FF453A !important; }
+        html.dark #add-user-modal .modal-card { background: #1C1C1E; color: #E5E5E7; }
+        html.dark .bg-white { background-color: #1C1C1E !important; }
+        html.dark .bg-gray-50, html.dark .bg-gray-100 { background-color: #2C2C2E !important; }
+        html.dark .bg-gray-50\/50, html.dark .bg-gray-50\/80 { background-color: rgba(44, 44, 46, 0.5) !important; }
+        html.dark .text-gray-900, html.dark .text-gray-800 { color: #F5F5F7 !important; }
+        html.dark .text-gray-700 { color: #D1D1D6 !important; }
+        html.dark .text-gray-600, html.dark .text-gray-500 { color: #8E8E93 !important; }
+        html.dark .text-gray-400 { color: #636366 !important; }
+        html.dark .border-gray-100, html.dark .border-gray-200 { border-color: #2C2C2E !important; }
+        html.dark .border-gray-50 { border-color: #3A3A3C !important; }
+        html.dark .border-b\.border-\[\#D2D2D7\] { border-color: #2C2C2E !important; }
+        html.dark .bg-blue-50 { background-color: rgba(10, 132, 255, 0.15) !important; color: #66B2FF !important; border-color: rgba(10, 132, 255, 0.2) !important; }
+        html.dark .text-blue-600, html.dark .text-blue-700 { color: #66B2FF !important; }
+        html.dark .text-blue-500 { color: #0A84FF !important; }
+        html.dark .bg-red-50 { background-color: rgba(255, 69, 58, 0.15) !important; color: #FF6961 !important; border-color: rgba(255, 69, 58, 0.2) !important; }
+        html.dark .text-red-600, html.dark .text-red-700 { color: #FF6961 !important; }
+        html.dark .bg-orange-50 { background-color: rgba(255, 159, 10, 0.15) !important; color: #FFB340 !important; border-color: rgba(255, 159, 10, 0.2) !important; }
+        html.dark .text-orange-600, html.dark .text-orange-700 { color: #FFB340 !important; }
+        html.dark .bg-green-50, html.dark .bg-green-100 { background-color: rgba(48, 209, 88, 0.15) !important; color: #32D74B !important; border-color: rgba(48, 209, 88, 0.2) !important; }
+        html.dark .text-green-600, html.dark .text-green-700 { color: #32D74B !important; }
+        html.dark .bg-slate-100 { background-color: rgba(142, 142, 147, 0.15) !important; color: #AEAEB2 !important; border-color: rgba(142, 142, 147, 0.2) !important; }
+        html.dark .bg-\[\#FFF8F8\] { background-color: rgba(255, 69, 58, 0.05) !important; }
+        html.dark select option { background-color: #1C1C1E; color: #FFF; }
+        html.dark .flatpickr-calendar { filter: invert(1) hue-rotate(180deg); }
+        html.dark ::-webkit-scrollbar-track { background: #1C1C1E; }
+        html.dark ::-webkit-scrollbar-thumb { background: #3A3A3C; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="saving-toast"><i class="fas fa-cloud-upload-alt mr-2"></i> 雲端同步完成</div>
+
+    <!-- ══════════════════════════════════════
+         新增員工 Modal
+         ══════════════════════════════════════ -->
+    <div id="add-user-modal">
+        <div class="modal-card">
+            <!-- 標題列 -->
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-500 w-9 h-9 rounded-xl flex items-center justify-center shadow">
+                        <i class="fas fa-user-plus text-white text-sm"></i>
+                    </div>
+                    <h2 class="text-lg font-extrabold text-gray-900">新增員工帳號</h2>
+                </div>
+                <button onclick="closeAddUserModal()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 transition">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+            </div>
+
+            <!-- 表單欄位 -->
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">員工編號</label>
+                    <input id="new-user-account" type="text" class="w-full input-style outline-none focus:border-blue-500" placeholder="例：A001">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">顯示姓名</label>
+                    <input id="new-user-nickname" type="text" class="w-full input-style outline-none focus:border-blue-500" placeholder="例：王小明">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">登入帳號（員編自動補域名）</label>
+                    <input id="new-user-email" type="text" class="w-full input-style outline-none focus:border-blue-500" placeholder="例：A001（或完整 email）">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">初始密碼</label>
+                    <div class="relative">
+                        <input id="new-user-password" type="password" class="w-full input-style outline-none focus:border-blue-500 pr-12" placeholder="至少 6 碼">
+                        <button type="button" onclick="toggleNewUserPwd()" class="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition">
+                            <i id="pwd-eye-icon" class="fas fa-eye text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">權限</label>
+                        <select id="new-user-role" class="w-full input-style outline-none">
+                            <option value="user">viewer</option>
+                            <option value="sales">sales</option>
+                            <option value="manager">manager</option>
+                            <option value="admin">admin</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">小組</label>
+                        <select id="new-user-team" class="w-full input-style outline-none">
+                            <option value="">未分組</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 錯誤提示 -->
+            <div id="add-user-error" class="hidden mt-3 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-bold"></div>
+
+            <!-- 操作按鈕 -->
+            <div class="mt-6 flex gap-3">
+                <button onclick="closeAddUserModal()" class="flex-1 py-3 rounded-2xl border border-gray-200 text-gray-500 font-bold text-sm hover:bg-gray-50 transition">取消</button>
+                <button id="add-user-submit-btn" onclick="submitAddUser()" class="flex-1 py-3 rounded-2xl bg-[#007AFF] text-white font-bold text-sm shadow-lg active:scale-95 transition">
+                    <i class="fas fa-user-plus mr-1"></i> 建立帳號
+                </button>
+            </div>
+
+            <!-- 說明 -->
+            <p class="mt-4 text-[10px] text-gray-400 text-center leading-relaxed">
+                建立後員工可用「員編 + 初始密碼」登入<br>建議請員工登入後自行修改密碼
+            </p>
+        </div>
+    </div>
+
+    <!-- 登入頁面 -->
+    <div id="login-page" class="flex items-center justify-center min-h-screen p-6">
+        <div class="apple-card p-10 w-full max-w-md border border-gray-100 text-center">
+            <div class="mb-8">
+                <div class="bg-blue-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-lg mb-6 shrink-0">
+                    <i class="fas fa-bullhorn text-white text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">D1組公佈欄</h1>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="email" class="w-full input-style outline-none focus:border-blue-500 transition" placeholder="帳號 (員工編號)">
+                <input type="password" id="password" class="w-full input-style outline-none focus:border-blue-500 transition" placeholder="密碼">
+                <button id="login-btn" class="w-full bg-[#007AFF] text-white font-bold py-3.5 rounded-2xl shadow-lg active:scale-95 transition">登入</button>
+                <div id="debug-box" class="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 hidden">
+                    <p id="login-msg" class="text-xs text-red-500 font-bold whitespace-pre-wrap"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主頁面 -->
+    <div id="main-page" class="hidden">
+        <nav class="glass-nav border-b border-[#D2D2D7] px-4">
+            <div class="max-w-7xl mx-auto w-full flex justify-between items-center">
+                <div class="flex items-center">
+                    <div class="bg-blue-500 w-7 h-7 flex items-center justify-center rounded-lg mr-2 shadow-md shrink-0">
+                        <i class="fas fa-bullhorn text-white text-[12px]"></i>
+                    </div>
+                    <h1 class="text-lg font-bold tracking-tighter whitespace-nowrap text-gray-900">D1組</h1>
+                </div>
+                
+                <div class="nav-tabs-container flex space-x-1 p-1 rounded-2xl border overflow-x-auto no-scrollbar mx-2">
+                    <button id="btn-records" onclick="switchTab('records')" class="tab-btn active">會議紀錄</button>
+                    <button id="btn-leave" onclick="switchTab('leave')" class="tab-btn">出國請假</button>
+                    <button id="btn-report" onclick="switchTab('report')" class="tab-btn hidden">業績報表</button>
+                    <button id="btn-team" onclick="switchTab('team')" class="tab-btn hidden">小組管理</button>
+                    <button id="btn-admin" onclick="switchTab('admin')" class="tab-btn hidden">帳號管理</button>
+                </div>
+
+                <div class="flex items-center space-x-2 md:space-x-3 shrink-0">
+                    <div class="text-right hidden md:block mr-2">
+                        <p id="user-display" class="text-[12px] font-black text-gray-500 uppercase tracking-tighter"></p>
+                        <p id="user-role-display" class="text-[10px] font-bold text-blue-500 uppercase"></p>
+                    </div>
+                    <button id="theme-toggle" onclick="toggleTheme()" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 border border-gray-200 hover:bg-gray-200 transition shrink-0 cursor-pointer">
+                        <i class="fas fa-moon text-gray-500 text-sm pointer-events-none"></i>
+                    </button>
+                    <button id="logout-btn" class="text-red-500 text-[10px] font-black px-2 py-1.5 bg-red-50 rounded-full border border-red-100 shrink-0">SIGN OUT</button>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto p-4 md:p-10">
+            <!-- 1. 會議紀錄 -->
+            <div id="panel-records" class="panel space-y-6">
+                <div id="record-post-area" class="hidden apple-card p-6 border border-gray-100 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-gray-900">發布紀錄</h2>
+                        <select id="record-category" class="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-sm outline-none">
+                            <option value="重要公告">重要公告</option>
+                            <option value="一般公告">一般公告</option>
+                            <option value="主管會議">主管會議</option>
+                            <option value="副主管會議">副主管會議</option>
+                            <option value="IT會議">IT會議</option>
+                        </select>
+                    </div>
+                    <textarea id="record-content" class="w-full bg-gray-50 rounded-2xl p-4 outline-none h-32 border border-gray-100 text-base" placeholder="內容..."></textarea>
+                    <div class="text-right mt-3">
+                        <button onclick="postRecord()" class="bg-[#007AFF] text-white px-8 py-2 rounded-xl font-bold shadow-lg">發布內容</button>
+                    </div>
+                </div>
+                <div class="relative mb-6">
+                    <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
+                    <input type="text" id="search-keyword" oninput="renderRecords()" placeholder="搜尋歷史紀錄 (分類、內容、發布者)..." class="w-full input-style pl-11 bg-white shadow-sm outline-none focus:border-blue-500 transition">
+                </div>
+                <div id="record-list" class="space-y-6"></div>
+            </div>
+
+            <!-- 2. 出國請假 -->
+            <div id="panel-leave" class="panel hidden space-y-10">
+                <div class="apple-card p-6 md:p-10 border border-gray-100">
+                    <h2 class="text-xl font-bold mb-6 text-gray-900">出國登記請假</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="leave-dates" class="input-style" placeholder="選擇起訖日期">
+                        <input type="text" id="leave-reason" class="input-style" placeholder="事由 (例如：福岡旅遊)">
+                    </div>
+                    <div class="mt-6 flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t border-gray-50">
+                        <p class="text-xs text-orange-600 font-bold bg-orange-50 px-3 py-2 rounded-lg border border-orange-100">
+                           說明：請假兩日內由副主管批準，三日以上請找大主管。
+                        </p>
+                        <button onclick="postLeave()" class="w-full md:w-auto bg-[#007AFF] text-white px-10 py-2.5 rounded-xl font-bold shadow-lg">登記</button>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-extrabold mb-6 tracking-tight text-gray-900">出國請假總覽</h2>
+                    <div id="leave-list-active" class="space-y-4"></div>
+                </div>
+                <div class="history-section mt-12 pt-8 border-t border-gray-200">
+                    <h2 class="text-xl font-bold mb-6 tracking-tight text-gray-500">歷史出團紀錄</h2>
+                    <div id="leave-list-expired" class="space-y-4"></div>
+                </div>
+            </div>
+
+            <!-- 3. 業績報表 -->
+            <div id="panel-report" class="panel hidden">
+                <div class="apple-card border border-gray-100 shadow-xl overflow-hidden">
+                    <div class="p-6 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50/50">
+                        <div class="flex items-center space-x-3">
+                            <button onclick="changeYear(-1)" class="w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-900"><i class="fas fa-chevron-left text-[10px]"></i></button>
+                            <h2 id="report-year-title" class="text-xl font-extrabold tracking-tight text-gray-900">2026年度 業績紀錄</h2>
+                            <button onclick="changeYear(1)" class="w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-900"><i class="fas fa-chevron-right text-[10px]"></i></button>
+                        </div>
+                        <p class="text-[10px] text-green-600 font-bold uppercase"><i class="fas fa-check-circle"></i> 自動保存</p>
+                    </div>
+                    <div class="table-container">
+                        <table class="sales-table">
+                            <thead>
+                                <tr>
+                                    <th class="sticky-col min-w-[120px] text-gray-500">成員 / 組別</th>
+                                    <th>1月</th><th>2月</th><th>3月</th><th>4月</th><th>5月</th><th>6月</th>
+                                    <th>7月</th><th>8月</th><th>9月</th><th>10月</th><th>11月</th><th>12月</th>
+                                    <th class="bg-blue-50 text-blue-700 font-black">總計</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sales-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 小組管理 -->
+            <div id="panel-team" class="panel hidden space-y-10">
+                <div class="apple-card p-6 border border-gray-100">
+                    <h2 class="text-xl font-bold mb-6 text-gray-900">小組名單與排序</h2>
+                    <div class="flex gap-2 mb-8">
+                        <input type="text" id="new-team-name" class="flex-1 input-style" placeholder="新組名">
+                        <button onclick="handleTeamAction('add')" class="bg-blue-600 text-white px-6 rounded-xl font-bold">新增</button>
+                    </div>
+                    <div id="team-list-sortable" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- 5. 帳號管理 -->
+            <div id="panel-admin" class="panel hidden space-y-10">
+                <div class="apple-card overflow-hidden border border-gray-100 shadow-xl">
+                    <!-- 標題列 + 新增按鈕 -->
+                    <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-lg text-gray-900">員工權限管理</p>
+                            <p class="text-[11px] text-gray-400 mt-0.5">依員編排序</p>
+                        </div>
+                        <button onclick="openAddUserModal()" class="flex items-center gap-2 bg-[#007AFF] text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-lg active:scale-95 transition">
+                            <i class="fas fa-user-plus text-xs"></i>
+                            <span>新增員工</span>
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-50 text-gray-400 text-[10px] uppercase font-black">
+                                <tr>
+                                    <th class="px-6 py-4">員編</th>
+                                    <th class="px-6 py-4">姓名</th>
+                                    <th class="px-6 py-4 text-center">權限</th>
+                                    <th class="px-6 py-4 text-center">小組</th>
+                                    <th class="px-6 py-4 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="user-tbody" class="divide-y divide-gray-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { 
+            getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+            onAuthStateChanged, signOut
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { 
+            getFirestore, doc, getDoc, collection, onSnapshot,
+            updateDoc, setDoc, addDoc, query, orderBy,
+            serverTimestamp, deleteDoc
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // ── Firebase 設定 ──────────────────────────────────────────
+        const firebaseConfig = {
+            apiKey: "AIzaSyCeUModpZrGLQifjDXhIOfIAYdK538wgik",
+            authDomain: "ddd1-v3.firebaseapp.com",
+            projectId: "ddd1-v3",
+            storageBucket: "ddd1-v3.appspot.com",
+            messagingSenderId: "932033353369",
+            appId: "1:932033353369:web:4a9d11493257fa6e924a08",
+            measurementId: "G-B7R02EGJFX"
+        };
+        const LEGACY_DOMAIN = "@d-group.app";
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db   = getFirestore(app);
+
+        // ── 全域狀態 ───────────────────────────────────────────────
+        let currentUserData = null;
+        let salesData       = {};
+        let allUsers        = [];
+        let teamOptions     = [];
+        let allRecords      = [];
+        let currentYear     = 2026;
+
+        // ✅ 修復：用變數保存 sales onSnapshot 的 unsubscribe，換年份前先取消
+        let salesUnsubscribe = null;
+
+        // ── Toast ─────────────────────────────────────────────────
+        function showSavingToast(msg = '雲端同步完成') {
+            const toast = document.getElementById('saving-toast');
+            toast.innerHTML = `<i class="fas fa-cloud-upload-alt mr-2"></i> ${msg}`;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 1800);
+        }
+
+        // ── 員編排序 ───────────────────────────────────────────────
+        function accountComparator(a, b) {
+            return (a.account || "").localeCompare(b.account || "", undefined, { numeric: true, sensitivity: 'base' });
+        }
+
+        // ── 驗證 ───────────────────────────────────────────────────
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                try {
+                    const snap = await getDoc(doc(db, "users", user.uid));
+                    if (snap.exists()) {
+                        currentUserData = { uid: user.uid, ...snap.data() };
+                        setupUI();
+                        initListeners();
+                        showPage('main-page');
+                    } else {
+                        document.getElementById('login-msg').innerText = "權限錯誤：找不到此紀錄";
+                        document.getElementById('debug-box').classList.remove('hidden');
+                        signOut(auth);
+                    }
+                } catch (err) {
+                    document.getElementById('login-msg').innerText = err.message;
+                    document.getElementById('debug-box').classList.remove('hidden');
+                }
+            } else {
+                showPage('login-page');
+            }
+        });
+
+        // ── UI 初始化 ──────────────────────────────────────────────
+        function setupUI() {
+            document.getElementById('user-display').innerText = currentUserData.nickname;
+            document.getElementById('user-role-display').innerText = currentUserData.role;
+            const r = currentUserData.role;
+            if (['admin', 'sales', 'manager'].includes(r)) {
+                document.getElementById('btn-report').classList.remove('hidden');
+            }
+            if (r === 'admin') {
+                ['btn-admin', 'btn-team', 'record-post-area'].forEach(id => {
+                    document.getElementById(id).classList.remove('hidden');
+                });
+            }
+        }
+
+        // ── 監聽器 ────────────────────────────────────────────────
+        function initListeners() {
+            // 紀錄
+            onSnapshot(query(collection(db, "records"), orderBy("createdAt", "desc")), (snap) => {
+                allRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderRecords();
+            });
+
+            // ✅ 修復：先取消舊的 sales 監聽，再建新的
+            if (salesUnsubscribe) salesUnsubscribe();
+            salesUnsubscribe = onSnapshot(doc(db, "sales_reports", String(currentYear)), (snap) => {
+                salesData = snap.exists() ? snap.data() : {};
+                renderSalesTable();
+            });
+
+            // 小組設定
+            onSnapshot(doc(db, "settings", "teams"), (snap) => {
+                teamOptions = snap.exists() ? (snap.data().names || []) : [];
+                renderSalesTable();
+                syncTeamSelectInModal();
+                if (currentUserData.role === 'admin') renderTeamListUI();
+            });
+
+            // 使用者列表
+            onSnapshot(collection(db, "users"), (snap) => {
+                allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                if (currentUserData.role === 'admin') renderUserTable();
+                renderSalesTable();
+            });
+
+            // 請假
+            onSnapshot(query(collection(db, "leave_requests"), orderBy("createdAt", "desc")), (snap) => {
+                const activeList  = document.getElementById('leave-list-active');
+                const expiredList = document.getElementById('leave-list-expired');
+                activeList.innerHTML = ''; expiredList.innerHTML = '';
+                const today = new Date().setHours(0, 0, 0, 0);
+
+                snap.docs.forEach(d => {
+                    const l  = d.data();
+                    const id = d.id;
+                    const dates = l.dates || "";
+                    const parts = dates.split(" 到 ");
+                    const startStr = parts[0];
+                    const endStr   = parts[1] || parts[0];
+                    const startDate = new Date(startStr.replace(/\//g, "-")).getTime();
+                    const endDate   = new Date(endStr.replace(/\//g, "-")).setHours(23, 59, 59, 999);
+
+                    let durationHtml = '';
+                    if (startDate && endDate) {
+                        const startD = new Date(startStr.replace(/\//g, "-"));
+                        const endD   = new Date(endStr.replace(/\//g, "-"));
+                        const totalDays = Math.round((endD - startD) / (1000*60*60*24)) + 1;
+                        let leaveDays = 0, tempDate = new Date(startD.getTime());
+                        while (tempDate <= endD) {
+                            const dow = tempDate.getDay();
+                            if (dow !== 0 && dow !== 6) leaveDays++;
+                            tempDate.setDate(tempDate.getDate() + 1);
+                        }
+                        if (totalDays > 0) {
+                            durationHtml = `共<span class="font-black text-gray-700 mx-1">${totalDays}</span>日 <span class="text-gray-400 text-[10px] mx-1">|</span> 請假<span class="font-black text-orange-500 mx-1">${leaveDays}</span>日`;
+                        }
+                    }
+
+                    const displayDates = dates.split(' 到 ').map(dStr => {
+                        const p = dStr.split('/');
+                        return p.length === 3 ? `${parseInt(p[1])}/${parseInt(p[2])}` : dStr;
+                    }).join('到');
+
+                    const isApp = l.status === 'approved';
+                    const colorClass = l.status === 'pending'
+                        ? 'bg-orange-50 text-orange-700'
+                        : (isApp ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700');
+                    const actionInfo = (isApp && l.actionBy)
+                        ? `<span class="block mt-2 text-[11px] text-blue-500 font-medium">(經 <b class="text-blue-800 underline">${l.approverName || '主管'}</b> 於 ${l.actionAt ? new Date(l.actionAt.toDate()).toLocaleDateString() : ''} 批准)</span>`
+                        : "";
+
+                    const html = `<div class="apple-card p-5 flex justify-between items-center transition hover:bg-gray-50/50">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 ${isApp ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'} rounded-2xl flex items-center justify-center mr-4">
+                                <i class="fas ${isApp ? 'fa-check' : 'fa-plane-departure'} text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="text-base font-bold text-gray-800">${l.name} - ${l.reason}</p>
+                                <p class="text-[12px] font-bold text-blue-500 mt-1 tracking-wide">${displayDates} <span class="text-gray-500 ml-1 font-medium">${durationHtml}</span></p>
+                                ${actionInfo}
+                            </div>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${colorClass}">${l.status}</span>
+                    </div>`;
+
+                    if (endDate < today) expiredList.innerHTML += html;
+                    else activeList.innerHTML += html;
+                });
+
+                if (!activeList.innerHTML)  activeList.innerHTML  = "<p class='text-center py-6 text-gray-400 italic text-sm'>目前無即將出國的請假紀錄</p>";
+                if (!expiredList.innerHTML) expiredList.innerHTML = "<p class='text-center py-6 text-gray-400 italic text-sm'>無歷史紀錄</p>";
+            });
+        }
+
+        // ── 紀錄渲染 ──────────────────────────────────────────────
+        window.renderRecords = () => {
+            const keyword = (document.getElementById('search-keyword').value || "").toLowerCase();
+            const list    = document.getElementById('record-list');
+            const filtered = allRecords.filter(r =>
+                `${r.category||''} ${r.content||''} ${r.authorNickname||''}`.toLowerCase().includes(keyword)
+            );
+            if (filtered.length === 0) {
+                list.innerHTML = `<div class="text-center text-gray-400 font-bold py-10">找不到符合「${keyword}」的紀錄</div>`;
+                return;
+            }
+            list.innerHTML = filtered.map(r => {
+                const isImp = r.category === '重要公告';
+                const isGen = r.category === '一般公告';
+                const badgeClass = isImp
+                    ? 'bg-red-50 text-red-600 border-red-100'
+                    : (isGen ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-blue-50 text-blue-600 border-blue-100');
+                return `<div class="apple-card p-6 md:p-10 border border-gray-100 shadow-sm transition ${isImp ? 'bg-[#FFF8F8]' : ''}">
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="px-3 py-1 ${badgeClass} text-[10px] font-black rounded-lg border uppercase tracking-widest">${r.category || '一般'}</span>
+                        <span class="text-[10px] font-bold text-gray-300">${r.createdAt ? new Date(r.createdAt.toDate()).toLocaleDateString() : '最新'}</span>
+                    </div>
+                    <p class="leading-relaxed text-gray-700 font-medium whitespace-pre-wrap ${isGen ? 'announcement-text' : 'text-base'}">${r.content}</p>
+                    <div class="mt-6 pt-4 border-t border-gray-50 text-[10px] font-black text-gray-400 uppercase flex justify-between items-center">
+                        <span>AUTH: ${r.authorNickname}</span>
+                        ${currentUserData.role === 'admin' ? `<button onclick="handleDeleteDoc('records', '${r.id}')" class="text-red-400 hover:text-red-600 font-bold tracking-widest transition">DEL</button>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        };
+
+        window.handleDeleteDoc = async (col, id) => {
+            if (confirm("確定要刪除這筆紀錄嗎？此動作無法復原。")) {
+                await deleteDoc(doc(db, col, id));
+                showSavingToast('已刪除');
+            }
+        };
+
+        // ── 業績表渲染 ────────────────────────────────────────────
+        function renderSalesTable() {
+            const tbody = document.getElementById('sales-tbody');
+            if (!allUsers.length || !tbody) return;
+
+            const assigned = allUsers.filter(u => u.team && u.team !== '未分組' && u.role !== 'assistant');
+            const grouped  = assigned.reduce((acc, u) => {
+                if (!acc[u.team]) acc[u.team] = [];
+                acc[u.team].push(u);
+                return acc;
+            }, {});
+            Object.keys(grouped).forEach(k => grouped[k].sort(accountComparator));
+
+            let html = '';
+            const grandTotals = Array(13).fill(0);
+
+            teamOptions.forEach(team => {
+                if (!grouped[team]) return;
+                html += `<tr class="bg-gray-50/80"><td colspan="14" class="text-left px-4 py-2 font-black text-blue-600 italic text-[11px] tracking-widest">${team}</td></tr>`;
+                let teamTotals = Array(13).fill(0);
+
+                grouped[team].forEach(u => {
+                    const canEdit = (u.id === currentUserData.uid) || (currentUserData.role === 'admin');
+                    let rowSum = 0;
+                    html += `<tr class="hover:bg-gray-50/50 transition"><td class="sticky-col px-4 text-xs text-gray-900">${u.nickname}</td>`;
+                    for (let m = 1; m <= 12; m++) {
+                        const val = Number(salesData[u.id]?.[m] || 0);
+                        rowSum += val; teamTotals[m] += val; grandTotals[m] += val;
+                        html += `<td><input type="number" min="0" value="${val}" class="${(val>0 && val<18)?'low-performance':''}" onblur="savePerf('${u.id}', ${m}, this.value)" ${canEdit?'':'disabled'}></td>`;
+                    }
+                    teamTotals[0] += rowSum; grandTotals[0] += rowSum;
+                    html += `<td class="font-black text-[#007AFF] bg-blue-50/10">${rowSum}</td></tr>`;
+                });
+
+                html += `<tr class="team-subtotal-row"><td class="sticky-col px-4 text-xs">小計</td>${teamTotals.slice(1).map(t => `<td>${t}</td>`).join('')}<td>${teamTotals[0]}</td></tr>`;
+            });
+
+            html += `<tr class="grand-total-row"><td class="sticky-col px-4">總合計</td>${grandTotals.slice(1).map(t => `<td>${t}</td>`).join('')}<td class="text-lg underline">${grandTotals[0]}</td></tr>`;
+            tbody.innerHTML = html;
+        }
+
+        // ── 帳號管理表渲染 ────────────────────────────────────────
+        function renderUserTable() {
+            const tbody  = document.getElementById('user-tbody');
+            const sorted = [...allUsers].sort(accountComparator);
+            tbody.innerHTML = sorted.map(u => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4 text-[12px] font-mono font-black text-gray-400 uppercase">${u.account || '---'}</td>
+                    <td class="px-6 py-4 font-bold text-gray-800">${u.nickname}</td>
+                    <td class="px-6 py-4 text-center">
+                        <select onchange="updateUserAttr('${u.id}', 'role', this.value)" class="bg-white border rounded px-2 py-1 text-xs font-bold text-gray-900">
+                            <option value="user"    ${u.role==='user'   ?'selected':''}>viewer</option>
+                            <option value="sales"   ${u.role==='sales'  ?'selected':''}>sales</option>
+                            <option value="manager" ${u.role==='manager'?'selected':''}>manager</option>
+                            <option value="admin"   ${u.role==='admin'  ?'selected':''}>admin</option>
+                        </select>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <select onchange="updateUserAttr('${u.id}', 'team', this.value)" class="bg-white border rounded px-2 py-1 text-xs font-bold text-gray-900">
+                            <option value="">未分組</option>
+                            ${teamOptions.map(t => `<option value="${t}" ${u.team===t?'selected':''}>${t}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="handleUserAction('delete','${u.id}','${u.nickname}')" class="text-red-400 hover:text-red-600 font-bold text-[10px] uppercase transition">DEL</button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        // ── 小組管理渲染 ──────────────────────────────────────────
+        function renderTeamListUI() {
+            const container = document.getElementById('team-list-sortable');
+            container.innerHTML = teamOptions.map((t, i) =>
+                `<div draggable="true" ondragstart="window.dragT=${i}" ondragover="event.preventDefault()" ondrop="handleTeamDrop(event,${i})"
+                      class="flex justify-between items-center bg-gray-50 border border-gray-200 p-4 rounded-xl cursor-move shadow-sm">
+                    <span class="font-bold text-gray-700"><i class="fas fa-bars mr-4 text-gray-300"></i> ${t}</span>
+                    <button onclick="handleTeamAction('delete','${t}')" class="text-red-500 font-black text-[10px] uppercase">DEL</button>
+                </div>`
+            ).join('');
+        }
+
+        // ── Modal 小組 select 同步 ────────────────────────────────
+        function syncTeamSelectInModal() {
+            const sel = document.getElementById('new-user-team');
+            if (!sel) return;
+            sel.innerHTML = `<option value="">未分組</option>` +
+                teamOptions.map(t => `<option value="${t}">${t}</option>`).join('');
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  新增員工 Modal 邏輯
+        // ══════════════════════════════════════════════════════════
+        window.openAddUserModal = () => {
+            // 清空表單
+            ['new-user-account','new-user-nickname','new-user-email','new-user-password'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('new-user-role').value = 'user';
+            document.getElementById('new-user-team').value = '';
+            document.getElementById('add-user-error').classList.add('hidden');
+            document.getElementById('add-user-submit-btn').disabled = false;
+            document.getElementById('add-user-submit-btn').innerHTML = '<i class="fas fa-user-plus mr-1"></i> 建立帳號';
+            syncTeamSelectInModal();
+            document.getElementById('add-user-modal').classList.add('open');
+        };
+
+        window.closeAddUserModal = () => {
+            document.getElementById('add-user-modal').classList.remove('open');
+        };
+
+        // 點 backdrop 關閉
+        document.getElementById('add-user-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeAddUserModal();
+        });
+
+        window.toggleNewUserPwd = () => {
+            const input = document.getElementById('new-user-password');
+            const icon  = document.getElementById('pwd-eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash text-sm';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye text-sm';
+            }
+        };
+
+        window.submitAddUser = async () => {
+            const account  = document.getElementById('new-user-account').value.trim();
+            const nickname = document.getElementById('new-user-nickname').value.trim();
+            let   emailRaw = document.getElementById('new-user-email').value.trim();
+            const password = document.getElementById('new-user-password').value;
+            const role     = document.getElementById('new-user-role').value;
+            const team     = document.getElementById('new-user-team').value;
+            const errBox   = document.getElementById('add-user-error');
+            const submitBtn = document.getElementById('add-user-submit-btn');
+
+            // 基本驗證
+            if (!account || !nickname || !emailRaw || !password) {
+                errBox.innerText = '請填寫所有欄位'; errBox.classList.remove('hidden'); return;
+            }
+            if (password.length < 6) {
+                errBox.innerText = '密碼至少需要 6 碼'; errBox.classList.remove('hidden'); return;
+            }
+
+            // 自動補域名
+            const email = emailRaw.includes('@') ? emailRaw : emailRaw + LEGACY_DOMAIN;
+
+            // Loading 狀態
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> 建立中...';
+            errBox.classList.add('hidden');
+
+            try {
+                // 1️⃣ 建立 Firebase Auth 帳號
+                const cred = await createUserWithEmailAndPassword(auth, email, password);
+                const newUid = cred.user.uid;
+
+                // 2️⃣ 寫入 Firestore users 文件
+                await setDoc(doc(db, "users", newUid), {
+                    account,
+                    nickname,
+                    email,
+                    role,
+                    team,
+                    createdAt: serverTimestamp()
+                });
+
+                // 3️⃣ 成功 → 關閉 Modal
+                closeAddUserModal();
+                showSavingToast(`✅ ${nickname} 帳號已建立`);
+
+            } catch (err) {
+                // 錯誤中文化
+                const errorMessages = {
+                    'auth/email-already-in-use': '此帳號已被使用，請更換員編或 Email',
+                    'auth/invalid-email':        'Email 格式不正確',
+                    'auth/weak-password':        '密碼強度不足，請使用較複雜的密碼',
+                    'auth/operation-not-allowed':'此操作未被允許，請聯繫系統管理員',
+                };
+                errBox.innerText = errorMessages[err.code] || `建立失敗：${err.message}`;
+                errBox.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-user-plus mr-1"></i> 建立帳號';
+            }
+        };
+
+        // ══════════════════════════════════════════════════════════
+        //  其他 window 函數
+        // ══════════════════════════════════════════════════════════
+        window.handleTeamDrop = async (e, i) => {
+            const newOrder = [...teamOptions];
+            const [item] = newOrder.splice(window.dragT, 1);
+            newOrder.splice(i, 0, item);
+            await setDoc(doc(db, "settings", "teams"), { names: newOrder });
+        };
+
+        window.savePerf = async (uid, month, val) => {
+            showSavingToast();
+            await setDoc(doc(db, "sales_reports", String(currentYear)), { [uid]: { [month]: Number(val)||0 } }, { merge: true });
+        };
+
+        window.handleTeamAction = async (action, name) => {
+            if (action === 'add') {
+                const n = document.getElementById('new-team-name').value.trim();
+                if (!n) return;
+                await updateDoc(doc(db, "settings", "teams"), { names: [...teamOptions, n] });
+                document.getElementById('new-team-name').value = '';
+            } else {
+                if (confirm(`刪除 ${name}？`)) {
+                    await updateDoc(doc(db, "settings", "teams"), { names: teamOptions.filter(t => t !== name) });
+                }
+            }
+        };
+
+        window.handleUserAction = async (action, uid, name) => {
+            if (confirm(`永久刪除 ${name}？`)) await deleteDoc(doc(db, "users", uid));
+        };
+
+        window.updateUserAttr = async (uid, attr, val) => {
+            showSavingToast();
+            await updateDoc(doc(db, "users", uid), { [attr]: val });
+        };
+
+        window.postRecord = async () => {
+            const c   = document.getElementById('record-content').value;
+            const cat = document.getElementById('record-category').value;
+            if (!c.trim()) return;
+            await addDoc(collection(db, "records"), {
+                content: c, category: cat,
+                authorNickname: currentUserData.nickname,
+                createdAt: serverTimestamp(),
+                authorId: currentUserData.uid
+            });
+            document.getElementById('record-content').value = '';
+        };
+
+        window.postLeave = async () => {
+            const d = document.getElementById('leave-dates').value;
+            const r = document.getElementById('leave-reason').value;
+            if (!d || !r) return alert("資訊不完整");
+            await addDoc(collection(db, "leave_requests"), {
+                name: currentUserData.nickname, dates: d, reason: r,
+                status: 'pending', createdAt: serverTimestamp(),
+                authorId: currentUserData.uid
+            });
+            alert("登記成功");
+        };
+
+        // ✅ 修復：changeYear 只重新訂閱 sales，不重跑全部監聽器
+        window.changeYear = (offset) => {
+            currentYear += offset;
+            document.getElementById('report-year-title').innerText = `${currentYear}年度 業績紀錄`;
+            if (salesUnsubscribe) salesUnsubscribe();
+            salesUnsubscribe = onSnapshot(doc(db, "sales_reports", String(currentYear)), (snap) => {
+                salesData = snap.exists() ? snap.data() : {};
+                renderSalesTable();
+            });
+        };
+
+        window.switchTab = (id) => {
+            document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`panel-${id}`).classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${id}`).classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        function showPage(id) {
+            document.getElementById('login-page').classList.add('hidden');
+            document.getElementById('main-page').classList.add('hidden');
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        // ── 登入 ──────────────────────────────────────────────────
+        document.getElementById('login-btn').addEventListener('click', () => {
+            let e = document.getElementById('email').value.trim();
+            const p = document.getElementById('password').value;
+            if (!e.includes('@')) e += LEGACY_DOMAIN;
+            signInWithEmailAndPassword(auth, e, p).catch(err => {
+                document.getElementById('debug-box').classList.remove('hidden');
+                document.getElementById('login-msg').innerText = "失敗: " + err.code;
+            });
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+
+        // ── flatpickr ─────────────────────────────────────────────
+        flatpickr("#leave-dates", { mode: "range", dateFormat: "Y/m/d" });
+    </script>
+</body>
+</html>
