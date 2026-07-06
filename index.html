@@ -426,7 +426,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { 
-            getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+            getAuth, signInWithEmailAndPassword,
             onAuthStateChanged, signOut
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { 
@@ -446,6 +446,7 @@
             measurementId: "G-B7R02EGJFX"
         };
         const LEGACY_DOMAIN = "@d-group.app";
+        const CLOUD_FN_BASE = "https://asia-east1-ddd1-v3.cloudfunctions.net";
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -812,33 +813,23 @@
             errBox.classList.add('hidden');
 
             try {
-                // 1️⃣ 建立 Firebase Auth 帳號
-                const cred = await createUserWithEmailAndPassword(auth, email, password);
-                const newUid = cred.user.uid;
-
-                // 2️⃣ 寫入 Firestore users 文件
-                await setDoc(doc(db, "users", newUid), {
-                    account,
-                    nickname,
-                    email,
-                    role,
-                    team,
-                    createdAt: serverTimestamp()
+                // 透過後端 Cloud Function（Admin SDK）建立帳號，
+                // 避免前端 createUserWithEmailAndPassword 會自動切換登入身分，
+                // 導致後續寫入 Firestore 因權限不足而失敗、留下孤兒 Auth 帳號
+                const idToken = await auth.currentUser.getIdToken();
+                const resp = await fetch(`${CLOUD_FN_BASE}/createUser`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                    body: JSON.stringify({ data: { account, nickname, email, password, role, team } })
                 });
+                const json = await resp.json();
+                if (!resp.ok) throw new Error(json.error || '建立失敗');
 
-                // 3️⃣ 成功 → 關閉 Modal
                 closeAddUserModal();
                 showSavingToast(`✅ ${nickname} 帳號已建立`);
 
             } catch (err) {
-                // 錯誤中文化
-                const errorMessages = {
-                    'auth/email-already-in-use': '此帳號已被使用，請更換員編或 Email',
-                    'auth/invalid-email':        'Email 格式不正確',
-                    'auth/weak-password':        '密碼強度不足，請使用較複雜的密碼',
-                    'auth/operation-not-allowed':'此操作未被允許，請聯繫系統管理員',
-                };
-                errBox.innerText = errorMessages[err.code] || `建立失敗：${err.message}`;
+                errBox.innerText = err.message || '建立失敗，請稍後再試';
                 errBox.classList.remove('hidden');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-user-plus mr-1"></i> 建立帳號';
@@ -876,7 +867,20 @@
         window.handleUserAction = async (action, uid) => {
             const target = allUsers.find(u => u.id === uid);
             const name = target ? target.nickname : '';
-            if (confirm(`永久刪除 ${name}？`)) await deleteDoc(doc(db, "users", uid));
+            if (!confirm(`永久刪除 ${name}？`)) return;
+            try {
+                const idToken = await auth.currentUser.getIdToken();
+                const resp = await fetch(`${CLOUD_FN_BASE}/deleteUser`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                    body: JSON.stringify({ data: { uid } })
+                });
+                const json = await resp.json();
+                if (!resp.ok) throw new Error(json.error || '刪除失敗');
+                showSavingToast(`已刪除 ${name}`);
+            } catch (err) {
+                alert('刪除失敗：' + err.message);
+            }
         };
 
         window.updateUserAttr = async (uid, attr, val) => {
