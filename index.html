@@ -471,9 +471,10 @@
                             </div>
                         </div>
                         <div class="bg-orange-50 border border-orange-100 rounded-xl p-3 text-[12px] leading-relaxed text-gray-600">
-                            <b class="text-gray-900">看「潛在營收」之前先看這個。</b>
-                            潛在營收＝還剩空位 × 均價，但空位多，往往只是因為賣不動。要找廣告標的，把「最低銷售率」設成
-                            <b>35% 以上</b>，只看市場已經證明會買單、而且還有貨可賣的線。
+                            <b class="text-gray-900">看「潛在利潤」之前先看這個。</b>
+                            潛在利潤＝還剩空位 × 每人毛利（漢書摘要的 =NN），這才是廣告該衝的數字 —— 賣一個高利潤的長線客抵得過好幾個短線客。
+                            但空位多往往只是賣不動，所以先把「最低銷售率」設成 <b>35% 以上</b>，只看已驗證會買、又還有貨的線。
+                            毛利抓不到的線該欄顯示「–」。
                         </div>
                     </div>
 
@@ -1050,7 +1051,7 @@
         // ══════════════════════════════════════════════════════════
         let hsData = null;
         const hsState = { months: new Set(), line: '', types: new Set(['solo']), minCap: 150, minRate: 0,
-                          sort: { key: 'potential', dir: -1 } };
+                          sort: { key: 'potProfit', dir: -1 } };
 
         // 單一色相、越大越深。只用中段以後的階，最淺一階也要在軌道上看得見（≥2:1）
         const HS_BLUE = ['#3987e5','#2a78d6','#256abf','#1c5cab','#184f95','#104281','#0d366b'];
@@ -1122,9 +1123,9 @@
             { k: 'left', t: '還剩', f: a => a.left },
             { k: 'full', t: '滿團', f: a => a.full },
             { k: 'promo', t: '促銷團', f: a => a.promo || '<span class="text-gray-400">0</span>' },
-            { k: 'avgPrice', t: '均價', f: a => (Math.round(a.avgPrice / 1000) / 10) + ' 萬' },
-            { k: 'rev', t: '估營收', f: a => hsMoney(a.rev) },
-            { k: 'potential', t: '潛在營收', f: a => '<b>' + hsMoney(a.potential) + '</b>' },
+            { k: 'avgMargin', t: '每人毛利', f: a => a.avgMargin !== null ? Math.round(a.avgMargin / 100) + '00' : '<span class="text-gray-400">–</span>' },
+            { k: 'profit', t: '已賺利潤', f: a => a.profit ? hsMoney(a.profit) : '<span class="text-gray-400">–</span>' },
+            { k: 'potProfit', t: '潛在利潤', f: a => a.potProfit !== null ? '<b>' + hsMoney(a.potProfit) + '</b>' : '<span class="text-gray-400">–</span>' },
         ];
 
         function renderHanshu() {
@@ -1136,33 +1137,47 @@
 
             const g = {};
             for (const r of rows) {
-                if (!g[r.p]) g[r.p] = { product: r.p, lines: new Set(), n: 0, cap: 0, sold: 0, full: 0, promo: 0, rev: 0, psum: 0, bad: 0, delta: 0, hasD: 0 };
+                if (!g[r.p]) g[r.p] = { product: r.p, lines: new Set(), n: 0, cap: 0, sold: 0, full: 0, promo: 0, rev: 0, psum: 0, bad: 0, delta: 0, hasD: 0, profit: 0, mgSum: 0, mgN: 0 };
                 const a = g[r.p];
                 a.lines.add(r.ln);
                 a.n += r.n; a.cap += r.cap; a.sold += r.s; a.rev += r.rev; a.psum += r.psum;
                 a.full += r.full; a.promo += r.pm; a.bad += r.bad;
                 a.delta += r.d; a.hasD = a.hasD || r.hasD;
+                if (r.profit) a.profit += r.profit;
+                if (r.mgSum) { a.mgSum += r.mgSum; a.mgN += r.mgN; }
             }
             const agg = Object.values(g).map(a => {
                 a.left = a.cap - a.sold;
                 a.rate = a.cap ? a.sold / a.cap : 0;
                 a.avgPrice = a.n ? a.psum / a.n : 0;
-                a.potential = a.left * a.avgPrice;
+                a.avgMargin = a.mgN ? a.mgSum / a.mgN : null;
+                a.potProfit = a.avgMargin !== null ? a.left * a.avgMargin : null;
                 a.line = [...a.lines].join('・');
                 return a;
             }).filter(a => a.cap >= hsState.minCap && a.rate >= hsState.minRate);
 
             const { key, dir } = hsState.sort;
-            agg.sort((x, y) => typeof x[key] === 'string' ? x[key].localeCompare(y[key]) * dir : (x[key] - y[key]) * dir);
+            agg.sort((x, y) => {
+                const xv = x[key], yv = y[key];
+                if (typeof xv === 'string') return xv.localeCompare(yv) * dir;
+                if (xv == null && yv == null) return 0;
+                if (xv == null) return 1;      // 抓不到毛利的產品永遠排最後
+                if (yv == null) return -1;
+                return (xv - yv) * dir;
+            });
 
-            const tot = rows.reduce((a, r) => ({ cap: a.cap + r.cap, sold: a.sold + r.s, rev: a.rev + r.rev, n: a.n + r.n }), { cap: 0, sold: 0, rev: 0, n: 0 });
+            const tot = rows.reduce((a, r) => ({
+                cap: a.cap + r.cap, sold: a.sold + r.s, n: a.n + r.n,
+                profit: a.profit + (r.profit || 0),
+                potProfit: a.potProfit + (r.mgN ? (r.cap - r.s) * (r.mgSum / r.mgN) : 0),
+            }), { cap: 0, sold: 0, n: 0, profit: 0, potProfit: 0 });
             const s = hsData.stats || {};
             document.getElementById('hs-kpis').innerHTML = [
                 ['機位（' + [...hsState.months].sort((a, b) => a - b).map(k => k % 100).join('、') + ' 月）', tot.cap.toLocaleString(), tot.n + ' 團'],
                 ['已售', tot.sold.toLocaleString(), '人'],
                 ['銷售率', hsPct(tot.sold, tot.cap), ''],
                 ['還剩空位', (tot.cap - tot.sold).toLocaleString(), '這就是廣告的空間'],
-                ['估營收', hsMoney(tot.rev), '牌價，未扣折扣'],
+                ['潛在利潤', hsMoney(tot.potProfit), '賣滿還能多賺'],
                 ['解析驗證', s.total ? (s.verified / s.total * 100).toFixed(1) + '%' : '–', (s.mismatch || 0) + ' 團對不上'],
             ].map(([l, v, n]) => '<div class="hs-kpi"><div class="l">' + l + '</div><div class="v">' + v + '</div><div class="n">' + n + '</div></div>').join('');
 
