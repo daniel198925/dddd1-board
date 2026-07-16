@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =============================================
+    // Helper Functions (輔助函式)
+    // =============================================
+
+    // 1. 檢查使用者是否已登入
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // 2. 取得使用者的角色資料
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+
+    // 3. 檢查是否為管理員
+    function isAdmin() {
+      return isSignedIn() && getUserRole(request.auth.uid) == 'admin';
+    }
+
+    // 4. 檢查是否為主管或管理員
+    function isManagerOrAdmin() {
+      return isSignedIn() && (
+        getUserRole(request.auth.uid) == 'manager' || getUserRole(request.auth.uid) == 'admin'
+      );
+    }
+
+    // 5. 檢查是否有權限管理內容 (助理、主管、管理員)
+    function canManageContent() {
+      return isSignedIn() && (
+        getUserRole(request.auth.uid) == 'assistant' ||
+        getUserRole(request.auth.uid) == 'manager' ||
+        getUserRole(request.auth.uid) == 'admin'
+      );
+    }
+
+    // =============================================
+    // Collection: users
+    // =============================================
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if canManageContent();
+      allow update: if isSignedIn() && (request.auth.uid == userId || canManageContent());
+      allow delete: if isSignedIn() && (
+        getUserRole(request.auth.uid) == 'admin' || getUserRole(request.auth.uid) == 'assistant'
+      );
+    }
+
+    // =============================================
+    // Collection: records (會議紀錄)
+    // =============================================
+    match /records/{recordId} {
+      allow read: if isSignedIn();
+      allow create: if canManageContent();
+
+      allow update: if isSignedIn() &&
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']) ||
+                      (request.auth.uid == resource.data.authorId || isManagerOrAdmin()));
+
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.uid ||
+        request.auth.uid == resource.data.author ||
+        isManagerOrAdmin()
+      );
+    }
+
+    // =============================================
+    // Collection: leave_requests (請假申請)
+    // =============================================
+    match /leave_requests/{leaveId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isManagerOrAdmin();
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.authorId || isManagerOrAdmin()
+      );
+    }
+
+    // =============================================
+    // Collection: schedules (值班表/事件)
+    // =============================================
+    match /schedules/{scheduleId} {
+      allow read, write: if isManagerOrAdmin();
+    }
+
+    // =============================================
+    // Collection: sales_reports (業績報表)
+    // =============================================
+    match /sales_reports/{year} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // =============================================
+    // Collection: settings (組別設定)
+    // =============================================
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if canManageContent();
+    }
+
+    // =============================================
+    // Collection: private_reports (銷售分析 — 漢書彙總)
+    // =============================================
+    match /private_reports/{reportId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+  }
+}

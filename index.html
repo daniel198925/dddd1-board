@@ -90,6 +90,46 @@
         .history-section:hover { opacity: 1; filter: grayscale(0%); }
         .announcement-text { font-size: 14px !important; line-height: 1.5; }
 
+        /* ── 銷售分析（漢書）──────────────────────── */
+        .hs-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+        .hs-kpi { background: #FFFFFF; border-radius: 16px; padding: 16px 18px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+        .hs-kpi .l { color: #6E6E73; font-size: 12px; margin-bottom: 6px; }
+        .hs-kpi .v { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; color: #1D1D1F; }
+        .hs-kpi .n { color: #76767A; font-size: 11px; margin-top: 4px; }
+        .hs-seg { display: inline-flex; gap: 2px; background: rgba(229,229,231,0.7); border-radius: 10px; padding: 2px; }
+        .hs-seg button {
+            border: none; background: transparent; color: #1D1D1F; border-radius: 8px;
+            padding: 5px 12px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s;
+        }
+        .hs-seg button[aria-pressed="true"] { background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .hs-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 900px; }
+        .hs-table th, .hs-table td { padding: 10px 10px; text-align: right; white-space: nowrap; font-size: 14px; border-bottom: 1px solid #E5E5E7; }
+        .hs-table th:first-child, .hs-table td:first-child,
+        .hs-table th:nth-child(2), .hs-table td:nth-child(2) { text-align: left; }
+        .hs-table thead th {
+            position: sticky; top: 0; z-index: 50; background: #F9F9FB; color: #6E6E73;
+            font-size: 12px; font-weight: 500; cursor: pointer; user-select: none;
+            box-shadow: inset 0 -1px 0 #D2D2D7;
+        }
+        .hs-table tbody tr:hover { background: rgba(120,120,128,0.06); }
+        /* 銷售率＝對比 100% 的比例 → 用量表；數字用正常文字色，不寫在色塊上 */
+        .hs-meterwrap { display: flex; align-items: center; gap: 9px; justify-content: flex-end; }
+        .hs-meter { width: 56px; height: 6px; border-radius: 3px; background: #E5E5E7; overflow: hidden; flex: none; }
+        .hs-meter i { display: block; height: 100%; border-radius: 3px; }
+        .hs-num { min-width: 46px; text-align: right; font-variant-numeric: tabular-nums; }
+        .hs-tag { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: #F0F0F2; color: #6E6E73; margin-left: 5px; }
+        html.dark .hs-kpi { background: #1C1C1E; box-shadow: none; }
+        html.dark .hs-kpi .v { color: #F5F5F7; }
+        html.dark .hs-kpi .l { color: #98989D; }
+        html.dark .hs-kpi .n { color: #8E8E93; }
+        html.dark .hs-seg { background: #2C2C2E; }
+        html.dark .hs-seg button { color: #F5F5F7; }
+        html.dark .hs-seg button[aria-pressed="true"] { background: #636366; box-shadow: none; }
+        html.dark .hs-table th, html.dark .hs-table td { border-color: #2C2C2E; }
+        html.dark .hs-table thead th { background: #1C1C1E; color: #8E8E93; box-shadow: inset 0 -1px 0 #38383A; }
+        html.dark .hs-meter { background: #2C2C2E; }
+        html.dark .hs-tag { background: #2C2C2E; color: #98989D; }
+
         /* ── 新增員工 Modal ── */
         #add-user-modal {
             position: fixed; inset: 0; z-index: 3000;
@@ -283,6 +323,7 @@
                     <button id="btn-records" onclick="switchTab('records')" class="tab-btn active">會議紀錄</button>
                     <button id="btn-leave" onclick="switchTab('leave')" class="tab-btn">出國請假</button>
                     <button id="btn-report" onclick="switchTab('report')" class="tab-btn hidden">業績報表</button>
+                    <button id="btn-hanshu" onclick="switchTab('hanshu')" class="tab-btn hidden">銷售分析</button>
                     <button id="btn-team" onclick="switchTab('team')" class="tab-btn hidden">小組管理</button>
                     <button id="btn-admin" onclick="switchTab('admin')" class="tab-btn hidden">帳號管理</button>
                 </div>
@@ -375,6 +416,82 @@
                             <tbody id="sales-tbody"></tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+
+            <!-- 3.5 銷售分析（漢書）— 只有 admin 看得到 -->
+            <div id="panel-hanshu" class="panel hidden space-y-4">
+                <div class="flex items-baseline gap-3 flex-wrap">
+                    <h2 class="text-2xl font-extrabold tracking-tight text-gray-900">銷售分析</h2>
+                    <span id="hs-stamp" class="text-xs text-gray-500"></span>
+                </div>
+
+                <div id="hs-loading" class="apple-card p-10 text-center text-gray-500 text-sm">
+                    <i class="fas fa-circle-notch fa-spin mr-2"></i> 讀取中…
+                </div>
+                <div id="hs-empty" class="apple-card p-10 text-center text-gray-500 text-sm hidden">
+                    <i class="fas fa-cloud-arrow-up text-2xl mb-3 block text-gray-400"></i>
+                    還沒有資料。<br>
+                    <span class="text-xs">請在公司電腦上雙擊 <code class="bg-gray-100 px-1.5 py-0.5 rounded">跑報表.bat</code> —— 它會讀 NAS 漢書並把彙總上傳到這裡。</span>
+                </div>
+
+                <div id="hs-body" class="hidden space-y-4">
+                    <div class="hs-kpi-grid" id="hs-kpis"></div>
+
+                    <div class="apple-card p-5 border border-gray-100 space-y-4">
+                        <div class="flex gap-6 items-start flex-wrap">
+                            <div>
+                                <p class="text-[11px] text-gray-500 mb-1.5">出發月份</p>
+                                <div class="hs-seg" id="hs-f-month"></div>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-gray-500 mb-1.5">團型</p>
+                                <div class="hs-seg" id="hs-f-type">
+                                    <button data-v="solo" aria-pressed="true">散客團</button>
+                                    <button data-v="charter" aria-pressed="false">包團</button>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-gray-500 mb-1.5">線別</p>
+                                <select id="hs-f-line" class="input-style text-sm py-1.5"><option value="">全部</option></select>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-gray-500 mb-1.5">最少機位</p>
+                                <select id="hs-f-cap" class="input-style text-sm py-1.5">
+                                    <option value="0">不限</option><option value="50">50 以上</option>
+                                    <option value="150" selected>150 以上</option><option value="300">300 以上</option>
+                                </select>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-gray-500 mb-1.5">最低銷售率</p>
+                                <select id="hs-f-rate" class="input-style text-sm py-1.5">
+                                    <option value="0" selected>不限</option><option value="0.2">20% 以上</option>
+                                    <option value="0.35">35% 以上（已驗證會賣）</option><option value="0.5">50% 以上</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="bg-orange-50 border border-orange-100 rounded-xl p-3 text-[12px] leading-relaxed text-gray-600">
+                            <b class="text-gray-900">看「潛在營收」之前先看這個。</b>
+                            潛在營收＝還剩空位 × 均價，但空位多，往往只是因為賣不動。要找廣告標的，把「最低銷售率」設成
+                            <b>35% 以上</b>，只看市場已經證明會買單、而且還有貨可賣的線。
+                        </div>
+                    </div>
+
+                    <div class="apple-card border border-gray-100 overflow-hidden">
+                        <div class="table-container">
+                            <table class="hs-table">
+                                <thead><tr id="hs-thead"></tr></thead>
+                                <tbody id="hs-tbody"></tbody>
+                            </table>
+                        </div>
+                        <p id="hs-note" class="text-[11px] text-gray-500 px-5 py-3"></p>
+                    </div>
+
+                    <p class="text-[11px] text-gray-500 leading-relaxed px-1">
+                        這是<b>當下的銷售進度快照</b>，不是歷史業績。越接近出發的月份銷售率天生越高，不要跨月比大小。<br>
+                        <b>估營收</b>＝已售 × 漢書牌價，沒扣折扣和同業後退，只能相對比較。<b>包團</b>廣告影響不到，預設已排除。<br>
+                        產品是用漢書分區標題判斷的 —— 澳門、米蘭只是進出機場，不是產品。
+                    </p>
                 </div>
             </div>
 
@@ -516,9 +633,10 @@
                 document.getElementById('btn-report').classList.remove('hidden');
             }
             if (r === 'admin') {
-                ['btn-admin', 'btn-team', 'record-post-area'].forEach(id => {
+                ['btn-admin', 'btn-team', 'btn-hanshu', 'record-post-area'].forEach(id => {
                     document.getElementById(id).classList.remove('hidden');
                 });
+                loadHanshu();
             }
         }
 
@@ -923,6 +1041,171 @@
                 renderSalesTable();
             });
         };
+
+        // ══════════════════════════════════════════════════════════
+        //  銷售分析（漢書）
+        //  資料來自公司電腦的 findit-hanshu 工具：讀 NAS 漢書 → 算好彙總 → 上傳一份文件。
+        //  這裡只讀「產品×線別×月份×散客包團」的彙總，沒有業務報名明細。
+        //  ⚠ 這個分頁的按鈕只是被隱藏，真正擋住讀取的是 Firestore 安全規則。
+        // ══════════════════════════════════════════════════════════
+        let hsData = null;
+        const hsState = { months: new Set(), line: '', types: new Set(['solo']), minCap: 150, minRate: 0,
+                          sort: { key: 'potential', dir: -1 } };
+
+        // 單一色相、越大越深。只用中段以後的階，最淺一階也要在軌道上看得見（≥2:1）
+        const HS_BLUE = ['#3987e5','#2a78d6','#256abf','#1c5cab','#184f95','#104281','#0d366b'];
+        const hsIsDark = () => document.documentElement.classList.contains('dark');
+        const hsRamp = r => {
+            const i = Math.round(Math.min(1, Math.max(0, r)) * 6);
+            return hsIsDark() ? ['#3987e5','#5598e7','#6da7ec','#86b6ef','#9ec5f4','#b7d3f6','#cde2fb'][i] : HS_BLUE[i];
+        };
+        const hsMoney = n => n >= 1e8 ? (n / 1e8).toFixed(2) + ' 億' : Math.round(n / 1e4) + ' 萬';
+        const hsPct = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '–';
+
+        async function loadHanshu() {
+            try {
+                const snap = await getDoc(doc(db, "private_reports", "hanshu"));
+                if (!snap.exists()) return hsShow('empty');
+                hsData = snap.data();
+                if (typeof hsData.rows === 'string') hsData.rows = JSON.parse(hsData.rows);
+                hsInitFilters();
+                hsShow('body');
+                renderHanshu();
+            } catch (err) {
+                console.error('讀取銷售分析失敗', err);
+                document.getElementById('hs-empty').innerHTML =
+                    '<i class="fas fa-lock text-2xl mb-3 block text-gray-400"></i>讀不到資料。<br>' +
+                    '<span class="text-xs">' + (err.code === 'permission-denied'
+                        ? 'Firestore 安全規則不允許讀取 private_reports —— 規則可能還沒設好。'
+                        : err.message) + '</span>';
+                hsShow('empty');
+            }
+        }
+        function hsShow(which) {
+            ['loading', 'empty', 'body'].forEach(k =>
+                document.getElementById('hs-' + k).classList.toggle('hidden', k !== which));
+        }
+
+        function hsInitFilters() {
+            document.getElementById('hs-stamp').innerText =
+                '資料時間 ' + hsData.stamp + '　·　來源：NAS 漢書 01–16';
+
+            // 月份要連年份一起看 —— 漢書 1~6 月的團是明年的，只用月份會把兩年混在一起
+            const thisYear = +hsData.stamp.slice(0, 4);
+            const keys = [...new Set(hsData.rows.filter(r => r.m && r.y).map(r => r.y * 100 + r.m))].sort((a, b) => a - b);
+            // 預設看「兩個月後起算的兩個月」—— 當月和下個月大多賣完了，廣告下去也來不及
+            const nowKey = thisYear * 100 + (new Date(hsData.stamp).getMonth() + 1);
+            const future = keys.filter(k => k > nowKey + 1);
+            (future.length ? future.slice(0, 2) : keys.slice(-2)).forEach(k => hsState.months.add(k));
+            document.getElementById('hs-f-month').innerHTML = keys.map(k => {
+                const y = Math.floor(k / 100), m = k % 100;
+                return '<button data-v="' + k + '" aria-pressed="' + hsState.months.has(k) + '">' +
+                       (y === thisYear ? '' : (y % 100) + '年') + m + '月</button>';
+            }).join('');
+
+            const lines = [...new Set(hsData.rows.map(r => r.ln))].sort();
+            const sel = document.getElementById('hs-f-line');
+            lines.forEach(l => sel.insertAdjacentHTML('beforeend',
+                '<option value="' + escapeHtml(l) + '">' + escapeHtml(l) + '</option>'));
+        }
+
+        const HS_COLS = [
+            { k: 'product', t: '產品', f: a => '<b>' + escapeHtml(a.product) + '</b>' + (a.bad ? '<span class="hs-tag" title="' + a.bad + ' 團的機位跟漢書對不上">⚠ ' + a.bad + '</span>' : '') },
+            { k: 'line', t: '線別', f: a => '<span class="text-gray-500">' + escapeHtml(a.line) + '</span>' },
+            { k: 'n', t: '團數', f: a => a.n },
+            { k: 'cap', t: '機位', f: a => a.cap },
+            { k: 'sold', t: '已售', f: a => a.sold },
+            { k: 'rate', t: '銷售率', f: a => '<span class="hs-meterwrap"><span class="hs-meter"><i style="width:' +
+                Math.min(100, a.rate * 100).toFixed(1) + '%;background:' + hsRamp(a.rate) + '"></i></span>' +
+                '<span class="hs-num">' + (a.rate * 100).toFixed(1) + '%</span></span>' },
+            { k: 'delta', t: '近期賣動', f: a => a.hasD ? (a.delta > 0 ? '<b class="text-green-600">+' + a.delta + '</b>' : '<span class="text-gray-400">' + a.delta + '</span>') : '<span class="text-gray-400">–</span>' },
+            { k: 'left', t: '還剩', f: a => a.left },
+            { k: 'full', t: '滿團', f: a => a.full },
+            { k: 'promo', t: '促銷團', f: a => a.promo || '<span class="text-gray-400">0</span>' },
+            { k: 'avgPrice', t: '均價', f: a => (Math.round(a.avgPrice / 1000) / 10) + ' 萬' },
+            { k: 'rev', t: '估營收', f: a => hsMoney(a.rev) },
+            { k: 'potential', t: '潛在營收', f: a => '<b>' + hsMoney(a.potential) + '</b>' },
+        ];
+
+        function renderHanshu() {
+            if (!hsData) return;
+            const rows = hsData.rows.filter(r =>
+                hsState.months.has(r.y * 100 + r.m) &&
+                (!hsState.line || r.ln === hsState.line) &&
+                ((hsState.types.has('solo') && !r.ch) || (hsState.types.has('charter') && r.ch)));
+
+            const g = {};
+            for (const r of rows) {
+                if (!g[r.p]) g[r.p] = { product: r.p, lines: new Set(), n: 0, cap: 0, sold: 0, full: 0, promo: 0, rev: 0, psum: 0, bad: 0, delta: 0, hasD: 0 };
+                const a = g[r.p];
+                a.lines.add(r.ln);
+                a.n += r.n; a.cap += r.cap; a.sold += r.s; a.rev += r.rev; a.psum += r.psum;
+                a.full += r.full; a.promo += r.pm; a.bad += r.bad;
+                a.delta += r.d; a.hasD = a.hasD || r.hasD;
+            }
+            const agg = Object.values(g).map(a => {
+                a.left = a.cap - a.sold;
+                a.rate = a.cap ? a.sold / a.cap : 0;
+                a.avgPrice = a.n ? a.psum / a.n : 0;
+                a.potential = a.left * a.avgPrice;
+                a.line = [...a.lines].join('・');
+                return a;
+            }).filter(a => a.cap >= hsState.minCap && a.rate >= hsState.minRate);
+
+            const { key, dir } = hsState.sort;
+            agg.sort((x, y) => typeof x[key] === 'string' ? x[key].localeCompare(y[key]) * dir : (x[key] - y[key]) * dir);
+
+            const tot = rows.reduce((a, r) => ({ cap: a.cap + r.cap, sold: a.sold + r.s, rev: a.rev + r.rev, n: a.n + r.n }), { cap: 0, sold: 0, rev: 0, n: 0 });
+            const s = hsData.stats || {};
+            document.getElementById('hs-kpis').innerHTML = [
+                ['機位（' + [...hsState.months].sort((a, b) => a - b).map(k => k % 100).join('、') + ' 月）', tot.cap.toLocaleString(), tot.n + ' 團'],
+                ['已售', tot.sold.toLocaleString(), '人'],
+                ['銷售率', hsPct(tot.sold, tot.cap), ''],
+                ['還剩空位', (tot.cap - tot.sold).toLocaleString(), '這就是廣告的空間'],
+                ['估營收', hsMoney(tot.rev), '牌價，未扣折扣'],
+                ['解析驗證', s.total ? (s.verified / s.total * 100).toFixed(1) + '%' : '–', (s.mismatch || 0) + ' 團對不上'],
+            ].map(([l, v, n]) => '<div class="hs-kpi"><div class="l">' + l + '</div><div class="v">' + v + '</div><div class="n">' + n + '</div></div>').join('');
+
+            document.getElementById('hs-thead').innerHTML = HS_COLS.map(c =>
+                '<th data-k="' + c.k + '">' + c.t + (key === c.k ? ' <span class="text-blue-500">' + (dir < 0 ? '▾' : '▴') + '</span>' : '') + '</th>').join('');
+            document.getElementById('hs-tbody').innerHTML = agg.map(a =>
+                '<tr>' + HS_COLS.map(c => '<td>' + c.f(a) + '</td>').join('') + '</tr>').join('')
+                || '<tr><td colspan="' + HS_COLS.length + '" class="text-center text-gray-400 py-8">這個條件下沒有資料</td></tr>';
+            document.getElementById('hs-note').innerText =
+                agg.length + ' 個產品（機位 ' + hsState.minCap + ' 以上' +
+                (hsState.minRate ? '、銷售率 ' + (hsState.minRate * 100) + '% 以上' : '') + '）。點欄位標題可排序。' +
+                (hsData.prevStamp ? '「近期賣動」＝跟 ' + hsData.prevStamp + ' 的快照相比多賣了幾個人。'
+                                  : '「近期賣動」要有第二份快照才算得出來。');
+        }
+
+        // ── 銷售分析：互動 ──
+        document.getElementById('hs-f-month').onclick = e => {
+            const b = e.target.closest('button'); if (!b) return;
+            const m = +b.dataset.v;
+            hsState.months.has(m) ? hsState.months.delete(m) : hsState.months.add(m);
+            if (!hsState.months.size) hsState.months.add(m);
+            b.setAttribute('aria-pressed', hsState.months.has(m));
+            renderHanshu();
+        };
+        document.getElementById('hs-f-type').onclick = e => {
+            const b = e.target.closest('button'); if (!b) return;
+            const v = b.dataset.v;
+            hsState.types.has(v) ? hsState.types.delete(v) : hsState.types.add(v);
+            if (!hsState.types.size) hsState.types.add(v);
+            b.setAttribute('aria-pressed', hsState.types.has(v));
+            renderHanshu();
+        };
+        document.getElementById('hs-f-line').onchange = e => { hsState.line = e.target.value; renderHanshu(); };
+        document.getElementById('hs-f-cap').onchange  = e => { hsState.minCap = +e.target.value; renderHanshu(); };
+        document.getElementById('hs-f-rate').onchange = e => { hsState.minRate = +e.target.value; renderHanshu(); };
+        document.getElementById('hs-thead').onclick = e => {
+            const th = e.target.closest('th'); if (!th) return;
+            hsState.sort = { key: th.dataset.k, dir: hsState.sort.key === th.dataset.k ? -hsState.sort.dir : -1 };
+            renderHanshu();
+        };
+        // 切換深淺色時色條要重畫（顏色是寫在 style 屬性裡的）
+        const _hsToggle = window.toggleTheme;
+        window.toggleTheme = () => { _hsToggle(); if (hsData) renderHanshu(); };
 
         window.switchTab = (id) => {
             document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
