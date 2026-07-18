@@ -1,0 +1,6 @@
+# Vercel 靜態部署只需要 index.html / dynamic.html
+# 這些是 Firebase 的後端設定，不該被當成網頁檔對外提供
+functions
+firestore.rules
+firebase.json
+.firebaserc
