@@ -9,10 +9,39 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-  body { font-family: 'Noto Sans TC', sans-serif; background:#0b0f17; color:#e2e8f0; }
-  .input-style { background:#131a28; border:1px solid #263148; border-radius:.7rem; padding:.5rem .75rem; color:#e2e8f0; font-size:.9rem; }
+  /* ── 深／淺色主題（顏色都走變數，切換只換這一組值）────────── */
+  :root {
+    --bg:#0b0f17; --surface:#131a28; --surface2:#0e1a2e;
+    --bd:#263148; --bd2:#1a2336;
+    --fg:#e2e8f0; --m1:#cbd5e1; --m2:#94a3b8; --m3:#64748b; --m4:#475569;
+    --raw-bg:#000; --raw-fg:#cfd6e4;
+    --sec-bg:#0e1626; --sec-fg:#fff;
+    --hover:#122544; --sel-bg:#7a5c00; --sel-fg:#fff;
+    --code-fg:#8ec2ff; --code-bg:#0d2c5e; --sel-code-bg:#a37b00;
+    --promo:#ff8ab5; --price:#fcd34d;
+  }
+  [data-theme="light"] {
+    --bg:#f1f5f9; --surface:#fff; --surface2:#f8fafc;
+    --bd:#cbd5e1; --bd2:#e2e8f0;
+    --fg:#0f172a; --m1:#334155; --m2:#475569; --m3:#64748b; --m4:#94a3b8;
+    --raw-bg:#fff; --raw-fg:#1e293b;
+    --sec-bg:#e2e8f0; --sec-fg:#0f172a;
+    --hover:#dbeafe; --sel-bg:#fde68a; --sel-fg:#111;
+    --code-fg:#1d4ed8; --code-bg:#dbeafe; --sel-code-bg:#f59e0b;
+    --promo:#db2777; --price:#b45309;
+  }
+  body { font-family:'Noto Sans TC', sans-serif; background:var(--bg); color:var(--fg); }
+
+  /* 主題感知的工具 class（取代寫死的色碼） */
+  .surface { background:var(--surface); } .surface2 { background:var(--surface2); }
+  .app-bg  { background:var(--bg); }
+  .bd { border-color:var(--bd); } .bd2 { border-color:var(--bd2); }
+  .m1 { color:var(--m1); } .m2 { color:var(--m2); } .m3 { color:var(--m3); } .m4 { color:var(--m4); }
+  .price { color:var(--price); }
+
+  .input-style { background:var(--surface); border:1px solid var(--bd); border-radius:.7rem; padding:.5rem .75rem; color:var(--fg); font-size:.9rem; }
   .input-style:focus { border-color:#3b82f6; outline:none; }
-  ::-webkit-scrollbar { width:9px; height:9px; } ::-webkit-scrollbar-thumb { background:#263148; border-radius:5px; }
+  ::-webkit-scrollbar { width:9px; height:9px; } ::-webkit-scrollbar-thumb { background:var(--bd); border-radius:5px; }
   .chip { font-size:.7rem; padding:.1rem .45rem; border-radius:.5rem; font-weight:700; white-space:nowrap; }
   #toast { position:fixed; left:50%; bottom:2rem; transform:translateX(-50%) translateY(20px); opacity:0; transition:.25s; z-index:90; pointer-events:none; }
   #toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
@@ -20,29 +49,45 @@
   /* ── 漢書原始排版區 ─────────────────────────── */
   #raw-view {
     font-family: 'Consolas', '細明體', 'MingLiU', 'Courier New', monospace;
-    font-size: 15px; line-height: 1.5;
-    background:#000; color:#cfd6e4;
+    font-size: var(--raw-size, 15px); line-height: 1.5;
+    background:var(--raw-bg); color:var(--raw-fg);
     white-space: pre; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .hl { padding: 0 .5rem; }
-  .hl-sec  { color:#fff; font-weight:700; background:#0e1626; }        /* ■ 分區標題 */
+  .hl-sec  { color:var(--sec-fg); font-weight:700; background:var(--sec-bg); }
   .hl-tour { cursor:pointer; }
-  .hl-tour:hover { background:#122544; }
-  .hl-tour.sel { background:#7a5c00; color:#fff; }                     /* 選取行：金黃（仿舊系統）*/
-  .hl-tour .code { color:#8ec2ff; background:#0d2c5e; border-radius:.2rem; }
-  .hl-tour.sel .code { color:#fff; background:#a37b00; }
-  .hl-tour .promo { color:#ff8ab5; }
+  .hl-tour:hover { background:var(--hover); }
+  .hl-tour.sel { background:var(--sel-bg); color:var(--sel-fg); }       /* 選取行：金黃（仿舊系統）*/
+  .hl-tour .code { color:var(--code-fg); background:var(--code-bg); border-radius:.2rem; }
+  .hl-tour.sel .code { color:var(--sel-fg); background:var(--sel-code-bg); }
+  .hl-tour .promo { color:var(--promo); }
+
+  /* ── 手機（≤640px）：卡片變成底部抽屜、字級縮小、按鈕加大好點 ── */
+  @media (max-width: 640px) {
+    :root { --raw-size: 12px; }
+    #detail-card {
+      left:0 !important; right:0 !important; bottom:0 !important; top:auto !important;
+      width:100% !important; max-width:100% !important;
+      border-radius:1rem 1rem 0 0; max-height:72vh; display:flex; flex-direction:column;
+    }
+    #detail-head { cursor:default; }        /* 手機不拖曳，固定在下方 */
+    #detail-head .fa-grip-vertical { display:none; }
+    #detail-body { flex:1; max-height:none !important; }
+    .hl { padding:.15rem .5rem; }           /* 行距拉開，手指好點 */
+    .mobile-hide { display:none !important; }
+  }
 </style>
 </head>
 <body>
 
 <!-- ══ 登入頁 ══ -->
 <div id="login-page" class="hidden min-h-screen items-center justify-center p-6">
-  <div class="w-full max-w-sm bg-[#131a28] border border-[#263148] rounded-3xl p-8 shadow-2xl">
+  <div class="w-full max-w-sm surface border bd rounded-3xl p-8 shadow-2xl">
     <div class="text-center mb-8">
       <div class="text-4xl mb-3"><i class="fa-solid fa-bolt text-blue-500"></i></div>
       <h1 class="text-2xl font-black tracking-wide">D1 動態查詢</h1>
-      <p class="text-xs text-slate-400 mt-2">帳號密碼與 D1 公佈欄相同</p>
+      <p class="text-xs m2 mt-2">帳號密碼與 D1 公佈欄相同</p>
     </div>
     <div class="space-y-4">
       <input id="login-acc" class="w-full input-style" placeholder="員編" autocomplete="username">
@@ -55,26 +100,30 @@
 
 <!-- ══ 主畫面 ══ -->
 <div id="main-page" class="hidden h-screen flex flex-col">
-  <header class="bg-[#0b0f17] border-b border-[#1a2336] px-4 py-3 shrink-0">
+  <header class="app-bg border-b bd2 px-4 py-3 shrink-0">
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-lg font-black whitespace-nowrap"><i class="fa-solid fa-bolt text-blue-500 mr-1"></i>D1 動態查詢</h1>
-      <span id="stamp-badge" class="chip bg-[#152036] text-slate-300"><i class="fa-regular fa-clock mr-1"></i>載入中…</span>
+      <span id="stamp-badge" class="chip surface2 m1"><i class="fa-regular fa-clock mr-1"></i>載入中…</span>
       <div class="flex-1"></div>
-      <span id="user-name" class="text-sm text-slate-300"></span>
-      <button id="agent-btn" class="text-xs text-slate-400 hover:text-amber-300 border border-[#263148] rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-id-card mr-1"></i>業務設定</button>
-      <a href="./" class="text-xs text-slate-400 hover:text-blue-400 border border-[#263148] rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-house mr-1"></i>回公佈欄</a>
-      <button id="logout-btn" class="text-xs text-slate-400 hover:text-red-400 border border-[#263148] rounded-lg px-3 py-1.5 transition">登出</button>
+      <span id="user-name" class="text-sm m1 mobile-hide"></span>
+      <button id="theme-btn" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition" title="深色／淺色切換"><i id="theme-icon" class="fa-solid fa-moon"></i></button>
+      <button id="agent-btn" class="text-xs m2 hover:price border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-id-card mr-1"></i><span class="mobile-hide">業務設定</span></button>
+      <a href="./" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-house mr-1"></i><span class="mobile-hide">回公佈欄</span></a>
+      <button id="logout-btn" class="text-xs m2 hover:text-red-400 border bd rounded-lg px-3 py-1.5 transition">登出</button>
     </div>
     <div class="flex flex-wrap items-center gap-2 mt-3 text-sm">
-      <span class="text-slate-500 font-bold">動態：</span>
-      <select id="f-line" class="input-style font-bold min-w-[220px]"></select>
-      <span class="text-slate-500 font-bold ml-2">地區：</span>
-      <select id="f-region" class="input-style min-w-[140px]"><option value="">全部地區</option></select>
-      <span class="text-slate-500 font-bold ml-2">日期：</span>
-      <input id="f-from" type="date" class="input-style">
-      <span class="text-slate-600">→</span>
-      <input id="f-to" type="date" class="input-style">
-      <input id="f-search" class="input-style w-44 ml-2" placeholder="🔍 搜尋（團號/任意字）">
+      <span class="m3 font-bold mobile-hide">動態：</span>
+      <select id="f-line" class="input-style font-bold min-w-[220px] max-w-full flex-1 sm:flex-none"></select>
+      <span class="m3 font-bold ml-2 mobile-hide">地區：</span>
+      <select id="f-region" class="input-style min-w-[140px] max-w-full flex-1 sm:flex-none"><option value="">全部地區</option></select>
+      <button id="more-btn" class="input-style sm:hidden"><i class="fa-solid fa-sliders"></i></button>
+      <div id="more-filters" class="flex flex-wrap items-center gap-2 max-sm:hidden max-sm:w-full">
+        <span class="m3 font-bold mobile-hide">日期：</span>
+        <input id="f-from" type="date" class="input-style">
+        <span class="m4">→</span>
+        <input id="f-to" type="date" class="input-style">
+        <input id="f-search" class="input-style w-44 max-sm:w-full ml-2 max-sm:ml-0" placeholder="🔍 搜尋（團號/任意字）">
+      </div>
     </div>
   </header>
 
@@ -82,44 +131,44 @@
 </div>
 
 <!-- ══ 明細卡（選取資料）══ -->
-<div id="detail-card" class="hidden fixed right-4 bottom-4 w-[390px] max-w-[calc(100vw-2rem)] bg-[#131a28] border border-[#263148] rounded-2xl shadow-2xl z-50 overflow-hidden">
-  <div id="detail-head" class="flex items-center justify-between px-4 py-3 border-b border-[#1a2336] relative cursor-move select-none" title="拖曳可移動位置">
-    <span class="font-bold text-sm"><i class="fa-solid fa-grip-vertical text-slate-600 mr-2"></i>選取資料<span id="detail-count" class="text-slate-500 font-normal"></span></span>
-    <div class="flex items-center gap-2">
-      <button id="dcol-btn" class="text-xs text-slate-400 hover:text-white border border-[#263148] rounded-lg px-2.5 py-1.5 transition"><i class="fa-solid fa-gear mr-1"></i>顯示欄位</button>
-      <button id="detail-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+<div id="detail-card" class="hidden fixed right-3 bottom-3 w-[310px] max-w-[calc(100vw-1.5rem)] surface border bd rounded-2xl shadow-2xl z-50 overflow-hidden">
+  <div id="detail-head" class="flex items-center justify-between px-3 py-2 border-b bd2 relative cursor-move select-none" title="拖曳可移動位置">
+    <span class="font-bold text-xs"><i class="fa-solid fa-grip-vertical m4 mr-1.5"></i>選取資料<span id="detail-count" class="m3 font-normal"></span></span>
+    <div class="flex items-center gap-1">
+      <button id="dcol-btn" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-2 py-1 transition" title="顯示欄位"><i class="fa-solid fa-gear"></i></button>
+      <button id="detail-close" class="m2 hover:text-red-400 w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div id="dcol-menu" class="hidden absolute right-3 top-12 bg-[#131a28] border border-[#263148] rounded-xl p-3 shadow-2xl z-[70] w-40"></div>
+    <div id="dcol-menu" class="hidden absolute right-2 top-10 surface border bd rounded-xl p-3 shadow-2xl z-[70] w-36"></div>
   </div>
-  <div id="detail-body" class="p-4 text-sm max-h-[50vh] overflow-y-auto"></div>
-  <div id="chosen-file" class="hidden mx-3 mb-1 px-3 py-2 bg-[#0e1a2e] border border-[#263148] rounded-xl text-xs flex items-center gap-2">
+  <div id="detail-body" class="px-3 py-2.5 text-xs max-h-[45vh] overflow-y-auto"></div>
+  <div id="chosen-file" class="hidden mx-3 mb-1 px-3 py-2 surface2 border bd rounded-xl text-xs flex items-center gap-2">
     <i class="fa-regular fa-file-pdf text-red-400"></i>
-    <span id="chosen-file-name" class="flex-1 truncate text-slate-300"></span>
-    <button id="chosen-file-clear" class="text-slate-500 hover:text-red-400"><i class="fa-solid fa-xmark"></i></button>
+    <span id="chosen-file-name" class="flex-1 truncate m1"></span>
+    <button id="chosen-file-clear" class="m3 hover:text-red-400"><i class="fa-solid fa-xmark"></i></button>
   </div>
-  <div class="grid grid-cols-2 gap-2 p-3 border-t border-[#1a2336]">
-    <button id="files-btn" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl text-sm transition"><i class="fa-regular fa-folder-open mr-1"></i>選取行程檔案</button>
-    <button id="copy-btn" class="bg-[#1d2940] hover:bg-[#26365a] text-slate-200 font-bold py-2.5 rounded-xl text-sm transition"><i class="fa-regular fa-copy mr-1"></i>複製摘要</button>
-    <button class="bg-emerald-900/40 text-emerald-600 font-bold py-2.5 rounded-xl text-sm cursor-not-allowed" title="下一階段接上合約系統"><i class="fa-solid fa-file-signature mr-1"></i>建立合約</button>
-    <button id="convert-btn" class="bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm transition"><i class="fa-solid fa-plane mr-1"></i>轉換連結</button>
+  <div class="grid grid-cols-2 gap-1.5 p-2.5 border-t bd2">
+    <button id="files-btn" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded-lg text-xs transition"><i class="fa-regular fa-folder-open mr-1"></i>選取行程檔案</button>
+    <button id="copy-btn" class="surface2 hover:opacity-80 m1 border bd font-bold py-2 rounded-lg text-xs transition"><i class="fa-regular fa-copy mr-1"></i>複製摘要</button>
+    <button class="bg-emerald-900/40 text-emerald-600 font-bold py-2 rounded-lg text-xs cursor-not-allowed" title="下一階段接上合約系統"><i class="fa-solid fa-file-signature mr-1"></i>建立合約</button>
+    <button id="convert-btn" class="bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-2 rounded-lg text-xs transition"><i class="fa-solid fa-plane mr-1"></i>轉換連結</button>
   </div>
 </div>
 
 <!-- ══ 業務設定 modal ══ -->
 <div id="agent-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-  <div class="bg-[#131a28] border border-[#263148] rounded-2xl w-full max-w-md shadow-2xl">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-[#1a2336]">
-      <span class="font-bold"><i class="fa-solid fa-id-card text-amber-300 mr-2"></i>業務設定（轉換連結名片）</span>
-      <button id="agent-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+  <div class="surface border bd rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b bd2">
+      <span class="font-bold"><i class="fa-solid fa-id-card price mr-2"></i>業務設定（轉換連結名片）</span>
+      <button id="agent-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="p-5 space-y-3 text-sm max-h-[65vh] overflow-y-auto">
-      <div><label class="text-xs text-slate-500 font-bold">業務姓名 *</label><input id="ag-name" class="w-full input-style mt-1" placeholder="旅遊大仁哥"></div>
-      <div><label class="text-xs text-slate-500 font-bold">聯絡電話</label><input id="ag-phone" class="w-full input-style mt-1" placeholder="0277463632"></div>
-      <div><label class="text-xs text-slate-500 font-bold">LINE ID</label><input id="ag-line" class="w-full input-style mt-1" placeholder="不含 @ 符號"></div>
-      <div><label class="text-xs text-slate-500 font-bold">FB 粉專／社團連結</label><input id="ag-fb" class="w-full input-style mt-1" placeholder="https://www.facebook.com/…（選填）"></div>
-      <div><label class="text-xs text-slate-500 font-bold">LINE 社群連結</label><input id="ag-lg" class="w-full input-style mt-1" placeholder="https://line.me/ti/g2/…（選填）"></div>
-      <div><label class="text-xs text-slate-500 font-bold">授權信箱 *</label><input id="ag-email" class="w-full input-style mt-1" placeholder="跟原本外掛用的同一個信箱">
-        <p class="text-[.65rem] text-slate-600 mt-1">縮網址授權用。填你在「行程連結轉換器」外掛裡用的那個信箱。</p></div>
+      <div><label class="text-xs m3 font-bold">業務姓名 *</label><input id="ag-name" class="w-full input-style mt-1" placeholder="旅遊大仁哥"></div>
+      <div><label class="text-xs m3 font-bold">聯絡電話</label><input id="ag-phone" class="w-full input-style mt-1" placeholder="0277463632"></div>
+      <div><label class="text-xs m3 font-bold">LINE ID</label><input id="ag-line" class="w-full input-style mt-1" placeholder="不含 @ 符號"></div>
+      <div><label class="text-xs m3 font-bold">FB 粉專／社團連結</label><input id="ag-fb" class="w-full input-style mt-1" placeholder="https://www.facebook.com/…（選填）"></div>
+      <div><label class="text-xs m3 font-bold">LINE 社群連結</label><input id="ag-lg" class="w-full input-style mt-1" placeholder="https://line.me/ti/g2/…（選填）"></div>
+      <div><label class="text-xs m3 font-bold">授權信箱 *</label><input id="ag-email" class="w-full input-style mt-1" placeholder="跟原本外掛用的同一個信箱">
+        <p class="text-[.65rem] m4 mt-1">縮網址授權用。填你在「行程連結轉換器」外掛裡用的那個信箱。</p></div>
       <button id="agent-save" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl transition">儲存</button>
     </div>
   </div>
@@ -127,28 +176,28 @@
 
 <!-- ══ 轉換連結 modal ══ -->
 <div id="convert-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-  <div class="bg-[#131a28] border border-[#263148] rounded-2xl w-full max-w-md shadow-2xl">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-[#1a2336]">
+  <div class="surface border bd rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b bd2">
       <span class="font-bold"><i class="fa-solid fa-plane text-indigo-400 mr-2"></i>轉換連結</span>
-      <button id="convert-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+      <button id="convert-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="p-5 space-y-3 text-sm">
-      <div class="flex justify-between"><span class="text-slate-500">團號</span><span id="cv-code" class="font-mono font-bold text-blue-300"></span></div>
+      <div class="flex justify-between"><span class="m3">團號</span><span id="cv-code" class="font-mono font-bold text-blue-300"></span></div>
       <div>
-        <label class="text-xs text-slate-500 font-bold">行程檔案</label>
+        <label class="text-xs m3 font-bold">行程檔案</label>
         <div id="cv-file-row" class="mt-1"></div>
         <input id="cv-file-paste" class="w-full input-style mt-1.5" placeholder="或直接貼上行程 PDF 的雲端連結（drive.google.com/file/d/…）">
       </div>
-      <label class="flex items-center gap-2 cursor-pointer select-none text-slate-300">
+      <label class="flex items-center gap-2 cursor-pointer select-none m1">
         <input id="cv-remain" type="checkbox" class="accent-indigo-500" checked>顯示剩餘名額（客人頁面）
       </label>
       <button id="cv-go" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>產生連結</button>
-      <div id="cv-result" class="hidden bg-[#0e1a2e] border border-indigo-900 rounded-xl p-3">
+      <div id="cv-result" class="hidden surface2 border border-indigo-900 rounded-xl p-3">
         <div class="flex items-center gap-2">
           <input id="cv-short" readonly class="flex-1 input-style font-mono text-indigo-300">
           <button id="cv-copy" class="bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg px-3 py-2"><i class="fa-regular fa-copy"></i></button>
         </div>
-        <a id="cv-preview" target="_blank" rel="noopener" class="inline-block text-xs text-slate-400 hover:text-indigo-300 mt-2"><i class="fa-solid fa-eye mr-1"></i>預覽客人看到的頁面</a>
+        <a id="cv-preview" target="_blank" rel="noopener" class="inline-block text-xs m2 hover:text-indigo-300 mt-2"><i class="fa-solid fa-eye mr-1"></i>預覽客人看到的頁面</a>
       </div>
       <p id="cv-msg" class="text-xs text-red-400 min-h-[1rem]"></p>
     </div>
@@ -157,12 +206,12 @@
 
 <!-- ══ 行程檔案選擇 modal ══ -->
 <div id="files-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-  <div class="bg-[#131a28] border border-[#263148] rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-[#1a2336]">
+  <div class="surface border bd rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b bd2">
       <span class="font-bold">請選擇行程檔案</span>
-      <button id="files-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+      <button id="files-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="px-5 py-3 border-b border-[#1a2336] flex gap-2">
+    <div class="px-5 py-3 border-b bd2 flex gap-2">
       <input id="files-search" class="input-style flex-1" placeholder="請輸入關鍵字搜尋…">
       <button id="files-expand" class="input-style text-xs">全部展開</button>
       <button id="files-collapse" class="input-style text-xs">全部收合</button>
@@ -206,6 +255,19 @@ let VISIBLE = [];             // 目前畫面上看得到的團行 index（Shift
 const ITIN_BASE = 'https://discoveredtrip.com';   // 中轉頁
 
 const $ = id => document.getElementById(id);
+
+// ── 深／淺色主題（記住選擇；沒設過就跟著手機/電腦的系統設定）──
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  $('theme-icon').className = t === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+  localStorage.setItem('d1dt_theme', t);
+}
+applyTheme(localStorage.getItem('d1dt_theme')
+  || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+$('theme-btn').onclick = () =>
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+// 手機：日期／搜尋收在「⚙」裡，需要才展開
+$('more-btn').onclick = () => $('more-filters').classList.toggle('max-sm:hidden');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt$ = n => n == null ? '--' : n.toLocaleString();
 const WD = ['日','一','二','三','四','五','六'];
@@ -256,7 +318,7 @@ async function boot() {
 
   const ageMin = (Date.now() - new Date(META.stamp.replace(' ', 'T'))) / 60000;
   const stale = ageMin > 150;
-  $('stamp-badge').className = 'chip ' + (stale ? 'bg-red-900/60 text-red-300' : 'bg-[#152036] text-slate-300');
+  $('stamp-badge').className = 'chip ' + (stale ? 'bg-red-900/60 text-red-300' : 'surface2 m1');
   $('stamp-badge').innerHTML = `<i class="fa-regular fa-clock mr-1"></i>資料時間 ${esc(META.stamp.slice(5))}（每小時更新${stale ? '｜⚠ 已超過 ' + Math.round(ageMin/60) + ' 小時' : ''}）`;
 
   // 動態選單：顯示漢書原始檔名（跟舊系統一樣）
@@ -278,7 +340,7 @@ async function boot() {
 async function loadFile() {
   const fno = $('f-line').value;
   localStorage.setItem('d1dt_line', fno);
-  $('raw-view').innerHTML = '<div class="text-slate-500 p-6"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</div>';
+  $('raw-view').innerHTML = '<div class="m3 p-6"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</div>';
 
   if (!RAWCACHE[fno]) {
     const [rawSnap, rowSnap] = await Promise.all([
@@ -343,10 +405,10 @@ function render() {
       out.push(`<div class="hl hl-sec">${esc(l.text)}</div>`);
     } else {
       if (q) continue;
-      out.push(`<div class="hl text-slate-400">${esc(l.text) || ' '}</div>`);
+      out.push(`<div class="hl m2">${esc(l.text) || ' '}</div>`);
     }
   }
-  $('raw-view').innerHTML = out.join('') || '<div class="text-slate-500 p-6">沒有符合條件的資料</div>';
+  $('raw-view').innerHTML = out.join('') || '<div class="m3 p-6">沒有符合條件的資料</div>';
   VISIBLE = [...$('raw-view').querySelectorAll('.hl-tour')].map(el => +el.dataset.i);
   $('raw-view').querySelectorAll('.hl-tour').forEach(el => el.onclick = e => selectLine(+el.dataset.i, e));
 }
@@ -414,7 +476,7 @@ const groupKey = r => [r.pr, r.an, r.dy, r.p, r.gw, r.dp].join('|');
 const PERTOUR = [
   { k: 'cap', name: '機位',  get: r => `${r.cap ?? '--'}${r.ok ? '' : ' ⚠'}` },
   { k: 's',   name: '報名',  get: r => `${r.s} 人${r.w ? '（候補 ' + r.w + '）' : ''}` },
-  { k: 'r',   name: '剩餘',  get: r => `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'text-amber-300' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r}</span>` },
+  { k: 'r',   name: '剩餘',  get: r => `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'price' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r}</span>` },
   { k: 'ld',  name: '領隊',  get: r => r.ld ? esc(r.ld) : '未派' },
   { k: 'dl',  name: 'ＤＬ',  get: r => r.dl ? esc(r.dl) : '--' },
   { k: 'tp',  name: '票款',  get: r => r.tp ? esc(r.tp) : '--' },
@@ -424,11 +486,11 @@ const PERTOUR = [
 
 function groupBlock(g) {
   const r0 = g[0];
-  const line = (k, v) => `<div class="flex justify-between py-1.5 border-b border-[#1a2336] gap-3"><span class="text-slate-500 shrink-0">${k}</span><span class="font-bold text-right">${v}</span></div>`;
+  const line = (k, v) => `<div class="flex justify-between py-1.5 border-b bd2 gap-3"><span class="m3 shrink-0">${k}</span><span class="font-bold text-right">${v}</span></div>`;
   const codes = g.map(r => r.c).join('、');
   const parts = [
     `<div class="font-mono text-blue-300 font-bold text-base mb-2 break-all">${esc(g.length === 1 ? r0.c : r0.c + ' 等 ' + g.length + ' 團')}${g.some(r => r.pm) ? ' <span class="chip bg-pink-900/60 text-pink-300">促銷</span>' : ''}</div>`,
-    line('團費', `<span class="text-amber-300 text-lg">${fmt$(r0.pr)}</span>`),
+    line('團費', `<span class="price text-lg">${fmt$(r0.pr)}</span>`),
   ];
   if (dshow.an) parts.push(line('航空公司', esc(r0.an)));
   if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt)}</span>`).join('')}</span>`));
@@ -443,19 +505,19 @@ function groupBlock(g) {
       // 多團合併：日期一列，後面接各自的機位/餘位…
       parts.push(
         `<div class="pt-2 overflow-x-auto"><table class="w-full text-xs">
-          <thead><tr class="text-slate-500"><th class="text-left font-bold pb-1">出發日</th>${cols.map(f => `<th class="text-right font-bold pb-1 pl-3">${f.name}</th>`).join('')}</tr></thead>
-          <tbody>${g.map(r => `<tr class="border-t border-[#1a2336]"><td class="py-1">${fmtDt(r.dt)}</td>${cols.map(f => `<td class="text-right pl-3">${f.get(r)}</td>`).join('')}</tr>`).join('')}</tbody>
+          <thead><tr class="m3"><th class="text-left font-bold pb-1">出發日</th>${cols.map(f => `<th class="text-right font-bold pb-1 pl-3">${f.name}</th>`).join('')}</tr></thead>
+          <tbody>${g.map(r => `<tr class="border-t bd2"><td class="py-1">${fmtDt(r.dt)}</td>${cols.map(f => `<td class="text-right pl-3">${f.get(r)}</td>`).join('')}</tr>`).join('')}</tbody>
         </table></div>`);
     }
   }
   if (dshow.bs) {
     const bsAll = g.map(r => {
-      const bs = (r.bs || []).map(([n, x, paid]) => `<span class="chip ${paid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-slate-800 text-slate-400'}" title="${paid ? '已收訂' : '卡位未收款'}">${esc(n)}${x}</span>`).join(' ');
-      return bs ? `<div class="mt-1.5"><span class="text-slate-600 text-[.65rem]">${fmtDt(r.dt)}</span> ${bs}</div>` : '';
+      const bs = (r.bs || []).map(([n, x, paid]) => `<span class="chip ${paid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-slate-800 m2'}" title="${paid ? '已收訂' : '卡位未收款'}">${esc(n)}${x}</span>`).join(' ');
+      return bs ? `<div class="mt-1.5"><span class="m4 text-[.65rem]">${fmtDt(r.dt)}</span> ${bs}</div>` : '';
     }).join('');
-    if (bsAll) parts.push(`<div class="pt-2"><span class="text-slate-500 text-xs">報名明細</span>${bsAll}</div>`);
+    if (bsAll) parts.push(`<div class="pt-2"><span class="m3 text-xs">報名明細</span>${bsAll}</div>`);
   }
-  if (g.length > 1) parts.push(`<p class="text-[.6rem] text-slate-600 mt-2 break-all">團號：${esc(codes)}</p>`);
+  if (g.length > 1) parts.push(`<p class="text-[.6rem] m4 mt-2 break-all">團號：${esc(codes)}</p>`);
   return parts.join('');
 }
 
@@ -473,8 +535,8 @@ function showDetail() {
   groups.forEach(g => g.sort((a, b) => (a.dt || '').localeCompare(b.dt || '')));
   $('detail-count').textContent = `（共 ${rows.length} 筆${groups.length < rows.length ? '／' + groups.length + ' 種' : ''}）`;
   $('detail-body').innerHTML =
-    groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g)}</div>`).join('<div class="border-t-2 border-[#22304d] mb-3"></div>') +
-    `<p class="text-[.65rem] text-slate-600">資料時間 ${esc(META?.stamp || '')}，下訂前請回漢書確認</p>`;
+    groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g)}</div>`).join('<div class="border-t-2 bd mb-3"></div>') +
+    `<p class="text-[.65rem] m4">資料時間 ${esc(META?.stamp || '')}，下訂前請回漢書確認</p>`;
   $('detail-card').classList.remove('hidden');
 }
 $('detail-close').onclick = () => { $('detail-card').classList.add('hidden'); SELLINES = []; ANCHOR = -1; $('dcol-menu').classList.add('hidden'); render(); };
@@ -527,10 +589,10 @@ $('copy-btn').onclick = () => {
 $('files-btn').onclick = async () => {
   $('files-modal').classList.remove('hidden');
   if (!FILETREE) {
-    $('files-tree').innerHTML = '<div class="text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</div>';
+    $('files-tree').innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</div>';
     const snap = await getDoc(doc(db, 'dt_files', 'tree'));
     if (!snap.exists()) {
-      $('files-tree').innerHTML = '<div class="text-slate-500 text-center py-8">行程檔案清單尚未開通<br><span class="text-xs">（需要公司雲授權，請通知 IT）</span></div>';
+      $('files-tree').innerHTML = '<div class="m3 text-center py-8">行程檔案清單尚未開通<br><span class="text-xs">（需要公司雲授權，請通知 IT）</span></div>';
       return;
     }
     FILETREE = JSON.parse(snap.data().tree);
@@ -560,18 +622,18 @@ function renderTree() {
           `<div class="flex justify-between items-center py-1 pr-2 hover:bg-[#1a2336] rounded" style="padding-left:${depth * 1.25 + 1}rem">
             <button class="file-pick text-blue-400 hover:underline truncate text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${esc(f.n)}</button>
             <span class="shrink-0 ml-3 flex items-center gap-2">
-              <span class="text-slate-600 text-xs">${fmtTime(f.t)}</span>
-              <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" title="預覽" class="text-slate-500 hover:text-blue-400"><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
+              <span class="m4 text-xs">${fmtTime(f.t)}</span>
+              <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" title="預覽" class="m3 hover:text-blue-400"><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
             </span>
           </div>`).join('');
       if (q && !kids) return '';
       const open = expandAll || q || depth === 0;
       return `<details ${open ? 'open' : ''} style="padding-left:${depth ? 1.25 : 0}rem">
-        <summary class="cursor-pointer py-1 font-bold text-slate-300 hover:text-white select-none">${esc(n.name)}</summary>${kids}</details>`;
+        <summary class="cursor-pointer py-1 font-bold m1 hover:text-white select-none">${esc(n.name)}</summary>${kids}</details>`;
     }
     return '';
   };
-  $('files-tree').innerHTML = (FILETREE.children || []).map(c => node(c, 0)).join('') || '<div class="text-slate-500">沒有符合的檔案</div>';
+  $('files-tree').innerHTML = (FILETREE.children || []).map(c => node(c, 0)).join('') || '<div class="m3">沒有符合的檔案</div>';
   // 點檔名＝選取這個行程檔（顯示在明細卡上，轉換連結會用它）
   $('files-tree').querySelectorAll('.file-pick').forEach(btn => btn.onclick = () => {
     CHOSENFILE = { id: btn.dataset.id, n: btn.dataset.n };
@@ -626,9 +688,9 @@ function fillConvert() {
   const rows = selRows();
   $('cv-code').innerHTML = rows.length === 1
     ? esc(rows[0].c)
-    : `${rows.length} 團<div class="text-[.65rem] text-slate-500 font-sans font-normal mt-1 max-w-[220px] text-right">${rows.map(r => esc(fmtDt(r.dt))).join('、')}</div>`;
+    : `${rows.length} 團<div class="text-[.65rem] m3 font-sans font-normal mt-1 max-w-[220px] text-right">${rows.map(r => esc(fmtDt(r.dt))).join('、')}</div>`;
   $('cv-file-row').innerHTML = CHOSENFILE
-    ? `<div class="flex items-center gap-2 bg-[#0e1a2e] border border-[#263148] rounded-xl px-3 py-2"><i class="fa-regular fa-file-pdf text-red-400"></i><span class="flex-1 truncate">${esc(CHOSENFILE.n)}</span></div>`
+    ? `<div class="flex items-center gap-2 surface2 border bd rounded-xl px-3 py-2"><i class="fa-regular fa-file-pdf text-red-400"></i><span class="flex-1 truncate">${esc(CHOSENFILE.n)}</span></div>`
     : `<button id="cv-pick" class="w-full bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded-xl transition"><i class="fa-regular fa-folder-open mr-1"></i>從公司雲選取</button>`;
   const pick = $('cv-pick');
   if (pick) pick.onclick = () => $('files-btn').onclick();
