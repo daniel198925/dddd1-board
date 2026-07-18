@@ -82,12 +82,13 @@
 
 <!-- ══ 明細卡（選取資料）══ -->
 <div id="detail-card" class="hidden fixed right-4 bottom-4 w-[390px] max-w-[calc(100vw-2rem)] bg-[#131a28] border border-[#263148] rounded-2xl shadow-2xl z-50 overflow-hidden">
-  <div class="flex items-center justify-between px-4 py-3 border-b border-[#1a2336]">
+  <div class="flex items-center justify-between px-4 py-3 border-b border-[#1a2336] relative">
     <span class="font-bold text-sm">選取資料</span>
-    <label class="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer select-none">
-      <input id="f-remain" type="checkbox" class="accent-blue-500" checked>顯示剩餘名額
-    </label>
-    <button id="detail-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+    <div class="flex items-center gap-2">
+      <button id="dcol-btn" class="text-xs text-slate-400 hover:text-white border border-[#263148] rounded-lg px-2.5 py-1.5 transition"><i class="fa-solid fa-gear mr-1"></i>顯示欄位</button>
+      <button id="detail-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="dcol-menu" class="hidden absolute right-3 top-12 bg-[#131a28] border border-[#263148] rounded-xl p-3 shadow-2xl z-[70] w-40"></div>
   </div>
   <div id="detail-body" class="p-4 text-sm max-h-[50vh] overflow-y-auto"></div>
   <div class="grid grid-cols-2 gap-2 p-3 border-t border-[#1a2336]">
@@ -294,37 +295,71 @@ function selectLine(i) {
   showDetail(l.row);
 }
 
+// ── 明細卡欄位設定（照舊系統：預設只顯示團費/航空/出發日/天數，其他用「顯示欄位」勾）──
+const DFIELDS = [
+  { k: 'an',  name: '航空公司', def: 1 },
+  { k: 'dt',  name: '出發日',   def: 1 },
+  { k: 'dy',  name: '天數',     def: 1 },
+  { k: 'p',   name: '產品',     def: 0 },
+  { k: 'cap', name: '機位',     def: 0 },
+  { k: 's',   name: '報名',     def: 0 },
+  { k: 'r',   name: '剩餘名額', def: 0 },
+  { k: 'ld',  name: '領隊',     def: 0 },
+  { k: 'dl',  name: 'ＤＬ',     def: 0 },
+  { k: 'tp',  name: '票款',     def: 0 },
+  { k: 'ti',  name: '開票',     def: 0 },
+  { k: 'tk',  name: '票+稅',    def: 0 },
+  { k: 'bs',  name: '報名明細', def: 0 },
+];
+let dshow = JSON.parse(localStorage.getItem('d1dt_dfields') || 'null')
+  || Object.fromEntries(DFIELDS.map(f => [f.k, !!f.def]));
+
+function buildDMenu() {
+  $('dcol-menu').innerHTML = DFIELDS.map(f =>
+    `<label class="flex items-center gap-2 py-1 text-sm cursor-pointer select-none">
+      <input type="checkbox" class="accent-blue-500" data-k="${f.k}" ${dshow[f.k] ? 'checked' : ''}>${f.name}
+    </label>`).join('');
+  $('dcol-menu').querySelectorAll('input').forEach(cb => cb.onchange = () => {
+    dshow[cb.dataset.k] = cb.checked;
+    localStorage.setItem('d1dt_dfields', JSON.stringify(dshow));
+    if (SELECTED) showDetail(SELECTED);
+  });
+}
+$('dcol-btn').onclick = e => { e.stopPropagation(); buildDMenu(); $('dcol-menu').classList.toggle('hidden'); };
+document.addEventListener('click', e => { if (!$('dcol-menu').contains(e.target) && e.target !== $('dcol-btn')) $('dcol-menu').classList.add('hidden'); });
+
 function showDetail(r) {
   const line = (k, v) => `<div class="flex justify-between py-1.5 border-b border-[#1a2336]"><span class="text-slate-500">${k}</span><span class="font-bold text-right">${v}</span></div>`;
-  const bs = (r.bs || []).map(([n, x, paid]) => `<span class="chip ${paid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-slate-800 text-slate-400'}" title="${paid ? '已收訂' : '卡位未收款'}">${esc(n)}${x}</span>`).join(' ');
-  const showRemain = $('f-remain').checked;
-  $('detail-body').innerHTML =
-    `<div class="font-mono text-blue-300 font-bold text-base mb-2">${esc(r.c)}</div>` +
-    line('團費', `<span class="text-amber-300 text-lg">${fmt$(r.pr)}</span>`) +
-    line('航空公司', esc(r.an)) +
-    line('出發日', `${fmtDt(r.dt)}`) +
-    line('天數', `${r.dy}天`) +
-    line('產品', `${esc(r.p)}${r.gw !== '直飛' ? '｜' + esc(r.gw) : ''}${r.dp !== '台北' ? '｜' + esc(r.dp) + '出發' : ''}`) +
-    line('機位', `${r.cap ?? '--'}${r.ok ? '' : ' ⚠'}`) +
-    line('報名', `${r.s} 人${r.w ? '（候補 ' + r.w + '）' : ''}`) +
-    (showRemain ? line('剩餘名額', `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'text-amber-300' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r + ' 位'}</span>`) : '') +
-    line('領隊', r.ld ? esc(r.ld) : '未派') +
-    (r.dl ? line('ＤＬ', esc(r.dl)) : '') +
-    (r.tp ? line('票款', esc(r.tp)) : '') +
-    (r.ti ? line('開票', esc(r.ti)) : '') +
-    (r.tf != null ? line('票+稅', `${fmt$(r.tf)} + ${fmt$(r.tx)}`) : '') +
-    (r.pm ? `<div class="mt-2"><span class="chip bg-pink-900/60 text-pink-300">促銷中</span></div>` : '') +
-    (bs ? `<div class="pt-2"><span class="text-slate-500 text-xs">報名明細</span><div class="mt-1.5 flex flex-wrap gap-1.5">${bs}</div></div>` : '') +
-    `<p class="text-[.65rem] text-slate-600 mt-3">資料時間 ${esc(META?.stamp || '')}，下訂前請回漢書確認</p>`;
+  const parts = [
+    `<div class="font-mono text-blue-300 font-bold text-base mb-2">${esc(r.c)}${r.pm ? ' <span class="chip bg-pink-900/60 text-pink-300">促銷</span>' : ''}</div>`,
+    line('團費', `<span class="text-amber-300 text-lg">${fmt$(r.pr)}</span>`),
+  ];
+  if (dshow.an) parts.push(line('航空公司', esc(r.an)));
+  if (dshow.dt) parts.push(line('出發日', fmtDt(r.dt)));
+  if (dshow.dy) parts.push(line('天數', `${r.dy}天`));
+  if (dshow.p)  parts.push(line('產品', `${esc(r.p)}${r.gw !== '直飛' ? '｜' + esc(r.gw) : ''}${r.dp !== '台北' ? '｜' + esc(r.dp) + '出發' : ''}`));
+  if (dshow.cap) parts.push(line('機位', `${r.cap ?? '--'}${r.ok ? '' : ' ⚠'}`));
+  if (dshow.s)  parts.push(line('報名', `${r.s} 人${r.w ? '（候補 ' + r.w + '）' : ''}`));
+  if (dshow.r)  parts.push(line('剩餘名額', `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'text-amber-300' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r + ' 位'}</span>`));
+  if (dshow.ld) parts.push(line('領隊', r.ld ? esc(r.ld) : '未派'));
+  if (dshow.dl && r.dl) parts.push(line('ＤＬ', esc(r.dl)));
+  if (dshow.tp && r.tp) parts.push(line('票款', esc(r.tp)));
+  if (dshow.ti && r.ti) parts.push(line('開票', esc(r.ti)));
+  if (dshow.tk && r.tf != null) parts.push(line('票+稅', `${fmt$(r.tf)} + ${fmt$(r.tx)}`));
+  if (dshow.bs) {
+    const bs = (r.bs || []).map(([n, x, paid]) => `<span class="chip ${paid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-slate-800 text-slate-400'}" title="${paid ? '已收訂' : '卡位未收款'}">${esc(n)}${x}</span>`).join(' ');
+    if (bs) parts.push(`<div class="pt-2"><span class="text-slate-500 text-xs">報名明細</span><div class="mt-1.5 flex flex-wrap gap-1.5">${bs}</div></div>`);
+  }
+  parts.push(`<p class="text-[.65rem] text-slate-600 mt-3">資料時間 ${esc(META?.stamp || '')}，下訂前請回漢書確認</p>`);
+  $('detail-body').innerHTML = parts.join('');
   $('detail-card').classList.remove('hidden');
 }
-$('detail-close').onclick = () => { $('detail-card').classList.add('hidden'); SELECTED = null; SELLINE = -1; render(); };
-$('f-remain').onchange = () => { if (SELECTED) showDetail(SELECTED); };
+$('detail-close').onclick = () => { $('detail-card').classList.add('hidden'); SELECTED = null; SELLINE = -1; $('dcol-menu').classList.add('hidden'); render(); };
 
 $('copy-btn').onclick = () => {
   const r = SELECTED; if (!r) return;
   const txt = `【${r.ln}】${r.p} ${r.dy}天｜${r.c}｜${fmtDt(r.dt)} 出發｜${r.an}｜團費 ${fmt$(r.pr)}` +
-    ($('f-remain').checked ? `｜餘 ${r.r} 位` : '') + (r.pm ? '｜促銷中' : '') +
+    (dshow.r ? `｜餘 ${r.r} 位` : '') + (r.pm ? '｜促銷中' : '') +
     `（資料時間 ${META?.stamp || ''}）`;
   navigator.clipboard.writeText(txt).then(() => toast('已複製摘要'));
 };
