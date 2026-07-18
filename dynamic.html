@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D1 動態查詢</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background:#0b1220; color:#e2e8f0; }
+  .mono { font-family: 'Consolas', 'Courier New', monospace; letter-spacing: .02em; }
+  .input-style { background:#111a2e; border:1px solid #24324d; border-radius:.75rem; padding:.55rem .8rem; color:#e2e8f0; font-size:.9rem; }
+  .input-style:focus { border-color:#3b82f6; outline:none; }
+  ::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-thumb { background:#24324d; border-radius:4px; }
+  .row-hover:hover { background:#14203a !important; cursor:pointer; }
+  .row-sel { background:#1a2c50 !important; box-shadow: inset 3px 0 0 #3b82f6; }
+  .chip { font-size:.7rem; padding:.1rem .45rem; border-radius:.5rem; font-weight:700; white-space:nowrap; }
+  th.sortable { cursor:pointer; user-select:none; } th.sortable:hover { color:#93c5fd; }
+  #toast { position:fixed; left:50%; bottom:2rem; transform:translateX(-50%) translateY(20px); opacity:0; transition:.25s; z-index:90; pointer-events:none; }
+  #toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- ══ 登入頁 ══ -->
+<div id="login-page" class="hidden min-h-screen items-center justify-center p-6">
+  <div class="w-full max-w-sm bg-[#111a2e] border border-[#24324d] rounded-3xl p-8 shadow-2xl">
+    <div class="text-center mb-8">
+      <div class="text-4xl mb-3"><i class="fa-solid fa-bolt text-blue-500"></i></div>
+      <h1 class="text-2xl font-black tracking-wide">D1 動態查詢</h1>
+      <p class="text-xs text-slate-400 mt-2">帳號密碼與 D1 公佈欄相同</p>
+    </div>
+    <div class="space-y-4">
+      <input id="login-acc" class="w-full input-style" placeholder="員編" autocomplete="username">
+      <input id="login-pwd" type="password" class="w-full input-style" placeholder="密碼" autocomplete="current-password">
+      <button id="login-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-2xl transition active:scale-95">登入</button>
+      <p id="login-msg" class="text-xs text-red-400 font-bold min-h-[1rem] whitespace-pre-wrap"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 主畫面 ══ -->
+<div id="main-page" class="hidden">
+  <!-- 頂欄 -->
+  <header class="sticky top-0 z-40 bg-[#0b1220]/95 backdrop-blur border-b border-[#1c2a44] px-4 py-3">
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="text-lg font-black whitespace-nowrap"><i class="fa-solid fa-bolt text-blue-500 mr-1"></i>D1 動態查詢</h1>
+      <span id="stamp-badge" class="chip bg-[#14243f] text-slate-300"><i class="fa-regular fa-clock mr-1"></i>載入中…</span>
+      <div class="flex-1"></div>
+      <span id="user-name" class="text-sm text-slate-300"></span>
+      <a href="./" class="text-xs text-slate-400 hover:text-blue-400 border border-[#24324d] rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-house mr-1"></i>回公佈欄</a>
+      <button id="logout-btn" class="text-xs text-slate-400 hover:text-red-400 border border-[#24324d] rounded-lg px-3 py-1.5 transition">登出</button>
+    </div>
+    <!-- 篩選列 -->
+    <div class="flex flex-wrap items-center gap-2 mt-3">
+      <select id="f-line" class="input-style font-bold"></select>
+      <select id="f-product" class="input-style"><option value="">全部產品</option></select>
+      <div class="flex items-center gap-1">
+        <input id="f-from" type="date" class="input-style">
+        <span class="text-slate-500">→</span>
+        <input id="f-to" type="date" class="input-style">
+      </div>
+      <input id="f-search" class="input-style w-44" placeholder="🔍 團號 / 領隊 / 航空">
+      <label class="flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer select-none px-2">
+        <input id="f-remain" type="checkbox" class="accent-blue-500" checked>顯示剩餘
+      </label>
+      <label class="flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer select-none px-2">
+        <input id="f-promo" type="checkbox" class="accent-blue-500">只看促銷
+      </label>
+      <label class="flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer select-none px-2">
+        <input id="f-avail" type="checkbox" class="accent-blue-500">只看有位
+      </label>
+      <div class="relative">
+        <button id="col-btn" class="input-style text-sm"><i class="fa-solid fa-gear mr-1"></i>顯示欄位</button>
+        <div id="col-menu" class="hidden absolute right-0 mt-2 bg-[#111a2e] border border-[#24324d] rounded-xl p-3 shadow-2xl z-50 w-44"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 表格 -->
+  <main class="p-4">
+    <p id="count-line" class="text-xs text-slate-500 mb-2"></p>
+    <div class="overflow-x-auto rounded-2xl border border-[#1c2a44]">
+      <table class="w-full text-sm whitespace-nowrap">
+        <thead id="thead" class="bg-[#101b31] text-slate-400 text-xs sticky top-0"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p id="empty-msg" class="hidden text-center text-slate-500 py-16">沒有符合條件的團</p>
+  </main>
+</div>
+
+<!-- ══ 明細卡 ══ -->
+<div id="detail-card" class="hidden fixed right-4 bottom-4 w-[380px] max-w-[calc(100vw-2rem)] bg-[#111a2e] border border-[#24324d] rounded-2xl shadow-2xl z-50 overflow-hidden">
+  <div class="flex items-center justify-between px-4 py-3 border-b border-[#1c2a44]">
+    <span class="font-bold text-sm">選取資料</span>
+    <button id="detail-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div id="detail-body" class="p-4 text-sm max-h-[60vh] overflow-y-auto"></div>
+  <div class="flex gap-2 p-3 border-t border-[#1c2a44]">
+    <button id="copy-btn" class="flex-1 bg-[#1a2c50] hover:bg-[#22376a] text-slate-200 font-bold py-2.5 rounded-xl text-sm transition"><i class="fa-regular fa-copy mr-1"></i>複製摘要</button>
+    <button class="flex-1 bg-emerald-900/40 text-emerald-600 font-bold py-2.5 rounded-xl text-sm cursor-not-allowed" title="下一階段接上合約系統"><i class="fa-solid fa-file-signature mr-1"></i>建立合約</button>
+  </div>
+</div>
+
+<div id="toast" class="bg-blue-600 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-xl"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCeUModpZrGLQifjDXhIOfIAYdK538wgik",
+  authDomain: "ddd1-v3.firebaseapp.com",
+  projectId: "ddd1-v3",
+  storageBucket: "ddd1-v3.appspot.com",
+  messagingSenderId: "932033353369",
+  appId: "1:932033353369:web:4a9d11493257fa6e924a08",
+};
+const LEGACY_DOMAIN = "@d-group.app";
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ── 全域狀態 ──
+let META = null;              // dt_tours/_meta
+let CACHE = {};               // 檔號 → rows（已 JSON.parse）
+let ROWS = [];                // 目前線別的原始 rows
+let VIEW = [];                // 篩選後
+let SELECTED = null;
+let sortKey = 'dt', sortAsc = true;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt$ = n => n == null ? '--' : n.toLocaleString();
+const WD = ['日','一','二','三','四','五','六'];
+const fmtDt = iso => {                     // 2026-08-19 → 08/19(三)
+  if (!iso) return '--';
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}(${WD[new Date(y, m-1, d).getDay()]})`;
+};
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+function showPage(id) { ['login-page','main-page'].forEach(p => { $(p).classList.toggle('hidden', p !== id); $(p).classList.toggle('flex', p === id && id === 'login-page'); }); }
+
+// ── 欄位定義（順序即表格順序）──
+const COLS = [
+  { k:'c',   name:'團號',   always:1 },
+  { k:'dt',  name:'出發日', always:1, sort:1 },
+  { k:'dy',  name:'天數' },
+  { k:'an',  name:'航空' },
+  { k:'p',   name:'產品' },
+  { k:'pr',  name:'團費', sort:1 },
+  { k:'cap', name:'機位' },
+  { k:'s',   name:'報名', sort:1 },
+  { k:'r',   name:'餘位', remainCtl:1, sort:1 },
+  { k:'st',  name:'狀態' },
+  { k:'ld',  name:'領隊' },
+  { k:'dl',  name:'ＤＬ', def0:1 },
+  { k:'tp',  name:'票款', def0:1 },
+  { k:'ti',  name:'開票', def0:1 },
+  { k:'tk',  name:'票+稅', def0:1 },
+];
+let colShow = JSON.parse(localStorage.getItem('d1dt_cols') || 'null')
+  || Object.fromEntries(COLS.map(c => [c.k, c.def0 ? false : true]));
+
+// ── 登入 ──
+$('login-btn').onclick = doLogin;
+$('login-pwd').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+function doLogin() {
+  let e = $('login-acc').value.trim(), p = $('login-pwd').value;
+  if (!e || !p) return $('login-msg').innerText = '請輸入員編和密碼';
+  if (!e.includes('@')) e += LEGACY_DOMAIN;
+  $('login-msg').innerText = '';
+  signInWithEmailAndPassword(auth, e, p).catch(err => {
+    $('login-msg').innerText = /invalid-credential|wrong-password|user-not-found/.test(err.code)
+      ? '員編或密碼錯誤' : '登入失敗：' + err.code;
+  });
+}
+$('logout-btn').onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async user => {
+  if (!user) return showPage('login-page');
+  try {
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (!snap.exists()) { $('login-msg').innerText = '權限錯誤：找不到使用者紀錄'; return signOut(auth); }
+    $('user-name').textContent = snap.data().nickname || snap.data().account || '';
+    showPage('main-page');
+    await boot();
+  } catch (err) {
+    $('login-msg').innerText = '讀取失敗：' + err.message; signOut(auth);
+  }
+});
+
+// ── 啟動：讀 _meta、建線別選單、載入預設線 ──
+async function boot() {
+  const m = await getDoc(doc(db, 'dt_tours', '_meta'));
+  if (!m.exists()) { $('stamp-badge').innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i>還沒有資料'; return; }
+  META = m.data();
+
+  // 資料時間標示（超過 2.5 小時沒更新就變紅提醒）
+  const ageMin = (Date.now() - new Date(META.stamp.replace(' ', 'T'))) / 60000;
+  const stale = ageMin > 150;
+  $('stamp-badge').className = 'chip ' + (stale ? 'bg-red-900/60 text-red-300' : 'bg-[#14243f] text-slate-300');
+  $('stamp-badge').innerHTML = `<i class="fa-regular fa-clock mr-1"></i>資料時間 ${esc(META.stamp.slice(5))}（每小時更新${stale ? '｜⚠ 已超過 ' + Math.round(ageMin/60) + ' 小時' : ''}）`;
+
+  // 線別選單（照漢書檔號排序）
+  const files = [...META.files].sort((a, b) => a.f.localeCompare(b.f));
+  $('f-line').innerHTML = files.map(f => `<option value="${esc(f.f)}">${esc(f.line)}（${f.n}團）</option>`).join('');
+  const saved = localStorage.getItem('d1dt_line');
+  if (saved && files.some(f => f.f === saved)) $('f-line').value = saved;
+
+  // 日期預設：今天 → +12 個月
+  const t = new Date(), p2 = n => String(n).padStart(2, '0');
+  $('f-from').value = `${t.getFullYear()}-${p2(t.getMonth()+1)}-${p2(t.getDate())}`;
+  const e = new Date(t); e.setMonth(e.getMonth() + 12);
+  $('f-to').value = `${e.getFullYear()}-${p2(e.getMonth()+1)}-${p2(e.getDate())}`;
+
+  buildColMenu();
+  await loadLine();
+}
+
+// ── 載入一條線的資料（有快取就不重讀）──
+async function loadLine() {
+  const fno = $('f-line').value;
+  localStorage.setItem('d1dt_line', fno);
+  if (!CACHE[fno]) {
+    $('tbody').innerHTML = `<tr><td colspan="99" class="text-center text-slate-500 py-10"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</td></tr>`;
+    const snap = await getDoc(doc(db, 'dt_tours', fno));
+    CACHE[fno] = snap.exists() ? JSON.parse(snap.data().rows) : [];
+  }
+  ROWS = CACHE[fno];
+  // 產品選單
+  const prods = [...new Set(ROWS.map(r => r.p))].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  $('f-product').innerHTML = '<option value="">全部產品</option>' + prods.map(p => `<option>${esc(p)}</option>`).join('');
+  render();
+}
+
+// ── 篩選 + 排序 + 畫表 ──
+function render() {
+  const prod = $('f-product').value, q = $('f-search').value.trim().toUpperCase();
+  const from = $('f-from').value, to = $('f-to').value;
+  VIEW = ROWS.filter(r =>
+    (!prod || r.p === prod) &&
+    (!from || r.dt >= from) && (!to || r.dt <= to) &&
+    (!$('f-promo').checked || r.pm) &&
+    (!$('f-avail').checked || r.r > 0) &&
+    (!q || r.c.includes(q) || (r.ld || '').toUpperCase().includes(q) || (r.an || '').toUpperCase().includes(q) || r.p.toUpperCase().includes(q))
+  );
+  VIEW.sort((a, b) => {
+    const va = a[sortKey] ?? '', vb = b[sortKey] ?? '';
+    return (va < vb ? -1 : va > vb ? 1 : 0) * (sortAsc ? 1 : -1);
+  });
+
+  const showRemain = $('f-remain').checked;
+  const cols = COLS.filter(c => colShow[c.k]);
+
+  $('thead').innerHTML = '<tr>' + cols.map(c =>
+    `<th class="px-3 py-2.5 text-left font-bold ${c.sort ? 'sortable' : ''}" data-k="${c.k}">${c.name}${sortKey === c.k ? (sortAsc ? ' ▲' : ' ▼') : ''}</th>`
+  ).join('') + '</tr>';
+  $('thead').querySelectorAll('.sortable').forEach(th => th.onclick = () => {
+    const k = th.dataset.k;
+    if (sortKey === k) sortAsc = !sortAsc; else { sortKey = k; sortAsc = true; }
+    render();
+  });
+
+  $('count-line').textContent = `共 ${VIEW.length} 團（${$('f-line').selectedOptions[0]?.textContent || ''}）`;
+  $('empty-msg').classList.toggle('hidden', VIEW.length > 0);
+
+  $('tbody').innerHTML = VIEW.map((r, i) => {
+    const cells = cols.map(c => {
+      let v;
+      switch (c.k) {
+        case 'c':  v = `<span class="mono text-blue-300">${esc(r.c)}</span>`; break;
+        case 'dt': v = fmtDt(r.dt); break;
+        case 'dy': v = r.dy ? r.dy + '天' : '--'; break;
+        case 'an': v = esc(r.an); break;
+        case 'p':  v = esc(r.p) + (r.gw !== '直飛' ? ` <span class="chip bg-[#1a2540] text-slate-400">${esc(r.gw)}</span>` : '') + (r.dp !== '台北' ? ` <span class="chip bg-[#1a2540] text-slate-400">${esc(r.dp)}出發</span>` : ''); break;
+        case 'pr': v = `<span class="font-bold text-amber-300">${fmt$(r.pr)}</span>`; break;
+        case 'cap': v = r.cap ?? '--'; break;
+        case 's':  v = r.s + (r.w ? `<span class="text-slate-500 text-xs">+候${r.w}</span>` : ''); break;
+        case 'r':
+          if (!showRemain) { v = '<span class="text-slate-600">--</span>'; break; }
+          v = r.r === 0 ? '<span class="chip bg-red-900/60 text-red-300">滿</span>'
+            : r.r <= 5 ? `<span class="chip bg-amber-900/60 text-amber-300">餘 ${r.r}</span>`
+            : `<span class="text-emerald-400 font-bold">${r.r}</span>`;
+          break;
+        case 'st': v = (r.pm ? '<span class="chip bg-pink-900/60 text-pink-300">促銷</span> ' : '') + (r.ch ? '<span class="chip bg-purple-900/60 text-purple-300">包團</span> ' : '') + (!r.ok ? '<span class="chip bg-slate-800 text-slate-500" title="機位驗證未通過，數字僅供參考">⚠</span>' : ''); break;
+        case 'ld': v = r.ld ? esc(r.ld) : '<span class="text-slate-600">--</span>'; break;
+        case 'dl': v = r.dl ? `<span class="mono">${esc(r.dl)}</span>` : '<span class="text-slate-600">--</span>'; break;
+        case 'tp': v = r.tp ? `<span class="mono">${esc(r.tp)}</span>` : '<span class="text-slate-600">--</span>'; break;
+        case 'ti': v = r.ti ? `<span class="mono">${esc(r.ti)}</span>` : '<span class="text-slate-600">--</span>'; break;
+        case 'tk': v = r.tf != null ? `<span class="mono">${r.tf/100}+${r.tx/100}</span>` : '<span class="text-slate-600">--</span>'; break;
+        default: v = esc(r[c.k]);
+      }
+      return `<td class="px-3 py-2">${v}</td>`;
+    }).join('');
+    return `<tr class="row-hover border-t border-[#16233c] ${SELECTED === r ? 'row-sel' : ''}" data-i="${i}">${cells}</tr>`;
+  }).join('');
+
+  $('tbody').querySelectorAll('tr').forEach(tr => tr.onclick = () => selectRow(VIEW[+tr.dataset.i]));
+}
+
+// ── 明細卡 ──
+function selectRow(r) {
+  SELECTED = r;
+  render();
+  const line = (k, v) => `<div class="flex justify-between py-1.5 border-b border-[#16233c]"><span class="text-slate-500">${k}</span><span class="font-bold text-right">${v}</span></div>`;
+  const bs = (r.bs || []).map(([n, x, paid]) => `<span class="chip ${paid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-slate-800 text-slate-400'}" title="${paid ? '已收訂' : '卡位未收款'}">${esc(n)}${x}</span>`).join(' ');
+  $('detail-body').innerHTML =
+    `<div class="mono text-blue-300 font-bold text-base mb-2">${esc(r.c)}</div>` +
+    line('產品', `${esc(r.p)}｜${esc(r.ln)}`) +
+    line('團費', `<span class="text-amber-300 text-lg">${fmt$(r.pr)}</span>`) +
+    line('航空公司', esc(r.an)) +
+    line('出發日', `${fmtDt(r.dt)}・${r.dy}天`) +
+    line('進出／出發地', `${esc(r.gw)}／${esc(r.dp)}出發`) +
+    line('機位', `${r.cap ?? '--'}${r.ok ? '' : ' ⚠'}`) +
+    line('報名', `${r.s} 人${r.w ? '（候補 ' + r.w + '）' : ''}`) +
+    line('剩餘', $('f-remain').checked ? `${r.r} 位` : '--') +
+    line('領隊', r.ld ? esc(r.ld) : '未派') +
+    (r.dl ? line('ＤＬ', r.dl) : '') +
+    (r.tp ? line('票款', r.tp) : '') +
+    (r.ti ? line('開票', r.ti) : '') +
+    (r.tf != null ? line('票+稅', `${fmt$(r.tf)} + ${fmt$(r.tx)}`) : '') +
+    (bs ? `<div class="pt-2"><span class="text-slate-500 text-xs">報名明細</span><div class="mt-1.5 flex flex-wrap gap-1.5">${bs}</div></div>` : '') +
+    `<p class="text-[.65rem] text-slate-600 mt-3">資料時間 ${esc(META?.stamp || '')}，下訂前請回漢書確認</p>`;
+  $('detail-card').classList.remove('hidden');
+}
+$('detail-close').onclick = () => { $('detail-card').classList.add('hidden'); SELECTED = null; render(); };
+
+$('copy-btn').onclick = () => {
+  const r = SELECTED; if (!r) return;
+  const txt = `【${r.ln}】${r.p} ${r.dy}天｜${r.c}｜${fmtDt(r.dt)} 出發｜${r.an}｜團費 ${fmt$(r.pr)}` +
+    ($('f-remain').checked ? `｜餘 ${r.r} 位` : '') + (r.pm ? '｜促銷中' : '') +
+    `（資料時間 ${META?.stamp || ''}）`;
+  navigator.clipboard.writeText(txt).then(() => toast('已複製摘要'));
+};
+
+// ── 欄位顯示設定 ──
+function buildColMenu() {
+  $('col-menu').innerHTML = COLS.map(c =>
+    `<label class="flex items-center gap-2 py-1 text-sm cursor-pointer ${c.always ? 'opacity-40 pointer-events-none' : ''}">
+      <input type="checkbox" class="accent-blue-500" data-k="${c.k}" ${colShow[c.k] ? 'checked' : ''} ${c.always ? 'disabled' : ''}>${c.name}
+    </label>`).join('');
+  $('col-menu').querySelectorAll('input').forEach(cb => cb.onchange = () => {
+    colShow[cb.dataset.k] = cb.checked;
+    localStorage.setItem('d1dt_cols', JSON.stringify(colShow));
+    render();
+  });
+}
+$('col-btn').onclick = e => { e.stopPropagation(); $('col-menu').classList.toggle('hidden'); };
+document.addEventListener('click', e => { if (!$('col-menu').contains(e.target) && e.target !== $('col-btn')) $('col-menu').classList.add('hidden'); });
+
+// ── 篩選事件 ──
+$('f-line').onchange = () => { SELECTED = null; $('detail-card').classList.add('hidden'); loadLine(); };
+['f-product','f-from','f-to','f-promo','f-avail','f-remain'].forEach(id => $(id).onchange = render);
+$('f-search').oninput = render;
+</script>
+</body>
+</html>
