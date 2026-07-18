@@ -84,7 +84,7 @@
 <!-- ══ 明細卡（選取資料）══ -->
 <div id="detail-card" class="hidden fixed right-4 bottom-4 w-[390px] max-w-[calc(100vw-2rem)] bg-[#131a28] border border-[#263148] rounded-2xl shadow-2xl z-50 overflow-hidden">
   <div class="flex items-center justify-between px-4 py-3 border-b border-[#1a2336] relative">
-    <span class="font-bold text-sm">選取資料</span>
+    <span class="font-bold text-sm">選取資料<span id="detail-count" class="text-slate-500 font-normal"></span></span>
     <div class="flex items-center gap-2">
       <button id="dcol-btn" class="text-xs text-slate-400 hover:text-white border border-[#263148] rounded-lg px-2.5 py-1.5 transition"><i class="fa-solid fa-gear mr-1"></i>顯示欄位</button>
       <button id="detail-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
@@ -196,12 +196,13 @@ let META = null;
 let RAWCACHE = {};            // 檔號 → { name, lines:[...] }
 let ROWCACHE = {};            // 檔號 → rows
 let LINES = [];               // 目前檔案的行（含 row 對應）
-let SELECTED = null;          // 選到的 row
-let SELLINE = -1;             // 選到的行 index
+let SELLINES = [];            // 選取的行 index（可多筆，照舊系統：Shift 框選、Ctrl 加選）
+let ANCHOR = -1;              // Shift 框選的起點
 let FILETREE = null;          // 行程檔案樹
 let UID = null;               // 登入者 uid
 let AGENT = {};               // 業務設定（dt_agent/{uid}）
 let CHOSENFILE = null;        // 選取的行程檔案 { id, n }
+let VISIBLE = [];             // 目前畫面上看得到的團行 index（Shift 框選用）
 const ITIN_BASE = 'https://discoveredtrip.com';   // 中轉頁
 
 const $ = id => document.getElementById(id);
@@ -306,7 +307,7 @@ async function loadFile() {
   $('f-region').innerHTML = '<option value="">全部地區</option>' + secs.map(l =>
     `<option value="${l.i}">${esc(l.text.replace(/[■▆▂▄*＊\s　"]/g, ''))}</option>`).join('');
 
-  SELECTED = null; SELLINE = -1;
+  SELLINES = []; ANCHOR = -1;
   $('detail-card').classList.add('hidden');
   render();
 }
@@ -336,7 +337,7 @@ function render() {
       // 只標團號裡的日期四碼（跟舊系統一樣），不是整串團號
       h = h.replace(/([A-Z]{2,3}\d[A-Z0-9]{2}|[=＝]{4,})(\d{4})(?=[A-Z]\d)/, (m, pre, dt) => `${pre}<span class="code">${dt}</span>`);
       h = h.replace(/(&quot;促銷&quot;)/g, '<span class="promo">$1</span>');
-      out.push(`<div class="hl hl-tour ${SELLINE === l.i ? 'sel' : ''}" data-i="${l.i}">${h}</div>`);
+      out.push(`<div class="hl hl-tour ${SELLINES.includes(l.i) ? 'sel' : ''}" data-i="${l.i}">${h}</div>`);
     } else if (l.isSec) {
       if (q) continue;
       out.push(`<div class="hl hl-sec">${esc(l.text)}</div>`);
@@ -346,17 +347,32 @@ function render() {
     }
   }
   $('raw-view').innerHTML = out.join('') || '<div class="text-slate-500 p-6">沒有符合條件的資料</div>';
-  $('raw-view').querySelectorAll('.hl-tour').forEach(el => el.onclick = () => selectLine(+el.dataset.i));
+  VISIBLE = [...$('raw-view').querySelectorAll('.hl-tour')].map(el => +el.dataset.i);
+  $('raw-view').querySelectorAll('.hl-tour').forEach(el => el.onclick = e => selectLine(+el.dataset.i, e));
 }
 
-// ── 選取一行（＝一團）──
-function selectLine(i) {
+// ── 選取（照舊系統）：點＝單選、Ctrl/⌘＋點＝加選、Shift＋點＝從上一個選到這裡整段框起來 ──
+function selectLine(i, e) {
   const l = LINES[i];
   if (!l || !l.row) return;
-  SELLINE = i; SELECTED = l.row;
+  if (e && e.shiftKey && ANCHOR >= 0) {
+    const a = VISIBLE.indexOf(ANCHOR), b = VISIBLE.indexOf(i);
+    if (a >= 0 && b >= 0) {
+      const [lo, hi] = a <= b ? [a, b] : [b, a];
+      SELLINES = VISIBLE.slice(lo, hi + 1);          // 只框「目前看得到」的行，不會把被篩掉的偷偷選進去
+    }
+  } else if (e && (e.ctrlKey || e.metaKey)) {
+    SELLINES = SELLINES.includes(i) ? SELLINES.filter(x => x !== i) : [...SELLINES, i];
+    ANCHOR = i;
+  } else {
+    SELLINES = [i];
+    ANCHOR = i;
+  }
+  document.getSelection()?.removeAllRanges();        // Shift 點擊會反白整片文字，清掉
   render();
-  showDetail(l.row);
+  showDetail();
 }
+const selRows = () => SELLINES.map(i => LINES[i]?.row).filter(Boolean);
 
 // ── 明細卡欄位設定（照舊系統：預設只顯示團費/航空/出發日/天數，其他用「顯示欄位」勾）──
 const DFIELDS = [
@@ -385,13 +401,14 @@ function buildDMenu() {
   $('dcol-menu').querySelectorAll('input').forEach(cb => cb.onchange = () => {
     dshow[cb.dataset.k] = cb.checked;
     localStorage.setItem('d1dt_dfields', JSON.stringify(dshow));
-    if (SELECTED) showDetail(SELECTED);
+    showDetail();
   });
 }
 $('dcol-btn').onclick = e => { e.stopPropagation(); buildDMenu(); $('dcol-menu').classList.toggle('hidden'); };
 document.addEventListener('click', e => { if (!$('dcol-menu').contains(e.target) && e.target !== $('dcol-btn')) $('dcol-menu').classList.add('hidden'); });
 
-function showDetail(r) {
+// 一團的明細區塊（多選時一團一塊，照舊系統）
+function tourBlock(r) {
   const line = (k, v) => `<div class="flex justify-between py-1.5 border-b border-[#1a2336]"><span class="text-slate-500">${k}</span><span class="font-bold text-right">${v}</span></div>`;
   const parts = [
     `<div class="font-mono text-blue-300 font-bold text-base mb-2">${esc(r.c)}${r.pm ? ' <span class="chip bg-pink-900/60 text-pink-300">促銷</span>' : ''}</div>`,
@@ -413,18 +430,27 @@ function showDetail(r) {
     const bs = (r.bs || []).map(([n, x, paid]) => `<span class="chip ${paid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-slate-800 text-slate-400'}" title="${paid ? '已收訂' : '卡位未收款'}">${esc(n)}${x}</span>`).join(' ');
     if (bs) parts.push(`<div class="pt-2"><span class="text-slate-500 text-xs">報名明細</span><div class="mt-1.5 flex flex-wrap gap-1.5">${bs}</div></div>`);
   }
-  parts.push(`<p class="text-[.65rem] text-slate-600 mt-3">資料時間 ${esc(META?.stamp || '')}，下訂前請回漢書確認</p>`);
-  $('detail-body').innerHTML = parts.join('');
+  return parts.join('');
+}
+
+function showDetail() {
+  const rows = selRows();
+  if (!rows.length) { $('detail-card').classList.add('hidden'); return; }
+  $('detail-count').textContent = `（共 ${rows.length} 筆）`;
+  $('detail-body').innerHTML =
+    rows.map(r => `<div class="mb-3 pb-1">${tourBlock(r)}</div>`).join('<div class="border-t-2 border-[#22304d] mb-3"></div>') +
+    `<p class="text-[.65rem] text-slate-600">資料時間 ${esc(META?.stamp || '')}，下訂前請回漢書確認</p>`;
   $('detail-card').classList.remove('hidden');
 }
-$('detail-close').onclick = () => { $('detail-card').classList.add('hidden'); SELECTED = null; SELLINE = -1; $('dcol-menu').classList.add('hidden'); render(); };
+$('detail-close').onclick = () => { $('detail-card').classList.add('hidden'); SELLINES = []; ANCHOR = -1; $('dcol-menu').classList.add('hidden'); render(); };
 
 $('copy-btn').onclick = () => {
-  const r = SELECTED; if (!r) return;
-  const txt = `【${r.ln}】${r.p} ${r.dy}天｜${r.c}｜${fmtDt(r.dt)} 出發｜${r.an}｜團費 ${fmt$(r.pr)}` +
-    (dshow.r ? `｜餘 ${r.r} 位` : '') + (r.pm ? '｜促銷中' : '') +
-    `（資料時間 ${META?.stamp || ''}）`;
-  navigator.clipboard.writeText(txt).then(() => toast('已複製摘要'));
+  const rows = selRows(); if (!rows.length) return;
+  const txt = rows.map(r =>
+    `【${r.ln}】${r.p} ${r.dy}天｜${r.c}｜${fmtDt(r.dt)} 出發｜${r.an}｜團費 ${fmt$(r.pr)}` +
+    (dshow.r ? `｜餘 ${r.r} 位` : '') + (r.pm ? '｜促銷中' : '')
+  ).join('\n') + `\n（資料時間 ${META?.stamp || ''}）`;
+  navigator.clipboard.writeText(txt).then(() => toast(`已複製 ${rows.length} 筆摘要`));
 };
 
 // ── 行程檔案樹（dt_files 由同步程式維護；還沒開通就顯示說明）──
@@ -515,7 +541,7 @@ $('agent-save').onclick = async () => {
 
 // ── 轉換連結 ──
 $('convert-btn').onclick = () => {
-  if (!SELECTED) return;
+  if (!selRows().length) return;
   if (!AGENT.name || !AGENT.email) {
     toast('請先完成業務設定（姓名＋授權信箱）');
     $('agent-btn').onclick();
@@ -527,7 +553,10 @@ $('convert-btn').onclick = () => {
   $('convert-modal').classList.remove('hidden');
 };
 function fillConvert() {
-  $('cv-code').textContent = SELECTED ? SELECTED.c : '';
+  const rows = selRows();
+  $('cv-code').innerHTML = rows.length === 1
+    ? esc(rows[0].c)
+    : `${rows.length} 團<div class="text-[.65rem] text-slate-500 font-sans font-normal mt-1 max-w-[220px] text-right">${rows.map(r => esc(fmtDt(r.dt))).join('、')}</div>`;
   $('cv-file-row').innerHTML = CHOSENFILE
     ? `<div class="flex items-center gap-2 bg-[#0e1a2e] border border-[#263148] rounded-xl px-3 py-2"><i class="fa-regular fa-file-pdf text-red-400"></i><span class="flex-1 truncate">${esc(CHOSENFILE.n)}</span></div>`
     : `<button id="cv-pick" class="w-full bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded-xl transition"><i class="fa-regular fa-folder-open mr-1"></i>從公司雲選取</button>`;
@@ -538,8 +567,8 @@ $('convert-close').onclick = () => $('convert-modal').classList.add('hidden');
 $('convert-modal').onclick = e => { if (e.target === $('convert-modal')) $('convert-modal').classList.add('hidden'); };
 
 $('cv-go').onclick = async () => {
-  const r = SELECTED;
-  if (!r) return;
+  const rows = selRows();
+  if (!rows.length) return;
   $('cv-msg').textContent = '';
   // 行程檔：優先用選取的，否則從貼上的雲端連結抓 id
   let fileId = CHOSENFILE?.id || null;
@@ -554,7 +583,8 @@ $('cv-go').onclick = async () => {
   if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
   if (AGENT.fb)    longUrl += `&fb=${encodeURIComponent(AGENT.fb)}`;
   if (AGENT.lg)    longUrl += `&lg=${encodeURIComponent(AGENT.lg)}`;
-  longUrl += `&codes=${encodeURIComponent(r.c)}`;
+  // 多選＝同一份行程的多個出發梯次，全部帶進 codes，客人頁面就會列出這幾團的班次
+  longUrl += `&codes=${encodeURIComponent(rows.map(r => r.c).join(','))}`;
   if (!$('cv-remain').checked) longUrl += `&remain=0`;
 
   $('cv-go').disabled = true;
