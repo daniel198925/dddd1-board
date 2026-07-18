@@ -66,7 +66,7 @@
   /* ── 手機（≤640px）：卡片變成底部抽屜、字級縮小、按鈕加大好點 ── */
   @media (max-width: 640px) {
     :root { --raw-size: 12px; }
-    #detail-card {
+    #detail-card:not(.hidden) {
       left:0 !important; right:0 !important; bottom:0 !important; top:auto !important;
       width:100% !important; max-width:100% !important;
       border-radius:1rem 1rem 0 0; max-height:72vh; display:flex; flex-direction:column;
@@ -299,6 +299,8 @@ onAuthStateChanged(auth, async user => {
   try {
     const snap = await getDoc(doc(db, 'users', user.uid));
     if (!snap.exists()) { $('login-msg').innerText = '權限錯誤：找不到使用者紀錄'; return signOut(auth); }
+    // 外部紀錄員（recorder）不開放動態查詢——資料層規則也擋著，這裡是給人看的訊息
+    if (snap.data().role === 'recorder') { $('login-msg').innerText = '此帳號沒有動態查詢的使用權限'; return signOut(auth); }
     UID = user.uid;
     $('user-name').textContent = snap.data().nickname || snap.data().account || '';
     showPage('main-page');
@@ -564,7 +566,9 @@ function showCard() {
 (function makeDraggable() {
   let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
   _head.addEventListener('pointerdown', e => {
-    if (isMobile() || e.target.closest('button')) return;   // 手機不拖曳；點按鈕不算拖曳
+    // 手機不拖曳；點按鈕／欄位選單／勾選框都不算拖曳
+    // （選單掛在標題列裡，之前拖曳把勾選的點擊搶走，造成「顯示欄位」勾了沒反應）
+    if (isMobile() || e.target.closest('button') || e.target.closest('#dcol-menu') || e.target.closest('input,label')) return;
     const r = _card.getBoundingClientRect();
     dragging = true; sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
     _head.setPointerCapture(e.pointerId);

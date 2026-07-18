@@ -29,6 +29,12 @@ service cloud.firestore {
       );
     }
 
+    // 4.5 外部紀錄員（幫忙打會議紀錄的外單位人員）：
+    //     只能用會議紀錄／請假／業績報表，動態查詢的資料一律不給讀
+    function isRecorder() {
+      return isSignedIn() && getUserRole(request.auth.uid) == 'recorder';
+    }
+
     // 5. 檢查是否有權限管理內容 (助理、主管、管理員)
     function canManageContent() {
       return isSignedIn() && (
@@ -55,7 +61,7 @@ service cloud.firestore {
     // =============================================
     match /records/{recordId} {
       allow read: if isSignedIn();
-      allow create: if canManageContent();
+      allow create: if canManageContent() || isRecorder();   // 紀錄員可以發會議紀錄
 
       allow update: if isSignedIn() &&
                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']) ||
@@ -116,25 +122,25 @@ service cloud.firestore {
     // 寫入只有 sync.mjs 的 Admin SDK 能做，前端一律不可寫
     // =============================================
     match /dt_tours/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && !isRecorder();
       allow write: if false;
     }
 
     // dt_raw：漢書原文（原始排版顯示模式用），權限同 dt_tours
     match /dt_raw/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && !isRecorder();
       allow write: if false;
     }
 
     // dt_files：公司雲行程檔案樹（選取行程檔案用），權限同 dt_tours
     match /dt_files/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && !isRecorder();
       allow write: if false;
     }
 
     // dt_agent：動態查詢的業務個人設定（轉換連結用的名片資料），只能讀寫自己的
     match /dt_agent/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isSignedIn() && request.auth.uid == userId && !isRecorder();
     }
   }
 }

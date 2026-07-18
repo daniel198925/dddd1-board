@@ -25,7 +25,7 @@
         }
         const userPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         const currentTheme = localStorage.getItem('theme');
-        if (currentTheme === 'dark' || (!currentTheme && userPrefersDark)) {
+        if (currentTheme !== 'light') {
             document.documentElement.classList.add('dark');
             document.addEventListener("DOMContentLoaded", () => {
                 const icon = document.querySelector('#theme-toggle i');
@@ -38,7 +38,7 @@
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", "Microsoft JhengHei", sans-serif;
             -webkit-font-smoothing: antialiased;
-            background-color: #F5F5F7;
+            background-color: #eef2fa;
             color: #1D1D1F;
             font-size: 17px;
             transition: background-color 0.3s ease, color 0.3s ease;
@@ -118,17 +118,17 @@
         .hs-meter i { display: block; height: 100%; border-radius: 3px; }
         .hs-num { min-width: 46px; text-align: right; font-variant-numeric: tabular-nums; }
         .hs-tag { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: #F0F0F2; color: #6E6E73; margin-left: 5px; }
-        html.dark .hs-kpi { background: #1C1C1E; box-shadow: none; }
-        html.dark .hs-kpi .v { color: #F5F5F7; }
-        html.dark .hs-kpi .l { color: #98989D; }
-        html.dark .hs-kpi .n { color: #8E8E93; }
-        html.dark .hs-seg { background: #2C2C2E; }
-        html.dark .hs-seg button { color: #F5F5F7; }
-        html.dark .hs-seg button[aria-pressed="true"] { background: #636366; box-shadow: none; }
-        html.dark .hs-table th, html.dark .hs-table td { border-color: #2C2C2E; }
-        html.dark .hs-table thead th { background: #1C1C1E; color: #8E8E93; box-shadow: inset 0 -1px 0 #38383A; }
-        html.dark .hs-meter { background: #2C2C2E; }
-        html.dark .hs-tag { background: #2C2C2E; color: #98989D; }
+        html.dark .hs-kpi { background: #131a28; box-shadow: none; }
+        html.dark .hs-kpi .v { color: #eef2fa; }
+        html.dark .hs-kpi .l { color: #94a3b8; }
+        html.dark .hs-kpi .n { color: #8391a8; }
+        html.dark .hs-seg { background: #1c2840; }
+        html.dark .hs-seg button { color: #eef2fa; }
+        html.dark .hs-seg button[aria-pressed="true"] { background: #64748b; box-shadow: none; }
+        html.dark .hs-table th, html.dark .hs-table td { border-color: #1c2840; }
+        html.dark .hs-table thead th { background: #131a28; color: #8391a8; box-shadow: inset 0 -1px 0 #263148; }
+        html.dark .hs-meter { background: #1c2840; }
+        html.dark .hs-tag { background: #1c2840; color: #94a3b8; }
 
         /* ── 新增員工 Modal ── */
         #add-user-modal {
@@ -159,38 +159,38 @@
         /* =========================================
            🌙 深色模式
            ========================================= */
-        html.dark body { background-color: #000000; color: #E5E5E7; }
-        html.dark .glass-nav { background-color: rgba(28, 28, 30, 0.85); border-color: #2C2C2E; }
-        html.dark .nav-tabs-container { background-color: rgba(28, 28, 30, 0.9); border-color: #3A3A3C; }
-        html.dark .tab-btn { color: #98989D; }
+        html.dark body { background-color: #0b0f17; color: #E5E5E7; }
+        html.dark .glass-nav { background-color: rgba(11, 15, 23, 0.85); border-color: #1c2840; }
+        html.dark .nav-tabs-container { background-color: rgba(19, 26, 40, 0.9); border-color: #263148; }
+        html.dark .tab-btn { color: #94a3b8; }
         html.dark .tab-btn:hover { color: #FFFFFF; }
-        html.dark .tab-btn.active { background-color: #3A3A3C; color: #0A84FF; box-shadow: 0 2px 8px rgba(0,0,0,0.8); }
-        html.dark .apple-card { background-color: #1C1C1E; border-color: #2C2C2E; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        html.dark .input-style { background-color: #2C2C2E; border-color: #3A3A3C; color: #E5E5E7; }
+        html.dark .tab-btn.active { background-color: #263148; color: #0A84FF; box-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+        html.dark .apple-card { background-color: #131a28; border-color: #1c2840; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        html.dark .input-style { background-color: #1c2840; border-color: #263148; color: #E5E5E7; }
         html.dark .input-style:focus { border-color: #0A84FF; }
-        html.dark .sales-table th, html.dark .sales-table td { border-color: #2C2C2E; }
-        html.dark .sales-table thead th { background-color: #1C1C1E; box-shadow: inset 0 -1px 0 #2C2C2E; color: #8E8E93; }
-        html.dark .sales-table .sticky-col { background-color: #1C1C1E; border-color: #2C2C2E; }
-        html.dark .sales-table thead th.sticky-col { background-color: #1C1C1E; }
+        html.dark .sales-table th, html.dark .sales-table td { border-color: #1c2840; }
+        html.dark .sales-table thead th { background-color: #131a28; box-shadow: inset 0 -1px 0 #1c2840; color: #8391a8; }
+        html.dark .sales-table .sticky-col { background-color: #131a28; border-color: #1c2840; }
+        html.dark .sales-table thead th.sticky-col { background-color: #131a28; }
         html.dark .sales-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.05) !important; }
-        html.dark .team-subtotal-row { background-color: #2C2C2E !important; color: #A1A1AA; }
-        html.dark .team-subtotal-row .sticky-col { background-color: #2C2C2E !important; }
+        html.dark .team-subtotal-row { background-color: #1c2840 !important; color: #9fb0c9; }
+        html.dark .team-subtotal-row .sticky-col { background-color: #1c2840 !important; }
         html.dark .grand-total-row { background-color: #0A192F !important; border-top-color: #002855 !important; }
-        html.dark .grand-total-row td, html.dark .grand-total-row .sticky-col { background-color: #0A192F !important; color: #66B2FF !important; }
+        html.dark .grand-total-row td, html.dark .grand-total-row .sticky-col { background-color: #0A192F !important; color: #8ec2ff !important; }
         html.dark .low-performance { color: #FF453A !important; }
-        html.dark #add-user-modal .modal-card { background: #1C1C1E; color: #E5E5E7; }
-        html.dark .bg-white { background-color: #1C1C1E !important; }
-        html.dark .bg-gray-50, html.dark .bg-gray-100 { background-color: #2C2C2E !important; }
-        html.dark .bg-gray-50\/50, html.dark .bg-gray-50\/80 { background-color: rgba(44, 44, 46, 0.5) !important; }
-        html.dark .text-gray-900, html.dark .text-gray-800 { color: #F5F5F7 !important; }
-        html.dark .text-gray-700 { color: #D1D1D6 !important; }
-        html.dark .text-gray-600, html.dark .text-gray-500 { color: #8E8E93 !important; }
-        html.dark .text-gray-400 { color: #636366 !important; }
-        html.dark .border-gray-100, html.dark .border-gray-200 { border-color: #2C2C2E !important; }
-        html.dark .border-gray-50 { border-color: #3A3A3C !important; }
-        html.dark .border-b\.border-\[\#D2D2D7\] { border-color: #2C2C2E !important; }
-        html.dark .bg-blue-50 { background-color: rgba(10, 132, 255, 0.15) !important; color: #66B2FF !important; border-color: rgba(10, 132, 255, 0.2) !important; }
-        html.dark .text-blue-600, html.dark .text-blue-700 { color: #66B2FF !important; }
+        html.dark #add-user-modal .modal-card { background: #131a28; color: #E5E5E7; }
+        html.dark .bg-white { background-color: #131a28 !important; }
+        html.dark .bg-gray-50, html.dark .bg-gray-100 { background-color: #1c2840 !important; }
+        html.dark .bg-gray-50\/50, html.dark .bg-gray-50\/80 { background-color: rgba(28, 40, 64, 0.5) !important; }
+        html.dark .text-gray-900, html.dark .text-gray-800 { color: #eef2fa !important; }
+        html.dark .text-gray-700 { color: #cbd5e1 !important; }
+        html.dark .text-gray-600, html.dark .text-gray-500 { color: #8391a8 !important; }
+        html.dark .text-gray-400 { color: #64748b !important; }
+        html.dark .border-gray-100, html.dark .border-gray-200 { border-color: #1c2840 !important; }
+        html.dark .border-gray-50 { border-color: #263148 !important; }
+        html.dark .border-b\.border-\[\#D2D2D7\] { border-color: #1c2840 !important; }
+        html.dark .bg-blue-50 { background-color: rgba(10, 132, 255, 0.15) !important; color: #8ec2ff !important; border-color: rgba(10, 132, 255, 0.2) !important; }
+        html.dark .text-blue-600, html.dark .text-blue-700 { color: #8ec2ff !important; }
         html.dark .text-blue-500 { color: #0A84FF !important; }
         html.dark .bg-red-50 { background-color: rgba(255, 69, 58, 0.15) !important; color: #FF6961 !important; border-color: rgba(255, 69, 58, 0.2) !important; }
         html.dark .text-red-600, html.dark .text-red-700 { color: #FF6961 !important; }
@@ -200,10 +200,22 @@
         html.dark .text-green-600, html.dark .text-green-700 { color: #32D74B !important; }
         html.dark .bg-slate-100 { background-color: rgba(142, 142, 147, 0.15) !important; color: #AEAEB2 !important; border-color: rgba(142, 142, 147, 0.2) !important; }
         html.dark .bg-\[\#FFF8F8\] { background-color: rgba(255, 69, 58, 0.05) !important; }
-        html.dark select option { background-color: #1C1C1E; color: #FFF; }
+        html.dark select option { background-color: #131a28; color: #FFF; }
         html.dark .flatpickr-calendar { filter: invert(1) hue-rotate(180deg); }
-        html.dark ::-webkit-scrollbar-track { background: #1C1C1E; }
-        html.dark ::-webkit-scrollbar-thumb { background: #3A3A3C; border-radius: 4px; }
+        html.dark ::-webkit-scrollbar-track { background: #131a28; }
+        html.dark ::-webkit-scrollbar-thumb { background: #263148; border-radius: 4px; }
+
+        /* ── 深藍科技風打磨（2026-07-18，與動態查詢同色系）── */
+        html.dark body { background-color: #0b0f17; }
+        html.dark .glass-nav { background-color: rgba(11,15,23,0.88); border-color: #1a2336; }
+        html.dark .nav-tabs-container { background-color: rgba(19,26,40,0.92); border-color: #1e2a44; }
+        html.dark .tab-btn.active { background-color: #0d2c5e; color: #8ec2ff; box-shadow: none; }
+        html.dark .apple-card { background-color: #131a28; border-color: #1e2a44; box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
+        html.dark .input-style { background-color: #0e1626; border-color: #263148; }
+        html.dark .sales-table thead th, html.dark .sales-table .sticky-col { background-color: #101b31; }
+        html.dark .hs-table thead th { background: #101b31; }
+        html.dark #add-user-modal .modal-card { background: #131a28; border: 1px solid #1e2a44; }
+        html.dark ::-webkit-scrollbar-track { background: #0b0f17; }
     </style>
 </head>
 <body>
@@ -322,7 +334,7 @@
                 <div class="nav-tabs-container flex space-x-1 p-1 rounded-2xl border overflow-x-auto no-scrollbar mx-2">
                     <button id="btn-records" onclick="switchTab('records')" class="tab-btn active">會議紀錄</button>
                     <button id="btn-leave" onclick="switchTab('leave')" class="tab-btn">出國請假</button>
-                    <button onclick="location.href='dynamic.html'" class="tab-btn"><i class="fa-solid fa-bolt mr-1"></i>動態查詢</button>
+                    <button id="btn-dt" onclick="location.href='dynamic.html'" class="tab-btn hidden"><i class="fa-solid fa-bolt mr-1"></i>動態查詢</button>
                     <button id="btn-report" onclick="switchTab('report')" class="tab-btn hidden">業績報表</button>
                     <button id="btn-hanshu" onclick="switchTab('hanshu')" class="tab-btn hidden">銷售分析</button>
                     <button id="btn-team" onclick="switchTab('team')" class="tab-btn hidden">小組管理</button>
@@ -632,8 +644,15 @@
             document.getElementById('user-display').innerText = currentUserData.nickname;
             document.getElementById('user-role-display').innerText = currentUserData.role;
             const r = currentUserData.role;
-            if (['admin', 'sales', 'manager'].includes(r)) {
+            if (['admin', 'sales', 'manager', 'recorder'].includes(r)) {
                 document.getElementById('btn-report').classList.remove('hidden');
+            }
+            // 外部紀錄員（recorder）：只有會議紀錄／請假／業績報表；要能發會議紀錄。
+            // 動態查詢按鈕只給紀錄員以外的人（資料層另有規則擋，就算知道網址也讀不到）
+            if (r === 'recorder') {
+                document.getElementById('record-post-area').classList.remove('hidden');
+            } else {
+                document.getElementById('btn-dt').classList.remove('hidden');
             }
             if (r === 'admin') {
                 ['btn-admin', 'btn-team', 'btn-hanshu', 'record-post-area'].forEach(id => {
