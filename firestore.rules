@@ -119,5 +119,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if false;
     }
+
+    // dt_raw：漢書原文（原始排版顯示模式用），權限同 dt_tours
+    match /dt_raw/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
   }
 }
