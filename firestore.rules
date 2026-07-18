@@ -125,5 +125,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if false;
     }
+
+    // dt_files：公司雲行程檔案樹（選取行程檔案用），權限同 dt_tours
+    match /dt_files/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
   }
 }
