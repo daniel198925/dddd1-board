@@ -131,7 +131,7 @@
 </div>
 
 <!-- ══ 明細卡（選取資料）══ -->
-<div id="detail-card" class="hidden fixed right-3 bottom-3 w-[310px] max-w-[calc(100vw-1.5rem)] surface border bd rounded-2xl shadow-2xl z-50 overflow-hidden">
+<div id="detail-card" class="hidden fixed right-3 bottom-3 w-[268px] max-w-[calc(100vw-1.5rem)] surface border bd rounded-2xl shadow-2xl z-50 overflow-hidden">
   <div id="detail-head" class="flex items-center justify-between px-3 py-2 border-b bd2 relative cursor-move select-none" title="拖曳可移動位置">
     <span class="font-bold text-xs"><i class="fa-solid fa-grip-vertical m4 mr-1.5"></i>選取資料<span id="detail-count" class="m3 font-normal"></span></span>
     <div class="flex items-center gap-1">
@@ -140,14 +140,14 @@
     </div>
     <div id="dcol-menu" class="hidden absolute right-2 top-10 surface border bd rounded-xl p-3 shadow-2xl z-[70] w-36"></div>
   </div>
-  <div id="detail-body" class="px-3 py-2.5 text-xs max-h-[45vh] overflow-y-auto"></div>
+  <div id="detail-body" class="px-2.5 py-2 text-xs max-h-[45vh] overflow-y-auto"></div>
   <div id="chosen-file" class="hidden mx-3 mb-1 px-3 py-2 surface2 border bd rounded-xl text-xs flex items-center gap-2">
     <i class="fa-regular fa-file-pdf text-red-400"></i>
     <span id="chosen-file-name" class="flex-1 truncate m1"></span>
     <button id="chosen-file-clear" class="m3 hover:text-red-400"><i class="fa-solid fa-xmark"></i></button>
   </div>
   <div class="grid grid-cols-2 gap-1.5 p-2.5 border-t bd2">
-    <button id="files-btn" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded-lg text-xs transition"><i class="fa-regular fa-folder-open mr-1"></i>選取行程檔案</button>
+    <button id="files-btn" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded-lg text-xs transition"><i class="fa-regular fa-folder-open mr-1"></i>選取行程</button>
     <button id="copy-btn" class="surface2 hover:opacity-80 m1 border bd font-bold py-2 rounded-lg text-xs transition"><i class="fa-regular fa-copy mr-1"></i>複製摘要</button>
     <button class="bg-emerald-900/40 text-emerald-600 font-bold py-2 rounded-lg text-xs cursor-not-allowed" title="下一階段接上合約系統"><i class="fa-solid fa-file-signature mr-1"></i>建立合約</button>
     <button id="convert-btn" class="bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-2 rounded-lg text-xs transition"><i class="fa-solid fa-plane mr-1"></i>轉換連結</button>
@@ -184,7 +184,7 @@
     <div class="p-5 space-y-3 text-sm">
       <div class="flex justify-between"><span class="m3">團號</span><span id="cv-code" class="font-mono font-bold text-blue-300"></span></div>
       <div>
-        <label class="text-xs m3 font-bold">行程檔案</label>
+        <label class="text-xs m3 font-bold">行程</label>
         <div id="cv-file-row" class="mt-1"></div>
         <input id="cv-file-paste" class="w-full input-style mt-1.5" placeholder="或直接貼上行程 PDF 的雲端連結（drive.google.com/file/d/…）">
       </div>
@@ -208,7 +208,7 @@
 <div id="files-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
   <div class="surface border bd rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-5 py-4 border-b bd2">
-      <span class="font-bold">請選擇行程檔案</span>
+      <span class="font-bold">請選擇行程</span>
       <button id="files-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="px-5 py-3 border-b bd2 flex gap-2">
@@ -487,11 +487,9 @@ const PERTOUR = [
 function groupBlock(g) {
   const r0 = g[0];
   const line = (k, v) => `<div class="flex justify-between py-1.5 border-b bd2 gap-3"><span class="m3 shrink-0">${k}</span><span class="font-bold text-right">${v}</span></div>`;
-  const codes = g.map(r => r.c).join('、');
-  const parts = [
-    `<div class="font-mono text-blue-300 font-bold text-base mb-2 break-all">${esc(g.length === 1 ? r0.c : r0.c + ' 等 ' + g.length + ' 團')}${g.some(r => r.pm) ? ' <span class="chip bg-pink-900/60 text-pink-300">促銷</span>' : ''}</div>`,
-    line('團費', `<span class="price text-lg">${fmt$(r0.pr)}</span>`),
-  ];
+  const parts = [];
+  if (g.some(r => r.pm)) parts.push(`<div class="mb-1.5"><span class="chip bg-pink-900/60 text-pink-300">促銷</span></div>`);
+  parts.push(line('團費', `<span class="price text-lg">${fmt$(r0.pr)}</span>`));
   if (dshow.an) parts.push(line('航空公司', esc(r0.an)));
   if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt)}</span>`).join('')}</span>`));
   if (dshow.dy) parts.push(line('天數', `${r0.dy}天`));
@@ -517,7 +515,6 @@ function groupBlock(g) {
     }).join('');
     if (bsAll) parts.push(`<div class="pt-2"><span class="m3 text-xs">報名明細</span>${bsAll}</div>`);
   }
-  if (g.length > 1) parts.push(`<p class="text-[.6rem] m4 mt-2 break-all">團號：${esc(codes)}</p>`);
   return parts.join('');
 }
 
@@ -592,7 +589,7 @@ $('files-btn').onclick = async () => {
     $('files-tree').innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</div>';
     const snap = await getDoc(doc(db, 'dt_files', 'tree'));
     if (!snap.exists()) {
-      $('files-tree').innerHTML = '<div class="m3 text-center py-8">行程檔案清單尚未開通<br><span class="text-xs">（需要公司雲授權，請通知 IT）</span></div>';
+      $('files-tree').innerHTML = '<div class="m3 text-center py-8">行程清單尚未開通<br><span class="text-xs">（需要公司雲授權，請通知 IT）</span></div>';
       return;
     }
     FILETREE = JSON.parse(snap.data().tree);
@@ -708,7 +705,7 @@ $('cv-go').onclick = async () => {
     const m = $('cv-file-paste').value.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
     if (m) fileId = m[1];
   }
-  if (!fileId) { $('cv-msg').textContent = '請選取行程檔案，或貼上雲端 PDF 連結'; return; }
+  if (!fileId) { $('cv-msg').textContent = '請選取行程，或貼上雲端 PDF 連結'; return; }
 
   let longUrl = `${ITIN_BASE}/?id=${fileId}&n=${encodeURIComponent(AGENT.name)}`;
   if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
