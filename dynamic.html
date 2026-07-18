@@ -83,8 +83,8 @@
 
 <!-- ══ 明細卡（選取資料）══ -->
 <div id="detail-card" class="hidden fixed right-4 bottom-4 w-[390px] max-w-[calc(100vw-2rem)] bg-[#131a28] border border-[#263148] rounded-2xl shadow-2xl z-50 overflow-hidden">
-  <div class="flex items-center justify-between px-4 py-3 border-b border-[#1a2336] relative">
-    <span class="font-bold text-sm">選取資料<span id="detail-count" class="text-slate-500 font-normal"></span></span>
+  <div id="detail-head" class="flex items-center justify-between px-4 py-3 border-b border-[#1a2336] relative cursor-move select-none" title="拖曳可移動位置">
+    <span class="font-bold text-sm"><i class="fa-solid fa-grip-vertical text-slate-600 mr-2"></i>選取資料<span id="detail-count" class="text-slate-500 font-normal"></span></span>
     <div class="flex items-center gap-2">
       <button id="dcol-btn" class="text-xs text-slate-400 hover:text-white border border-[#263148] rounded-lg px-2.5 py-1.5 transition"><i class="fa-solid fa-gear mr-1"></i>顯示欄位</button>
       <button id="detail-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
@@ -351,7 +351,9 @@ function render() {
   $('raw-view').querySelectorAll('.hl-tour').forEach(el => el.onclick = e => selectLine(+el.dataset.i, e));
 }
 
-// ── 選取（照舊系統）：點＝單選、Ctrl/⌘＋點＝加選、Shift＋點＝從上一個選到這裡整段框起來 ──
+// ── 選取（照舊系統）──
+//    點一團＝加進來（再點一次取消）；Shift＋點＝從上一個選到這裡整段框起來。
+//    這樣連點好幾團就會一直累加，不用按著 Ctrl。
 function selectLine(i, e) {
   const l = LINES[i];
   if (!l || !l.row) return;
@@ -361,11 +363,8 @@ function selectLine(i, e) {
       const [lo, hi] = a <= b ? [a, b] : [b, a];
       SELLINES = VISIBLE.slice(lo, hi + 1);          // 只框「目前看得到」的行，不會把被篩掉的偷偷選進去
     }
-  } else if (e && (e.ctrlKey || e.metaKey)) {
-    SELLINES = SELLINES.includes(i) ? SELLINES.filter(x => x !== i) : [...SELLINES, i];
-    ANCHOR = i;
   } else {
-    SELLINES = [i];
+    SELLINES = SELLINES.includes(i) ? SELLINES.filter(x => x !== i) : [...SELLINES, i];
     ANCHOR = i;
   }
   document.getSelection()?.removeAllRanges();        // Shift 點擊會反白整片文字，清掉
@@ -407,42 +406,113 @@ function buildDMenu() {
 $('dcol-btn').onclick = e => { e.stopPropagation(); buildDMenu(); $('dcol-menu').classList.toggle('hidden'); };
 document.addEventListener('click', e => { if (!$('dcol-menu').contains(e.target) && e.target !== $('dcol-btn')) $('dcol-menu').classList.add('hidden'); });
 
-// 一團的明細區塊（多選時一團一塊，照舊系統）
-function tourBlock(r) {
-  const line = (k, v) => `<div class="flex justify-between py-1.5 border-b border-[#1a2336]"><span class="text-slate-500">${k}</span><span class="font-bold text-right">${v}</span></div>`;
+// ── 明細區塊 ──
+//    同價位、同航空、同天數、同產品的團合併成一塊，只在「出發日」那排多列幾個日期
+//    （使用者 2026-07-18：同價位商品只是日期不同，顯示在同一個就好）
+const groupKey = r => [r.pr, r.an, r.dy, r.p, r.gw, r.dp].join('|');
+// 每團可能不一樣的欄位：合併顯示時要跟著日期一筆一筆列，不能只印一個
+const PERTOUR = [
+  { k: 'cap', name: '機位',  get: r => `${r.cap ?? '--'}${r.ok ? '' : ' ⚠'}` },
+  { k: 's',   name: '報名',  get: r => `${r.s} 人${r.w ? '（候補 ' + r.w + '）' : ''}` },
+  { k: 'r',   name: '剩餘',  get: r => `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'text-amber-300' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r}</span>` },
+  { k: 'ld',  name: '領隊',  get: r => r.ld ? esc(r.ld) : '未派' },
+  { k: 'dl',  name: 'ＤＬ',  get: r => r.dl ? esc(r.dl) : '--' },
+  { k: 'tp',  name: '票款',  get: r => r.tp ? esc(r.tp) : '--' },
+  { k: 'ti',  name: '開票',  get: r => r.ti ? esc(r.ti) : '--' },
+  { k: 'tk',  name: '票+稅', get: r => r.tf != null ? `${fmt$(r.tf)}+${fmt$(r.tx)}` : '--' },
+];
+
+function groupBlock(g) {
+  const r0 = g[0];
+  const line = (k, v) => `<div class="flex justify-between py-1.5 border-b border-[#1a2336] gap-3"><span class="text-slate-500 shrink-0">${k}</span><span class="font-bold text-right">${v}</span></div>`;
+  const codes = g.map(r => r.c).join('、');
   const parts = [
-    `<div class="font-mono text-blue-300 font-bold text-base mb-2">${esc(r.c)}${r.pm ? ' <span class="chip bg-pink-900/60 text-pink-300">促銷</span>' : ''}</div>`,
-    line('團費', `<span class="text-amber-300 text-lg">${fmt$(r.pr)}</span>`),
+    `<div class="font-mono text-blue-300 font-bold text-base mb-2 break-all">${esc(g.length === 1 ? r0.c : r0.c + ' 等 ' + g.length + ' 團')}${g.some(r => r.pm) ? ' <span class="chip bg-pink-900/60 text-pink-300">促銷</span>' : ''}</div>`,
+    line('團費', `<span class="text-amber-300 text-lg">${fmt$(r0.pr)}</span>`),
   ];
-  if (dshow.an) parts.push(line('航空公司', esc(r.an)));
-  if (dshow.dt) parts.push(line('出發日', fmtDt(r.dt)));
-  if (dshow.dy) parts.push(line('天數', `${r.dy}天`));
-  if (dshow.p)  parts.push(line('產品', `${esc(r.p)}${r.gw !== '直飛' ? '｜' + esc(r.gw) : ''}${r.dp !== '台北' ? '｜' + esc(r.dp) + '出發' : ''}`));
-  if (dshow.cap) parts.push(line('機位', `${r.cap ?? '--'}${r.ok ? '' : ' ⚠'}`));
-  if (dshow.s)  parts.push(line('報名', `${r.s} 人${r.w ? '（候補 ' + r.w + '）' : ''}`));
-  if (dshow.r)  parts.push(line('剩餘名額', `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'text-amber-300' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r + ' 位'}</span>`));
-  if (dshow.ld) parts.push(line('領隊', r.ld ? esc(r.ld) : '未派'));
-  if (dshow.dl && r.dl) parts.push(line('ＤＬ', esc(r.dl)));
-  if (dshow.tp && r.tp) parts.push(line('票款', esc(r.tp)));
-  if (dshow.ti && r.ti) parts.push(line('開票', esc(r.ti)));
-  if (dshow.tk && r.tf != null) parts.push(line('票+稅', `${fmt$(r.tf)} + ${fmt$(r.tx)}`));
-  if (dshow.bs) {
-    const bs = (r.bs || []).map(([n, x, paid]) => `<span class="chip ${paid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-slate-800 text-slate-400'}" title="${paid ? '已收訂' : '卡位未收款'}">${esc(n)}${x}</span>`).join(' ');
-    if (bs) parts.push(`<div class="pt-2"><span class="text-slate-500 text-xs">報名明細</span><div class="mt-1.5 flex flex-wrap gap-1.5">${bs}</div></div>`);
+  if (dshow.an) parts.push(line('航空公司', esc(r0.an)));
+  if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt)}</span>`).join('')}</span>`));
+  if (dshow.dy) parts.push(line('天數', `${r0.dy}天`));
+  if (dshow.p)  parts.push(line('產品', `${esc(r0.p)}${r0.gw !== '直飛' ? '｜' + esc(r0.gw) : ''}${r0.dp !== '台北' ? '｜' + esc(r0.dp) + '出發' : ''}`));
+
+  const cols = PERTOUR.filter(f => dshow[f.k]);
+  if (cols.length) {
+    if (g.length === 1) {
+      cols.forEach(f => parts.push(line(f.name === '剩餘' ? '剩餘名額' : f.name, f.get(r0))));
+    } else {
+      // 多團合併：日期一列，後面接各自的機位/餘位…
+      parts.push(
+        `<div class="pt-2 overflow-x-auto"><table class="w-full text-xs">
+          <thead><tr class="text-slate-500"><th class="text-left font-bold pb-1">出發日</th>${cols.map(f => `<th class="text-right font-bold pb-1 pl-3">${f.name}</th>`).join('')}</tr></thead>
+          <tbody>${g.map(r => `<tr class="border-t border-[#1a2336]"><td class="py-1">${fmtDt(r.dt)}</td>${cols.map(f => `<td class="text-right pl-3">${f.get(r)}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table></div>`);
+    }
   }
+  if (dshow.bs) {
+    const bsAll = g.map(r => {
+      const bs = (r.bs || []).map(([n, x, paid]) => `<span class="chip ${paid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-slate-800 text-slate-400'}" title="${paid ? '已收訂' : '卡位未收款'}">${esc(n)}${x}</span>`).join(' ');
+      return bs ? `<div class="mt-1.5"><span class="text-slate-600 text-[.65rem]">${fmtDt(r.dt)}</span> ${bs}</div>` : '';
+    }).join('');
+    if (bsAll) parts.push(`<div class="pt-2"><span class="text-slate-500 text-xs">報名明細</span>${bsAll}</div>`);
+  }
+  if (g.length > 1) parts.push(`<p class="text-[.6rem] text-slate-600 mt-2 break-all">團號：${esc(codes)}</p>`);
   return parts.join('');
 }
 
 function showDetail() {
   const rows = selRows();
   if (!rows.length) { $('detail-card').classList.add('hidden'); return; }
-  $('detail-count').textContent = `（共 ${rows.length} 筆）`;
+  // 依「價格+航空+天數+產品」分組，同組只出一塊、日期併排
+  const groups = [];
+  const idx = new Map();
+  for (const r of rows) {
+    const k = groupKey(r);
+    if (!idx.has(k)) { idx.set(k, groups.length); groups.push([]); }
+    groups[idx.get(k)].push(r);
+  }
+  groups.forEach(g => g.sort((a, b) => (a.dt || '').localeCompare(b.dt || '')));
+  $('detail-count').textContent = `（共 ${rows.length} 筆${groups.length < rows.length ? '／' + groups.length + ' 種' : ''}）`;
   $('detail-body').innerHTML =
-    rows.map(r => `<div class="mb-3 pb-1">${tourBlock(r)}</div>`).join('<div class="border-t-2 border-[#22304d] mb-3"></div>') +
+    groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g)}</div>`).join('<div class="border-t-2 border-[#22304d] mb-3"></div>') +
     `<p class="text-[.65rem] text-slate-600">資料時間 ${esc(META?.stamp || '')}，下訂前請回漢書確認</p>`;
   $('detail-card').classList.remove('hidden');
 }
 $('detail-close').onclick = () => { $('detail-card').classList.add('hidden'); SELLINES = []; ANCHOR = -1; $('dcol-menu').classList.add('hidden'); render(); };
+
+// ── 明細卡可拖曳（抓標題列移動，位置記住；視窗縮小時自動拉回畫面內）──
+(function makeDraggable() {
+  const card = $('detail-card'), head = $('detail-head');
+  let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  const place = (x, y) => {
+    const w = card.offsetWidth || 390, h = card.offsetHeight || 200;
+    x = Math.max(4, Math.min(x, innerWidth - w - 4));
+    y = Math.max(4, Math.min(y, innerHeight - h - 4));
+    card.style.left = x + 'px'; card.style.top = y + 'px';
+    card.style.right = 'auto'; card.style.bottom = 'auto';
+    return { x, y };
+  };
+  const saved = JSON.parse(localStorage.getItem('d1dt_cardpos') || 'null');
+  if (saved) requestAnimationFrame(() => place(saved.x, saved.y));
+
+  head.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;             // 點按鈕不要當成拖曳
+    const r = card.getBoundingClientRect();
+    dragging = true; sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+    head.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  head.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const p = place(ox + e.clientX - sx, oy + e.clientY - sy);
+    localStorage.setItem('d1dt_cardpos', JSON.stringify(p));
+  });
+  const stop = e => { if (dragging) { dragging = false; try { head.releasePointerCapture(e.pointerId); } catch {} } };
+  head.addEventListener('pointerup', stop);
+  head.addEventListener('pointercancel', stop);
+  addEventListener('resize', () => {
+    if (card.style.left) place(parseFloat(card.style.left), parseFloat(card.style.top));
+  });
+})();
 
 $('copy-btn').onclick = () => {
   const rows = selRows(); if (!rows.length) return;
