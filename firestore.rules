@@ -131,5 +131,10 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if false;
     }
+
+    // dt_agent：動態查詢的業務個人設定（轉換連結用的名片資料），只能讀寫自己的
+    match /dt_agent/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
   }
 }

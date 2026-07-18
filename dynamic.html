@@ -61,6 +61,7 @@
       <span id="stamp-badge" class="chip bg-[#152036] text-slate-300"><i class="fa-regular fa-clock mr-1"></i>載入中…</span>
       <div class="flex-1"></div>
       <span id="user-name" class="text-sm text-slate-300"></span>
+      <button id="agent-btn" class="text-xs text-slate-400 hover:text-amber-300 border border-[#263148] rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-id-card mr-1"></i>業務設定</button>
       <a href="./" class="text-xs text-slate-400 hover:text-blue-400 border border-[#263148] rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-house mr-1"></i>回公佈欄</a>
       <button id="logout-btn" class="text-xs text-slate-400 hover:text-red-400 border border-[#263148] rounded-lg px-3 py-1.5 transition">登出</button>
     </div>
@@ -91,11 +92,66 @@
     <div id="dcol-menu" class="hidden absolute right-3 top-12 bg-[#131a28] border border-[#263148] rounded-xl p-3 shadow-2xl z-[70] w-40"></div>
   </div>
   <div id="detail-body" class="p-4 text-sm max-h-[50vh] overflow-y-auto"></div>
+  <div id="chosen-file" class="hidden mx-3 mb-1 px-3 py-2 bg-[#0e1a2e] border border-[#263148] rounded-xl text-xs flex items-center gap-2">
+    <i class="fa-regular fa-file-pdf text-red-400"></i>
+    <span id="chosen-file-name" class="flex-1 truncate text-slate-300"></span>
+    <button id="chosen-file-clear" class="text-slate-500 hover:text-red-400"><i class="fa-solid fa-xmark"></i></button>
+  </div>
   <div class="grid grid-cols-2 gap-2 p-3 border-t border-[#1a2336]">
     <button id="files-btn" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl text-sm transition"><i class="fa-regular fa-folder-open mr-1"></i>選取行程檔案</button>
     <button id="copy-btn" class="bg-[#1d2940] hover:bg-[#26365a] text-slate-200 font-bold py-2.5 rounded-xl text-sm transition"><i class="fa-regular fa-copy mr-1"></i>複製摘要</button>
     <button class="bg-emerald-900/40 text-emerald-600 font-bold py-2.5 rounded-xl text-sm cursor-not-allowed" title="下一階段接上合約系統"><i class="fa-solid fa-file-signature mr-1"></i>建立合約</button>
-    <button class="bg-indigo-900/40 text-indigo-500 font-bold py-2.5 rounded-xl text-sm cursor-not-allowed" title="下一階段接上行程轉換"><i class="fa-solid fa-plane mr-1"></i>轉換連結</button>
+    <button id="convert-btn" class="bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm transition"><i class="fa-solid fa-plane mr-1"></i>轉換連結</button>
+  </div>
+</div>
+
+<!-- ══ 業務設定 modal ══ -->
+<div id="agent-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+  <div class="bg-[#131a28] border border-[#263148] rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-[#1a2336]">
+      <span class="font-bold"><i class="fa-solid fa-id-card text-amber-300 mr-2"></i>業務設定（轉換連結名片）</span>
+      <button id="agent-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="p-5 space-y-3 text-sm max-h-[65vh] overflow-y-auto">
+      <div><label class="text-xs text-slate-500 font-bold">業務姓名 *</label><input id="ag-name" class="w-full input-style mt-1" placeholder="旅遊大仁哥"></div>
+      <div><label class="text-xs text-slate-500 font-bold">聯絡電話</label><input id="ag-phone" class="w-full input-style mt-1" placeholder="0277463632"></div>
+      <div><label class="text-xs text-slate-500 font-bold">LINE ID</label><input id="ag-line" class="w-full input-style mt-1" placeholder="不含 @ 符號"></div>
+      <div><label class="text-xs text-slate-500 font-bold">FB 粉專／社團連結</label><input id="ag-fb" class="w-full input-style mt-1" placeholder="https://www.facebook.com/…（選填）"></div>
+      <div><label class="text-xs text-slate-500 font-bold">LINE 社群連結</label><input id="ag-lg" class="w-full input-style mt-1" placeholder="https://line.me/ti/g2/…（選填）"></div>
+      <div><label class="text-xs text-slate-500 font-bold">授權信箱 *</label><input id="ag-email" class="w-full input-style mt-1" placeholder="跟原本外掛用的同一個信箱">
+        <p class="text-[.65rem] text-slate-600 mt-1">縮網址授權用。填你在「行程連結轉換器」外掛裡用的那個信箱。</p></div>
+      <button id="agent-save" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl transition">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 轉換連結 modal ══ -->
+<div id="convert-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+  <div class="bg-[#131a28] border border-[#263148] rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-[#1a2336]">
+      <span class="font-bold"><i class="fa-solid fa-plane text-indigo-400 mr-2"></i>轉換連結</span>
+      <button id="convert-close" class="text-slate-400 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="p-5 space-y-3 text-sm">
+      <div class="flex justify-between"><span class="text-slate-500">團號</span><span id="cv-code" class="font-mono font-bold text-blue-300"></span></div>
+      <div>
+        <label class="text-xs text-slate-500 font-bold">行程檔案</label>
+        <div id="cv-file-row" class="mt-1"></div>
+        <input id="cv-file-paste" class="w-full input-style mt-1.5" placeholder="或直接貼上行程 PDF 的雲端連結（drive.google.com/file/d/…）">
+      </div>
+      <label class="flex items-center gap-2 cursor-pointer select-none text-slate-300">
+        <input id="cv-remain" type="checkbox" class="accent-indigo-500" checked>顯示剩餘名額（客人頁面）
+      </label>
+      <button id="cv-go" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>產生連結</button>
+      <div id="cv-result" class="hidden bg-[#0e1a2e] border border-indigo-900 rounded-xl p-3">
+        <div class="flex items-center gap-2">
+          <input id="cv-short" readonly class="flex-1 input-style font-mono text-indigo-300">
+          <button id="cv-copy" class="bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg px-3 py-2"><i class="fa-regular fa-copy"></i></button>
+        </div>
+        <a id="cv-preview" target="_blank" rel="noopener" class="inline-block text-xs text-slate-400 hover:text-indigo-300 mt-2"><i class="fa-solid fa-eye mr-1"></i>預覽客人看到的頁面</a>
+      </div>
+      <p id="cv-msg" class="text-xs text-red-400 min-h-[1rem]"></p>
+    </div>
   </div>
 </div>
 
@@ -120,7 +176,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCeUModpZrGLQifjDXhIOfIAYdK538wgik",
@@ -143,6 +199,10 @@ let LINES = [];               // 目前檔案的行（含 row 對應）
 let SELECTED = null;          // 選到的 row
 let SELLINE = -1;             // 選到的行 index
 let FILETREE = null;          // 行程檔案樹
+let UID = null;               // 登入者 uid
+let AGENT = {};               // 業務設定（dt_agent/{uid}）
+let CHOSENFILE = null;        // 選取的行程檔案 { id, n }
+const ITIN_BASE = 'https://discoveredtrip.com';   // 中轉頁
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -176,8 +236,11 @@ onAuthStateChanged(auth, async user => {
   try {
     const snap = await getDoc(doc(db, 'users', user.uid));
     if (!snap.exists()) { $('login-msg').innerText = '權限錯誤：找不到使用者紀錄'; return signOut(auth); }
+    UID = user.uid;
     $('user-name').textContent = snap.data().nickname || snap.data().account || '';
     showPage('main-page');
+    // 業務設定（轉換連結名片）
+    try { const ag = await getDoc(doc(db, 'dt_agent', UID)); AGENT = ag.exists() ? ag.data() : {}; } catch { AGENT = {}; }
     await boot();
   } catch (err) {
     $('login-msg').innerText = '讀取失敗：' + err.message; signOut(auth);
@@ -398,9 +461,12 @@ function renderTree() {
     if (n.files !== undefined) {  // 資料夾
       const kids = (n.children || []).map(c => node(c, depth + 1)).join('') +
         (n.files || []).filter(f => !q || f.n.toLowerCase().includes(q)).map(f =>
-          `<div class="flex justify-between items-center py-1 pl-${Math.min(depth * 4 + 4, 12)} pr-2 hover:bg-[#1a2336] rounded" style="padding-left:${depth * 1.25 + 1}rem">
-            <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" class="text-blue-400 hover:underline truncate">${esc(f.n)}</a>
-            <span class="text-slate-600 text-xs shrink-0 ml-3">${fmtTime(f.t)}</span>
+          `<div class="flex justify-between items-center py-1 pr-2 hover:bg-[#1a2336] rounded" style="padding-left:${depth * 1.25 + 1}rem">
+            <button class="file-pick text-blue-400 hover:underline truncate text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${esc(f.n)}</button>
+            <span class="shrink-0 ml-3 flex items-center gap-2">
+              <span class="text-slate-600 text-xs">${fmtTime(f.t)}</span>
+              <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" title="預覽" class="text-slate-500 hover:text-blue-400"><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
+            </span>
           </div>`).join('');
       if (q && !kids) return '';
       const open = expandAll || q || depth === 0;
@@ -410,7 +476,109 @@ function renderTree() {
     return '';
   };
   $('files-tree').innerHTML = (FILETREE.children || []).map(c => node(c, 0)).join('') || '<div class="text-slate-500">沒有符合的檔案</div>';
+  // 點檔名＝選取這個行程檔（顯示在明細卡上，轉換連結會用它）
+  $('files-tree').querySelectorAll('.file-pick').forEach(btn => btn.onclick = () => {
+    CHOSENFILE = { id: btn.dataset.id, n: btn.dataset.n };
+    updateChosenFile();
+    $('files-modal').classList.add('hidden');
+    toast('已選取：' + btn.dataset.n);
+    if (!$('convert-modal').classList.contains('hidden')) fillConvert();
+  });
 }
+
+function updateChosenFile() {
+  $('chosen-file').classList.toggle('hidden', !CHOSENFILE);
+  if (CHOSENFILE) $('chosen-file-name').textContent = CHOSENFILE.n;
+}
+$('chosen-file-clear').onclick = () => { CHOSENFILE = null; updateChosenFile(); };
+
+// ── 業務設定 ──
+const AG_FIELDS = { name: 'ag-name', phone: 'ag-phone', line: 'ag-line', fb: 'ag-fb', lg: 'ag-lg', email: 'ag-email' };
+$('agent-btn').onclick = () => {
+  for (const [k, id] of Object.entries(AG_FIELDS)) $(id).value = AGENT[k] || '';
+  $('agent-modal').classList.remove('hidden');
+};
+$('agent-close').onclick = () => $('agent-modal').classList.add('hidden');
+$('agent-modal').onclick = e => { if (e.target === $('agent-modal')) $('agent-modal').classList.add('hidden'); };
+$('agent-save').onclick = async () => {
+  const data = {};
+  for (const [k, id] of Object.entries(AG_FIELDS)) data[k] = $(id).value.trim();
+  data.line = data.line.replace(/^@/, '');   // LINE ID 不含 @
+  if (!data.name) return toast('請填業務姓名');
+  try {
+    await setDoc(doc(db, 'dt_agent', UID), data, { merge: true });
+    AGENT = { ...AGENT, ...data };
+    $('agent-modal').classList.add('hidden');
+    toast('業務設定已儲存');
+  } catch (e) { toast('儲存失敗：' + e.message); }
+};
+
+// ── 轉換連結 ──
+$('convert-btn').onclick = () => {
+  if (!SELECTED) return;
+  if (!AGENT.name || !AGENT.email) {
+    toast('請先完成業務設定（姓名＋授權信箱）');
+    $('agent-btn').onclick();
+    return;
+  }
+  fillConvert();
+  $('cv-result').classList.add('hidden');
+  $('cv-msg').textContent = '';
+  $('convert-modal').classList.remove('hidden');
+};
+function fillConvert() {
+  $('cv-code').textContent = SELECTED ? SELECTED.c : '';
+  $('cv-file-row').innerHTML = CHOSENFILE
+    ? `<div class="flex items-center gap-2 bg-[#0e1a2e] border border-[#263148] rounded-xl px-3 py-2"><i class="fa-regular fa-file-pdf text-red-400"></i><span class="flex-1 truncate">${esc(CHOSENFILE.n)}</span></div>`
+    : `<button id="cv-pick" class="w-full bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded-xl transition"><i class="fa-regular fa-folder-open mr-1"></i>從公司雲選取</button>`;
+  const pick = $('cv-pick');
+  if (pick) pick.onclick = () => $('files-btn').onclick();
+}
+$('convert-close').onclick = () => $('convert-modal').classList.add('hidden');
+$('convert-modal').onclick = e => { if (e.target === $('convert-modal')) $('convert-modal').classList.add('hidden'); };
+
+$('cv-go').onclick = async () => {
+  const r = SELECTED;
+  if (!r) return;
+  $('cv-msg').textContent = '';
+  // 行程檔：優先用選取的，否則從貼上的雲端連結抓 id
+  let fileId = CHOSENFILE?.id || null;
+  if (!fileId) {
+    const m = $('cv-file-paste').value.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) fileId = m[1];
+  }
+  if (!fileId) { $('cv-msg').textContent = '請選取行程檔案，或貼上雲端 PDF 連結'; return; }
+
+  let longUrl = `${ITIN_BASE}/?id=${fileId}&n=${encodeURIComponent(AGENT.name)}`;
+  if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
+  if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
+  if (AGENT.fb)    longUrl += `&fb=${encodeURIComponent(AGENT.fb)}`;
+  if (AGENT.lg)    longUrl += `&lg=${encodeURIComponent(AGENT.lg)}`;
+  longUrl += `&codes=${encodeURIComponent(r.c)}`;
+  if (!$('cv-remain').checked) longUrl += `&remain=0`;
+
+  $('cv-go').disabled = true;
+  $('cv-go').innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>產生中…';
+  try {
+    const res = await fetch(`${ITIN_BASE}/api/shorten`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target: longUrl, email: AGENT.email }),
+    });
+    if (!res.ok) throw new Error(res.status === 403 ? '此信箱未授權，請確認業務設定裡的授權信箱' : '產生失敗（' + res.status + '）');
+    const data = await res.json();
+    if (!data.shortUrl) throw new Error('產生失敗');
+    $('cv-short').value = data.shortUrl;
+    $('cv-preview').href = data.shortUrl;
+    $('cv-result').classList.remove('hidden');
+    navigator.clipboard?.writeText(data.shortUrl).then(() => toast('連結已產生並複製'));
+  } catch (e) {
+    $('cv-msg').textContent = e.message;
+  } finally {
+    $('cv-go').disabled = false;
+    $('cv-go').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-1"></i>產生連結';
+  }
+};
+$('cv-copy').onclick = () => { navigator.clipboard.writeText($('cv-short').value).then(() => toast('已複製')); };
 
 // ── 篩選事件 ──
 $('f-line').onchange = loadFile;
