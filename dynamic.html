@@ -438,20 +438,12 @@ function selectLine(i, e) {
 const selRows = () => SELLINES.map(i => LINES[i]?.row).filter(Boolean);
 
 // ── 明細卡欄位設定（照舊系統：預設只顯示團費/航空/出發日/天數，其他用「顯示欄位」勾）──
+// 只留這四個（使用者 2026-07-19：其他欄位用不到）
 const DFIELDS = [
   { k: 'an',  name: '航空公司', def: 1 },
   { k: 'dt',  name: '出發日',   def: 1 },
   { k: 'dy',  name: '天數',     def: 1 },
-  { k: 'p',   name: '產品',     def: 0 },
-  { k: 'cap', name: '機位',     def: 0 },
-  { k: 's',   name: '報名',     def: 0 },
-  { k: 'r',   name: '剩餘名額', def: 0 },
-  { k: 'ld',  name: '領隊',     def: 0 },
-  { k: 'dl',  name: 'ＤＬ',     def: 0 },
-  { k: 'tp',  name: '票款',     def: 0 },
-  { k: 'ti',  name: '開票',     def: 0 },
-  { k: 'tk',  name: '票+稅',    def: 0 },
-  { k: 'bs',  name: '報名明細', def: 0 },
+  { k: 'r',   name: '剩餘名額', def: 1 },
 ];
 let dshow = JSON.parse(localStorage.getItem('d1dt_dfields') || 'null')
   || Object.fromEntries(DFIELDS.map(f => [f.k, !!f.def]));
@@ -480,14 +472,7 @@ const groupKey = r => [r.pr, r.an, r.dy, r.p, r.gw, r.dp, r.tt || '', r.adj || 0
 const TTPICK = {};
 // 每團可能不一樣的欄位：合併顯示時要跟著日期一筆一筆列，不能只印一個
 const PERTOUR = [
-  { k: 'cap', name: '機位',  get: r => `${r.cap ?? '--'}${r.ok ? '' : ' ⚠'}` },
-  { k: 's',   name: '報名',  get: r => `${r.s} 人${r.w ? '（候補 ' + r.w + '）' : ''}` },
-  { k: 'r',   name: '剩餘',  get: r => `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'price' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r}</span>` },
-  { k: 'ld',  name: '領隊',  get: r => r.ld ? esc(r.ld) : '未派' },
-  { k: 'dl',  name: 'ＤＬ',  get: r => r.dl ? esc(r.dl) : '--' },
-  { k: 'tp',  name: '票款',  get: r => r.tp ? esc(r.tp) : '--' },
-  { k: 'ti',  name: '開票',  get: r => r.ti ? esc(r.ti) : '--' },
-  { k: 'tk',  name: '票+稅', get: r => r.tf != null ? `${fmt$(r.tf)}+${fmt$(r.tx)}` : '--' },
+  { k: 'r', name: '剩餘', get: r => `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'text-amber-300' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r}</span>` },
 ];
 
 function groupBlock(g) {
