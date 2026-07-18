@@ -502,8 +502,10 @@ function groupBlock(g) {
   const gk = groupKey(r0);
   const alts = r0.alt || null;
   const picked = TTPICK[gk] || r0.tt;
-  const base = alts ? (alts.find(a => a[0] === picked)?.[1] ?? null) : null;
   const adj = r0.adj || 0;
+  // 定價：有團型清單就用該團型的；沒有清單（只有一種團型）就回推 定價 = 售價 − 調價
+  const base = alts ? (alts.find(a => a[0] === picked)?.[1] ?? null)
+                    : (adj !== 0 ? r0.pr - adj : null);
   const shown = base != null ? base + adj : r0.pr;
   const switched = alts && picked !== r0.tt;
 
@@ -517,13 +519,13 @@ function groupBlock(g) {
   }
   parts.push(line('團費', `<span class="price text-lg">${fmt$(shown)}</span>`));
   if (base != null && adj !== 0) {
-    parts.push(`<div class="text-[.65rem] m3 text-right pb-1.5 border-b bd2">定價 ${fmt$(base)}　特價 ${adj > 0 ? '+' : '−'}${fmt$(Math.abs(adj))}${switched ? '<br><span class="text-amber-500">（換團型後特價是否適用請自行確認）</span>' : ''}</div>`);
+    parts.push(`<div class="text-[.65rem] m3 text-right pb-1.5 border-b bd2">定價 ${fmt$(base)}　${adj > 0 ? '票 +' : '特價 −'}${fmt$(Math.abs(adj))}${switched ? '<br><span class="text-amber-500">（換團型後特價是否適用請自行確認）</span>' : ''}</div>`);
   } else if (switched) {
     parts.push(`<div class="text-[.65rem] m3 text-right pb-1.5 border-b bd2">已切換團型，原為 ${esc(r0.tt)}</div>`);
   }
   if (dshow.an) parts.push(line('航空公司', esc(r0.an)));
   if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt)}</span>`).join('')}</span>`));
-  if (dshow.dy) parts.push(line('天數', `${r0.dy}天`));
+  if (dshow.dy) parts.push(line('天數', r0.dy ? r0.dy + '天' : '--'));
   if (dshow.p)  parts.push(line('產品', `${esc(r0.p)}${r0.gw !== '直飛' ? '｜' + esc(r0.gw) : ''}${r0.dp !== '台北' ? '｜' + esc(r0.dp) + '出發' : ''}`));
 
   const cols = PERTOUR.filter(f => dshow[f.k]);
@@ -631,11 +633,21 @@ $('copy-btn').onclick = () => {
     const base = r.alt.find(a => a[0] === p)?.[1];
     return base == null ? { price: r.pr, tt: r.tt } : { price: base + (r.adj || 0), tt: p };
   };
-  const txt = rows.map(r => {
+  // 格式（使用者 2026-07-19 指定）：產品 團型 天數｜出發日 出發｜航空｜團費
+  //   同一組（同產品/團型/天數/航空/團費）多個梯次時，抬頭寫一次、日期各自一行
+  const groups = [];
+  const idx = new Map();
+  for (const r of rows) {
     const { price, tt } = priceOf(r);
-    return `【${r.ln}】${r.p}${tt ? ' ' + tt : ''} ${r.dy}天｜${r.c}｜${fmtDt(r.dt)} 出發｜${r.an}｜團費 ${fmt$(price)}` +
-      (dshow.r ? `｜餘 ${r.r} 位` : '') + (r.pm ? '｜促銷中' : '');
-  }).join('\n') + `\n（資料時間 ${META?.stamp || ''}）`;
+    const head = `${r.p}${tt ? ' ' + tt : ''}${r.dy ? ' ' + r.dy + '天' : ''}`;
+    const k = [head, r.an, price].join('|');
+    if (!idx.has(k)) { idx.set(k, groups.length); groups.push({ head, an: r.an, price, dates: [] }); }
+    groups[idx.get(k)].dates.push(fmtDt(r.dt) + ' 出發' + (dshow.r ? `（餘 ${r.r} 位）` : ''));
+  }
+  const txt = groups.map(g => g.dates.length === 1
+    ? `${g.head}｜${g.dates[0]}｜${g.an}｜團費 ${fmt$(g.price)}`
+    : `${g.head}｜${g.an}｜團費 ${fmt$(g.price)}\n` + g.dates.map(d => '　' + d).join('\n')
+  ).join('\n\n');
   navigator.clipboard.writeText(txt).then(() => toast(`已複製 ${rows.length} 筆摘要`));
 };
 
