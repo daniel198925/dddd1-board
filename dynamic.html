@@ -131,7 +131,7 @@
 </div>
 
 <!-- ══ 明細卡（選取資料）══ -->
-<div id="detail-card" class="hidden fixed right-3 bottom-3 w-[214px] max-w-[calc(100vw-1.5rem)] surface border bd rounded-2xl shadow-2xl z-50 overflow-hidden">
+<div id="detail-card" class="hidden fixed right-3 bottom-3 w-[214px] max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-1.5rem)] flex-col surface border bd rounded-2xl shadow-2xl z-50 overflow-hidden">
   <div id="detail-head" class="flex items-center justify-between px-2 py-2 border-b bd2 relative cursor-move select-none" title="拖曳可移動位置">
     <span class="font-bold text-xs truncate"><i class="fa-solid fa-grip-vertical m4 mr-1"></i>選取<span id="detail-count" class="m3 font-normal"></span></span>
     <div class="flex items-center gap-0.5 shrink-0">
@@ -140,7 +140,7 @@
     </div>
     <div id="dcol-menu" class="hidden absolute right-2 top-10 surface border bd rounded-xl p-3 shadow-2xl z-[70] w-36"></div>
   </div>
-  <div id="detail-body" class="px-2 py-2 text-xs max-h-[45vh] overflow-y-auto"></div>
+  <div id="detail-body" class="px-2 py-2 text-xs overflow-y-auto flex-1 min-h-0"></div>
   <div id="chosen-file" class="hidden mx-3 mb-1 px-3 py-2 surface2 border bd rounded-xl text-xs flex items-center gap-2">
     <i class="fa-regular fa-file-pdf text-red-400"></i>
     <span id="chosen-file-name" class="flex-1 truncate m1"></span>
@@ -370,7 +370,7 @@ async function loadFile() {
     `<option value="${l.i}">${esc(l.text.replace(/[■▆▂▄*＊\s　"]/g, ''))}</option>`).join('');
 
   SELLINES = []; ANCHOR = -1;
-  $('detail-card').classList.add('hidden');
+  hideCard();
   render();
 }
 
@@ -520,7 +520,7 @@ function groupBlock(g) {
 
 function showDetail() {
   const rows = selRows();
-  if (!rows.length) { $('detail-card').classList.add('hidden'); return; }
+  if (!rows.length) { hideCard(); return; }
   // 依「價格+航空+天數+產品」分組，同組只出一塊、日期併排
   const groups = [];
   const idx = new Map();
@@ -533,42 +533,54 @@ function showDetail() {
   $('detail-count').textContent = `（共 ${rows.length} 筆${groups.length < rows.length ? '／' + groups.length + ' 種' : ''}）`;
   $('detail-body').innerHTML =
     groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g)}</div>`).join('<div class="border-t-2 bd mb-3"></div>');
-  $('detail-card').classList.remove('hidden');
+  showCard();
 }
-$('detail-close').onclick = () => { $('detail-card').classList.add('hidden'); SELLINES = []; ANCHOR = -1; $('dcol-menu').classList.add('hidden'); render(); };
+$('detail-close').onclick = () => { hideCard(); SELLINES = []; ANCHOR = -1; $('dcol-menu').classList.add('hidden'); render(); };
+
+// ── 明細卡：顯示／隱藏（顯示要用 flex，且顯示後重新校正位置把整張卡拉回畫面內，
+//    確保底部按鈕不會掉出畫面被切掉）──
+const _card = $('detail-card'), _head = $('detail-head');
+const isMobile = () => matchMedia('(max-width: 640px)').matches;
+// 把卡片限制在畫面內：先量真實高度（要先 flex 顯示才量得到），再夾住座標
+function clampCard(x, y) {
+  const w = _card.offsetWidth || 214, h = _card.offsetHeight || 200;
+  x = Math.max(4, Math.min(x, innerWidth - w - 4));
+  y = Math.max(4, Math.min(y, innerHeight - h - 4));
+  _card.style.left = x + 'px'; _card.style.top = y + 'px';
+  _card.style.right = 'auto'; _card.style.bottom = 'auto';
+  return { x, y };
+}
+function hideCard() { _card.classList.add('hidden'); _card.classList.remove('flex'); }
+function showCard() {
+  _card.classList.remove('hidden'); _card.classList.add('flex');    // flex 才會撐開 head/body/按鈕三層
+  if (isMobile()) { _card.style.left = _card.style.top = ''; return; }  // 手機固定底部抽屜，不套自訂位置
+  const saved = JSON.parse(localStorage.getItem('d1dt_cardpos') || 'null');
+  // 沒拖過就維持 CSS 的右下角預設（right-3 bottom-3 + max-h，天然不會超出畫面）；
+  // 拖過的話等這一幀有真實高度再夾一次，確保底部按鈕不被切掉
+  if (saved) requestAnimationFrame(() => clampCard(saved.x, saved.y));
+}
 
 // ── 明細卡可拖曳（抓標題列移動，位置記住；視窗縮小時自動拉回畫面內）──
 (function makeDraggable() {
-  const card = $('detail-card'), head = $('detail-head');
   let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
-  const place = (x, y) => {
-    const w = card.offsetWidth || 390, h = card.offsetHeight || 200;
-    x = Math.max(4, Math.min(x, innerWidth - w - 4));
-    y = Math.max(4, Math.min(y, innerHeight - h - 4));
-    card.style.left = x + 'px'; card.style.top = y + 'px';
-    card.style.right = 'auto'; card.style.bottom = 'auto';
-    return { x, y };
-  };
-  const saved = JSON.parse(localStorage.getItem('d1dt_cardpos') || 'null');
-  if (saved) requestAnimationFrame(() => place(saved.x, saved.y));
-
-  head.addEventListener('pointerdown', e => {
-    if (e.target.closest('button')) return;             // 點按鈕不要當成拖曳
-    const r = card.getBoundingClientRect();
+  _head.addEventListener('pointerdown', e => {
+    if (isMobile() || e.target.closest('button')) return;   // 手機不拖曳；點按鈕不算拖曳
+    const r = _card.getBoundingClientRect();
     dragging = true; sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
-    head.setPointerCapture(e.pointerId);
+    _head.setPointerCapture(e.pointerId);
     e.preventDefault();
   });
-  head.addEventListener('pointermove', e => {
+  _head.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const p = place(ox + e.clientX - sx, oy + e.clientY - sy);
+    const p = clampCard(ox + e.clientX - sx, oy + e.clientY - sy);
     localStorage.setItem('d1dt_cardpos', JSON.stringify(p));
   });
-  const stop = e => { if (dragging) { dragging = false; try { head.releasePointerCapture(e.pointerId); } catch {} } };
-  head.addEventListener('pointerup', stop);
-  head.addEventListener('pointercancel', stop);
+  const stop = e => { if (dragging) { dragging = false; try { _head.releasePointerCapture(e.pointerId); } catch {} } };
+  _head.addEventListener('pointerup', stop);
+  _head.addEventListener('pointercancel', stop);
   addEventListener('resize', () => {
-    if (card.style.left) place(parseFloat(card.style.left), parseFloat(card.style.top));
+    if (!_card.classList.contains('hidden') && !isMobile() && _card.style.left)
+      clampCard(parseFloat(_card.style.left), parseFloat(_card.style.top));
   });
 })();
 
