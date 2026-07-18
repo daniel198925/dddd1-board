@@ -1,0 +1,7 @@
+# 公佈欄已於 2026-07-19 搬家到 Vercel。
+# 舊網址（dddd1v1.netlify.app）一律自動轉到新家，同事的舊書籤照樣能用。
+[[redirects]]
+  from = "/*"
+  to = "https://dddd1-board.vercel.app/:splat"
+  status = 301
+  force = true

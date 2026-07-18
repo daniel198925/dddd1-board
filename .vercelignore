@@ -4,3 +4,4 @@ functions
 firestore.rules
 firebase.json
 .firebaserc
+netlify.toml
