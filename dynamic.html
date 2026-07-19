@@ -63,20 +63,19 @@
   .hl-tour.sel .code { color:var(--sel-fg); background:var(--sel-code-bg); }
   .hl-tour .promo { color:var(--promo); }
 
-  /* ── 手機（≤640px）：卡片變成底部抽屜、字級縮小、按鈕加大好點 ── */
+  /* ── 手機（≤640px）：卡片縮小、一樣可以拖、按鈕只留圖示 ── */
   @media (max-width: 640px) {
     :root { --raw-size: 12px; }
-    #detail-card:not(.hidden) {
-      left:0 !important; right:0 !important; bottom:0 !important; top:auto !important;
-      width:100% !important; max-width:100% !important;
-      border-radius:1rem 1rem 0 0; max-height:72vh; display:flex; flex-direction:column;
-    }
-    #detail-head { cursor:default; }        /* 手機不拖曳，固定在下方 */
-    #detail-head .fa-grip-vertical { display:none; }
-    #detail-body { flex:1; max-height:none !important; }
+    #detail-card { width: 178px; max-height: 54vh; }
+    #detail-body { padding: .25rem .4rem; }
+    #detail-body .dline { padding-top: .2rem; padding-bottom: .2rem; }
+    .btn-txt { display: none; }             /* 按鈕只留圖示，省一大塊空間 */
+    #detail-actions { grid-template-columns: repeat(4, 1fr); }
     .hl { padding:.15rem .5rem; }           /* 行距拉開，手指好點 */
     .mobile-hide { display:none !important; }
   }
+  /* 手指拖曳時不要讓瀏覽器把它當成捲動 */
+  #detail-head { touch-action: none; }
 </style>
 </head>
 <body>
@@ -146,11 +145,11 @@
     <span id="chosen-file-name" class="flex-1 truncate m1"></span>
     <button id="chosen-file-clear" class="m3 hover:text-red-400"><i class="fa-solid fa-xmark"></i></button>
   </div>
-  <div class="grid grid-cols-2 gap-1 p-2 border-t bd2">
-    <button id="files-btn" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-folder-open mr-0.5"></i>行程</button>
-    <button id="copy-btn" class="surface2 hover:opacity-80 m1 border bd font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-copy mr-0.5"></i>複製</button>
-    <button class="bg-emerald-900/40 text-emerald-600 font-bold py-1.5 rounded-lg text-[.7rem] cursor-not-allowed" title="下一階段接上合約系統"><i class="fa-solid fa-file-signature mr-0.5"></i>合約</button>
-    <button id="convert-btn" class="bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-solid fa-plane mr-0.5"></i>轉換</button>
+  <div id="detail-actions" class="grid grid-cols-2 gap-1 p-2 border-t bd2 shrink-0">
+    <button id="files-btn" title="選取行程" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-folder-open"></i><span class="btn-txt ml-0.5">行程</span></button>
+    <button id="copy-btn" title="複製摘要" class="surface2 hover:opacity-80 m1 border bd font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-copy"></i><span class="btn-txt ml-0.5">複製</span></button>
+    <button title="建立合約（下一階段）" class="bg-emerald-900/40 text-emerald-600 font-bold py-1.5 rounded-lg text-[.7rem] cursor-not-allowed"><i class="fa-solid fa-file-signature"></i><span class="btn-txt ml-0.5">合約</span></button>
+    <button id="convert-btn" title="轉換連結" class="bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-solid fa-plane"></i><span class="btn-txt ml-0.5">轉換</span></button>
   </div>
 </div>
 
@@ -477,7 +476,7 @@ const PERTOUR = [
 
 function groupBlock(g) {
   const r0 = g[0];
-  const line = (k, v) => `<div class="flex justify-between py-1.5 border-b bd2 gap-3"><span class="m3 shrink-0">${k}</span><span class="font-bold text-right">${v}</span></div>`;
+  const line = (k, v) => `<div class="dline flex justify-between py-1.5 border-b bd2 gap-3"><span class="m3 shrink-0">${k}</span><span class="font-bold text-right">${v}</span></div>`;
   const parts = [];
   if (g.some(r => r.pm)) parts.push(`<div class="mb-1.5"><span class="chip bg-pink-900/60 text-pink-300">促銷</span></div>`);
 
@@ -576,7 +575,6 @@ function clampCard(x, y) {
 function hideCard() { _card.classList.add('hidden'); _card.classList.remove('flex'); }
 function showCard() {
   _card.classList.remove('hidden'); _card.classList.add('flex');    // flex 才會撐開 head/body/按鈕三層
-  if (isMobile()) { _card.style.left = _card.style.top = ''; return; }  // 手機固定底部抽屜，不套自訂位置
   const saved = JSON.parse(localStorage.getItem('d1dt_cardpos') || 'null');
   // 沒拖過就維持 CSS 的右下角預設（right-3 bottom-3 + max-h，天然不會超出畫面）；
   // 拖過的話等這一幀有真實高度再夾一次，確保底部按鈕不被切掉
@@ -587,9 +585,9 @@ function showCard() {
 (function makeDraggable() {
   let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
   _head.addEventListener('pointerdown', e => {
-    // 手機不拖曳；點按鈕／欄位選單／勾選框都不算拖曳
+    // 電腦、手機都可以拖；但點按鈕／欄位選單／勾選框不算拖曳
     // （選單掛在標題列裡，之前拖曳把勾選的點擊搶走，造成「顯示欄位」勾了沒反應）
-    if (isMobile() || e.target.closest('button') || e.target.closest('#dcol-menu') || e.target.closest('input,label')) return;
+    if (e.target.closest('button') || e.target.closest('#dcol-menu') || e.target.closest('input,label')) return;
     const r = _card.getBoundingClientRect();
     dragging = true; sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
     _head.setPointerCapture(e.pointerId);
@@ -604,7 +602,7 @@ function showCard() {
   _head.addEventListener('pointerup', stop);
   _head.addEventListener('pointercancel', stop);
   addEventListener('resize', () => {
-    if (!_card.classList.contains('hidden') && !isMobile() && _card.style.left)
+    if (!_card.classList.contains('hidden') && _card.style.left)
       clampCard(parseFloat(_card.style.left), parseFloat(_card.style.top));
   });
 })();
