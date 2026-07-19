@@ -76,6 +76,11 @@
   }
   /* 手指拖曳時不要讓瀏覽器把它當成捲動 */
   #detail-head { touch-action: none; }
+
+  /* 快速篩選按鈕：關閉＝一般外框，開啟＝亮起來 */
+  .filter-btn { cursor: pointer; font-weight: 700; }
+  .filter-btn.on { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+  [data-theme="light"] .filter-btn.on { background: #2563eb; border-color: #2563eb; color: #fff; }
 </style>
 </head>
 <body>
@@ -123,6 +128,10 @@
         <input id="f-to" type="date" class="input-style">
         <input id="f-search" class="input-style w-44 max-sm:w-full ml-2 max-sm:ml-0" placeholder="🔍 搜尋（團號/任意字）">
       </div>
+      <!-- 快速篩選（開關型，按下去變亮）-->
+      <button id="f-promo" class="filter-btn input-style whitespace-nowrap"><i class="fa-solid fa-tag mr-1"></i>促銷</button>
+      <button id="f-avail" class="filter-btn input-style whitespace-nowrap"><i class="fa-solid fa-chair mr-1"></i>有位</button>
+      <span id="count-badge" class="chip surface2 m2"></span>
     </div>
   </header>
 
@@ -388,13 +397,33 @@ function render() {
     regionEnd = next ? next.i : Infinity;
   }
 
+  const promoOn = $('f-promo').classList.contains('on');
+  const availOn = $('f-avail').classList.contains('on');
+  const filtering = !!(q || promoOn || availOn);
+
+  // 這一團過不過篩選
+  const rowPass = r =>
+    !(from && r.dt && r.dt < from) && !(to && r.dt && r.dt > to) &&
+    !(promoOn && !r.pm) && !(availOn && !(r.r > 0));
+
+  // 先掃一遍：哪些團留下來、各分區底下還有沒有團
+  //（有篩選時要把空掉的分區標題也藏起來，不然畫面一堆標題沒東西）
+  const pass = new Set();
+  const secHasRow = new Set();
+  let curSec = -1;
+  for (const l of LINES) {
+    if (l.isSec) curSec = l.i;
+    else if (l.row && rowPass(l.row) && (!q || l.text.toUpperCase().includes(q))) {
+      pass.add(l.i);
+      if (curSec >= 0) secHasRow.add(curSec);
+    }
+  }
+
   const out = [];
   for (const l of LINES) {
     if (regionStart >= 0 && (l.i < regionStart || l.i >= regionEnd)) continue;
     if (l.row) {
-      if (from && l.row.dt && l.row.dt < from) continue;
-      if (to && l.row.dt && l.row.dt > to) continue;
-      if (q && !l.text.toUpperCase().includes(q)) continue;
+      if (!pass.has(l.i)) continue;
       let h = esc(l.text);
       // 團號上色（跟舊系統一樣把團號標成藍色塊）
       // 只標團號裡的日期四碼（跟舊系統一樣），不是整串團號
@@ -402,14 +431,15 @@ function render() {
       h = h.replace(/(&quot;促銷&quot;)/g, '<span class="promo">$1</span>');
       out.push(`<div class="hl hl-tour ${SELLINES.includes(l.i) ? 'sel' : ''}" data-i="${l.i}">${h}</div>`);
     } else if (l.isSec) {
-      if (q) continue;
+      if (filtering && !secHasRow.has(l.i)) continue;   // 這區沒有符合的團就整個不顯示
       out.push(`<div class="hl hl-sec">${esc(l.text)}</div>`);
     } else {
-      if (q) continue;
+      if (filtering) continue;                          // 篩選中就不放摘要/裝飾行，畫面清爽
       out.push(`<div class="hl m2">${esc(l.text) || ' '}</div>`);
     }
   }
-  $('raw-view').innerHTML = out.join('') || '<div class="m3 p-6">沒有符合條件的資料</div>';
+  $('raw-view').innerHTML = out.join('') || '<div class="m3 p-6">沒有符合條件的團</div>';
+  $('count-badge').textContent = filtering ? `${pass.size} 團` : '';
   VISIBLE = [...$('raw-view').querySelectorAll('.hl-tour')].map(el => +el.dataset.i);
   $('raw-view').querySelectorAll('.hl-tour').forEach(el => el.onclick = e => selectLine(+el.dataset.i, e));
 }
@@ -795,6 +825,16 @@ $('cv-copy').onclick = () => { navigator.clipboard.writeText($('cv-short').value
 $('f-line').onchange = loadFile;
 ['f-region','f-from','f-to'].forEach(id => $(id).onchange = render);
 $('f-search').oninput = render;
+
+// 快速篩選（促銷／有位）：開關型，狀態記住，下次打開還在
+['f-promo', 'f-avail'].forEach(id => {
+  if (localStorage.getItem('d1dt_' + id) === '1') $(id).classList.add('on');
+  $(id).onclick = () => {
+    const on = $(id).classList.toggle('on');
+    localStorage.setItem('d1dt_' + id, on ? '1' : '0');
+    render();
+  };
+});
 </script>
 </body>
 </html>
