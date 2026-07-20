@@ -476,7 +476,9 @@ document.addEventListener('click', e => { if (!$('dcol-menu').contains(e.target)
 //    （使用者 2026-07-18：同價位商品只是日期不同，顯示在同一個就好）
 // 同組＝同價、同航空、同天數、同產品、同團型、同特價（團型/特價一起納入，避免不同團型
 // 剛好算出同一個售價被誤併成一組）
-const groupKey = r => [r.pr, r.an, r.dy, r.p, r.gw, r.dp, r.tt || '', r.adj || 0].join('|');
+// 時段（早/午/晚班）也納入分組——同航班不同時段是不同團，不可合併（使用者 2026-07-20）
+const groupKey = r => [r.pr, r.an, r.dy, r.p, r.gw, r.dp, r.tt || '', r.adj || 0, r.fl || ''].join('|');
+const anWithFlight = r => esc(r.an) + (r.fl ? `（${r.fl}）` : '');   // 酷航（午）
 // 業務手動切換的團型（key = groupKey）。只存在這次瀏覽，重整就回到漢書上的原團型
 const TTPICK = {};
 // 每團可能不一樣的欄位：合併顯示時要跟著日期一筆一筆列，不能只印一個
@@ -517,7 +519,7 @@ function groupBlock(g) {
   } else if (switched) {
     parts.push(`<div class="text-[.65rem] m3 text-right pb-1.5 border-b bd2">已切換團型，原為 ${esc(r0.tt)}</div>`);
   }
-  if (dshow.an) parts.push(line('航空公司', esc(r0.an)));
+  if (dshow.an) parts.push(line('航空公司', anWithFlight(r0)));
   if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt)}</span>`).join('')}</span>`));
   if (dshow.dy) parts.push(line('天數', r0.dy ? r0.dy + '天' : '--'));
   if (dshow.p)  parts.push(line('產品', `${esc(r0.p)}${r0.gw !== '直飛' ? '｜' + esc(r0.gw) : ''}${r0.dp !== '台北' ? '｜' + esc(r0.dp) + '出發' : ''}`));
@@ -633,12 +635,12 @@ function buildQuoteText(fileName, linkUrl) {
   const groups = [], idx = new Map();
   for (const r of rows) {
     const { price } = priceOfRow(r);
-    const k = [price, r.an, r.dy].join('|');
-    if (!idx.has(k)) { idx.set(k, groups.length); groups.push({ price, an: r.an, dy: r.dy, dates: [] }); }
+    const k = [price, r.an, r.dy, r.fl || ''].join('|');   // 時段不同不併
+    if (!idx.has(k)) { idx.set(k, groups.length); groups.push({ price, an: r.an, dy: r.dy, fl: r.fl, dates: [] }); }
     groups[idx.get(k)].dates.push(mmdd(r.dt));
   }
   const blocks = groups.map(g =>
-    `【團費：${fmt$(g.price)}】\n航空公司：${anFull(g.an)}\n出發日：${g.dates.join('、')}\n天數：${g.dy ? g.dy + '天' : '--'}`
+    `【團費：${fmt$(g.price)}】\n航空公司：${anFull(g.an)}${g.fl ? `（${g.fl}班）` : ''}\n出發日：${g.dates.join('、')}\n天數：${g.dy ? g.dy + '天' : '--'}`
   ).join('\n\n');
   let t = blocks;
   if (fileName || linkUrl) t += `\n\n行程表如下列連結：${fileName ? '\n' + fileName : ''}${linkUrl ? '\n' + linkUrl : ''}`;
