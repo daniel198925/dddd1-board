@@ -758,6 +758,13 @@ function findLineFolder(lineName) {
 const isNoiseFolder = name => /圖片|素材|照片|相片|海報|文宣|封面|備份|複製|副本|舊(?!金山)/.test(name);
 const isNoiseFile = name => /複製|副本|[-\s]copy|\(舊\)|舊版|舊檔|作廢|勿用|停售|停用|不用|草稿|test/i.test(name);
 
+// 這團的「目的地／路線」關鍵字（美西、舊金山、香港…）——配對最強訊號
+function destWords(t) {
+  const w = [];
+  if (t.ds) w.push(t.ds);
+  if (t.p && t.p !== t.ds) w.push(t.p);
+  return w;
+}
 function bestMatchIds(folder, t) {
   // 帶著「所在資料夾路徑」一起評分——時段（午/早/晚）常寫在資料夾名（酷航(午晚)），不在檔名
   const all = [];
@@ -766,9 +773,17 @@ function bestMatchIds(folder, t) {
     for (const c of n.children || []) if (!isNoiseFolder(c.name)) walk(c, path + '/' + c.name);
   };
   walk(folder, folder.name);
-  let best = -1; for (const x of all) best = Math.max(best, scoreFile(t, x.f, x.path));
+  const dw = destWords(t);
+  let best = -1;
+  const scored = all.map(x => {
+    const sc = scoreFile(t, x.f, x.path);
+    const dh = dw.length ? dw.some(d => (x.f.n + ' ' + x.path).includes(d)) : true;  // 沒目的地資料就不設限
+    if (sc > best) best = sc;
+    return { id: x.f.id, sc, dh };
+  });
   const ids = new Set();
-  if (best >= 18) for (const x of all) if (scoreFile(t, x.f, x.path) === best) ids.add(x.f.id);
+  // 分數夠高「且最佳檔真的對到目的地」才標——擋掉靠團型/天數跨國亂配（美西 vs 紐西蘭都叫國家公園）
+  if (best >= 18) for (const s of scored) if (s.sc === best && s.dh) ids.add(s.id);
   return ids;
 }
 function inFilePeriod(nm, dt) {
@@ -794,6 +809,9 @@ const AL_SHORT = {
 function scoreFile(t, f, path) {
   let s = 0; const nm = f.n;
   const hay = nm + ' ' + (path || '');   // 檔名＋所在資料夾（時段常在資料夾名）
+  // 目的地／路線（最強訊號）：檔名或所在資料夾含這團目的地 → 大加分。
+  //   否則「國家公園」「精彩」這種主題字會跨國亂配（美西 vs 紐西蘭都叫國家公園）
+  if (destWords(t).some(d => hay.includes(d))) s += 14;
   const al = TT_ALIAS[t.tt] || (t.tt ? [t.tt] : []);
   if (al.some(a => nm.includes(a))) s += 10;
   // 班機時段（使用者 2026-07-20）：午班→午晚、晚班→午晚、早班→早午。
