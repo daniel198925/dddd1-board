@@ -748,7 +748,12 @@ const TT_ALIAS = {
 };
 function findLineFolder(lineName) {
   // 找對應這條產品線的第一層資料夾（檔名前綴 06.河內 對到 dt_tours 的 ln=河內）
-  return (FILETREE.children || []).find(c => c.name.replace(/^[0-9.\s]+/, '').replace(/\s/g, '').includes(lineName.replace(/[AB]$/, '')))
+  // ⚠ 每條線在雲端都有精確資料夾（含 A/B）：長程A→15.長程A、長程B→16.長程B。
+  //   一定要「精確比對」優先，否則「長程B」會誤中排在前面的「15.長程A」→整條長程B全掛。
+  const clean = s => s.replace(/^[0-9.\s]+/, '').replace(/\s/g, '');
+  const ln = lineName.replace(/\s/g, '');
+  return (FILETREE.children || []).find(c => clean(c.name) === ln)
+    || (FILETREE.children || []).find(c => clean(c.name).includes(ln))
     || (FILETREE.children || []).find(c => c.name.includes(lineName));
 }
 // 掃這個資料夾下所有 PDF，回傳「最相符」那幾個的 id（分數夠高才標，避免亂標）
@@ -758,11 +763,13 @@ function findLineFolder(lineName) {
 const isNoiseFolder = name => /圖片|素材|照片|相片|海報|文宣|封面|備份|複製|副本|舊(?!金山)/.test(name);
 const isNoiseFile = name => /複製|副本|[-\s]copy|\(舊\)|舊版|舊檔|作廢|勿用|停售|停用|不用|草稿|test/i.test(name);
 
+// 全形正規化：漢書「雪＋墨」的全形＋、全形／要對得上資料夾「雪+墨」的半形
+const nz = s => (s || '').replace(/＋/g, '+').replace(/／/g, '/').replace(/　/g, '');
 // 這團的「目的地／路線」關鍵字（美西、舊金山、香港…）——配對最強訊號
 function destWords(t) {
   const w = [];
-  if (t.ds) w.push(t.ds);
-  if (t.p && t.p !== t.ds) w.push(t.p);
+  if (t.ds) w.push(nz(t.ds));
+  if (t.p && t.p !== t.ds) w.push(nz(t.p));
   return w;
 }
 function bestMatchIds(folder, t) {
@@ -777,7 +784,7 @@ function bestMatchIds(folder, t) {
   let best = -1;
   const scored = all.map(x => {
     const sc = scoreFile(t, x.f, x.path);
-    const dh = dw.length ? dw.some(d => (x.f.n + ' ' + x.path).includes(d)) : true;  // 沒目的地資料就不設限
+    const dh = dw.length ? dw.some(d => nz(x.f.n + ' ' + x.path).includes(d)) : true;  // 沒目的地資料就不設限
     if (sc > best) best = sc;
     return { id: x.f.id, sc, dh };
   });
@@ -808,10 +815,13 @@ const AL_SHORT = {
 };
 function scoreFile(t, f, path) {
   let s = 0; const nm = f.n;
-  const hay = nm + ' ' + (path || '');   // 檔名＋所在資料夾（時段常在資料夾名）
+  const hay = nz(nm + ' ' + (path || ''));   // 檔名＋所在資料夾（時段常在資料夾名）；全形正規化對得上「雪+墨」
   // 目的地／路線（最強訊號）：檔名或所在資料夾含這團目的地 → 大加分。
+  //   產品線名（雪+墨、美西）比國家名（澳洲）精確 → 權重更高，才能跟隔壁同國團分清楚。
   //   否則「國家公園」「精彩」這種主題字會跨國亂配（美西 vs 紐西蘭都叫國家公園）
-  if (destWords(t).some(d => hay.includes(d))) s += 14;
+  const pw = t.p ? nz(t.p) : '', cw = t.ds ? nz(t.ds) : '';
+  if (pw && hay.includes(pw)) s += 14;
+  else if (cw && hay.includes(cw)) s += 10;
   const al = TT_ALIAS[t.tt] || (t.tt ? [t.tt] : []);
   if (al.some(a => nm.includes(a))) s += 10;
   // 班機時段（使用者 2026-07-20）：午班→午晚、晚班→午晚、早班→早午。
