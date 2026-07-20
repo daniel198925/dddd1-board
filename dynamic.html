@@ -81,6 +81,12 @@
   .filter-btn { cursor: pointer; font-weight: 700; }
   .filter-btn.on { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
   [data-theme="light"] .filter-btn.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+  /* 選取行程・系統判斷最相符（星號）那行：琥珀底＋左邊琥珀線，明顯 */
+  .file-hl { background: rgba(245,158,11,.22); box-shadow: inset 4px 0 0 #f59e0b; border-radius: 6px; }
+  .file-hl .file-pick { color: #fde68a !important; }            /* 深色模式：淺黃字 */
+  [data-theme="light"] .file-hl { background: rgba(245,158,11,.30); }
+  [data-theme="light"] .file-hl .file-pick { color: #92400e !important; }   /* 淺色模式：深棕字 */
 </style>
 </head>
 <body>
@@ -794,8 +800,8 @@ function renderFiles() {
 
   const fmtTime = ms => { if (!ms) return ''; const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const fileRow = (f, pad, hl) =>
-    `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2 ${hl ? 'bg-blue-500/10' : ''}" ${hl ? 'data-hl="1"' : ''} style="padding-left:${pad}rem">
-      <button class="file-pick ${hl ? 'text-blue-300 font-bold' : 'text-blue-400'} hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${hl ? '⭐ ' : ''}${esc(f.n.replace(/\.pdf$/i,''))}</button>
+    `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2 ${hl ? 'file-hl' : ''}" ${hl ? 'data-hl="1"' : ''} style="padding-left:${pad}rem">
+      <button class="file-pick ${hl ? 'text-amber-300 font-bold' : 'text-blue-400'} hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${hl ? '⭐ ' : ''}${esc(f.n.replace(/\.pdf$/i,''))}</button>
       <span class="shrink-0 flex items-center gap-2">
         <span class="m4 text-xs">${fmtTime(f.t)}</span>
         <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" title="預覽" class="m3 hover:text-blue-400"><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
