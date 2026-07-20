@@ -165,7 +165,7 @@
   <div id="detail-actions" class="grid grid-cols-2 gap-1 p-2 border-t bd2 shrink-0">
     <button id="files-btn" title="選取行程" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-folder-open"></i><span class="btn-txt ml-0.5">行程</span></button>
     <button id="copy-btn" title="複製摘要" class="surface2 hover:opacity-80 m1 border bd font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-copy"></i><span class="btn-txt ml-0.5">複製</span></button>
-    <button title="建立合約（下一階段）" class="bg-emerald-900/40 text-emerald-600 font-bold py-1.5 rounded-lg text-[.7rem] cursor-not-allowed"><i class="fa-solid fa-file-signature"></i><span class="btn-txt ml-0.5">合約</span></button>
+    <button id="contract-btn" title="建立合約（帶團號＋團費開合約系統）" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-solid fa-file-signature"></i><span class="btn-txt ml-0.5">合約</span></button>
     <button id="convert-btn" title="轉換連結" class="bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-solid fa-plane"></i><span class="btn-txt ml-0.5">轉換</span></button>
   </div>
 </div>
@@ -241,6 +241,7 @@ let AGENT = {};               // 業務設定（dt_agent/{uid}）
 let CHOSENFILE = null;        // 選取的行程檔案 { id, n }
 let VISIBLE = [];             // 目前畫面上看得到的團行 index（Shift 框選用）
 const ITIN_BASE = 'https://discoveredtrip.com';   // 中轉頁
+const CONTRACT_BASE = 'https://findit-contract.vercel.app';   // 線上合約系統（吃 ?tour=團號&price=團費）
 
 const $ = id => document.getElementById(id);
 
@@ -973,6 +974,18 @@ $('convert-btn').onclick = async () => {
   } finally {
     btn.disabled = false; btn.innerHTML = orig;
   }
+};
+
+// ── 建立合約：帶團號＋團費開合約系統（findit-contract 會自動解析團號選範本、算費用×人數）──
+//   合約系統有自己的登入門禁（跟舊外掛同一批白名單帳號），這裡只負責把資料帶過去。
+$('contract-btn').onclick = () => {
+  const rows = selRows();
+  if (!rows.length) return;
+  const r = rows[0];                        // 合約一次一團，取第一筆
+  const { price } = priceOfRow(r);          // 團費跟著業務當下選的團型走
+  const url = `${CONTRACT_BASE}/?tour=${encodeURIComponent(r.c)}&price=${encodeURIComponent(price)}`;
+  window.open(url, '_blank', 'noopener');
+  toast(rows.length > 1 ? `合約一次一團，已帶第一筆（${r.c}）` : '已開啟合約系統，帶入團號＋團費');
 };
 
 // ── 篩選事件 ──
