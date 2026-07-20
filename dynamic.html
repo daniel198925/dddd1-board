@@ -752,12 +752,18 @@ function findLineFolder(lineName) {
     || (FILETREE.children || []).find(c => c.name.includes(lineName));
 }
 // 掃這個資料夾下所有 PDF，回傳「最相符」那幾個的 id（分數夠高才標，避免亂標）
+// 雜項過濾（讓畫面像舊系統一樣清爽，只留正式行程）——保守：只藏最明確的
+//   資料夾：圖片/素材/照片…等非行程夾，或複製/副本/備份夾
+//   檔案：複製/副本/舊版/作廢…（「舊金山」的「舊」不會誤中，因為只認「(舊)」「舊版」等）
+const isNoiseFolder = name => /圖片|素材|照片|相片|海報|文宣|封面|備份|複製|副本/.test(name);
+const isNoiseFile = name => /複製|副本|[-\s]copy|\(舊\)|舊版|舊檔|作廢|勿用|停售|停用|不用|草稿|test/i.test(name);
+
 function bestMatchIds(folder, t) {
   // 帶著「所在資料夾路徑」一起評分——時段（午/早/晚）常寫在資料夾名（酷航(午晚)），不在檔名
   const all = [];
   const walk = (n, path) => {
-    for (const f of n.files || []) if (/\.pdf$/i.test(f.n)) all.push({ f, path });
-    for (const c of n.children || []) walk(c, path + '/' + c.name);
+    for (const f of n.files || []) if (/\.pdf$/i.test(f.n) && !isNoiseFile(f.n)) all.push({ f, path });
+    for (const c of n.children || []) if (!isNoiseFolder(c.name)) walk(c, path + '/' + c.name);
   };
   walk(folder, folder.name);
   let best = -1; for (const x of all) best = Math.max(best, scoreFile(t, x.f, x.path));
@@ -837,8 +843,8 @@ function renderFiles() {
   // 樹狀節點（forceOpen＝相關行程模式全展開；bestIds＝要標星號的檔案）
   const node = (n, depth, forceOpen, bestIds) => {
     if (n.files === undefined) return '';
-    const kids = (n.children || []).map(c => node(c, depth + 1, forceOpen, bestIds)).join('') +
-      (n.files || []).filter(f => /\.pdf$/i.test(f.n) && (!q || f.n.toLowerCase().includes(q))).map(f => fileRow(f, depth * 1.25 + 1, bestIds && bestIds.has(f.id))).join('');
+    const kids = (n.children || []).filter(c => !isNoiseFolder(c.name)).map(c => node(c, depth + 1, forceOpen, bestIds)).join('') +
+      (n.files || []).filter(f => /\.pdf$/i.test(f.n) && !isNoiseFile(f.n) && (!q || f.n.toLowerCase().includes(q))).map(f => fileRow(f, depth * 1.25 + 1, bestIds && bestIds.has(f.id))).join('');
     if (q && !kids) return '';
     const open = forceOpen || expandAll || q || depth === 0;
     return `<details ${open ? 'open' : ''} style="padding-left:${depth ? 1.25 : 0}rem">
