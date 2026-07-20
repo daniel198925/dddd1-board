@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<!-- Sarasa Mono CL：中日韓等寬字型（中文=2×英數），讓漢書原文對齊。unicode-range 分包，只載用到的字 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sarasa-mono-web@0.1.0/fonts/SarasaMonoCL-Regular/SarasaMonoCL-Regular.css">
 <style>
   /* ── 深／淺色主題（顏色都走變數，切換只換這一組值）────────── */
   :root {
@@ -48,7 +50,7 @@
 
   /* ── 漢書原始排版區 ─────────────────────────── */
   #raw-view {
-    font-family: 'Consolas', '細明體', 'MingLiU', 'Courier New', monospace;
+    font-family: 'SarasaMonoCL-Regular', 'MingLiU', '細明體', 'Consolas', monospace;
     font-size: var(--raw-size, 15px); line-height: 1.5;
     background:var(--raw-bg); color:var(--raw-fg);
     white-space: pre; overflow-x: auto;
