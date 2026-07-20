@@ -130,6 +130,32 @@
         html.dark .hs-meter { background: #1c2840; }
         html.dark .hs-tag { background: #1c2840; color: #94a3b8; }
 
+        /* ── 系統監視 ──────────────────────── */
+        .mon-banner { border-radius: 16px; padding: 14px 18px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .mon-banner.ok   { background: rgba(12,163,12,0.08);  color: #006300; }
+        .mon-banner.bad  { background: rgba(208,59,59,0.08);  color: #d03b3b; }
+        .mon-banner.warn { background: rgba(250,178,25,0.14); color: #7a5200; }
+        .mon-group-title { font-size: 12px; font-weight: 700; color: #6E6E73; letter-spacing: .05em; margin: 14px 2px 6px; }
+        .mon-row { display: flex; align-items: flex-start; gap: 12px; padding: 13px 16px; }
+        .mon-row + .mon-row { border-top: 1px solid #E5E5E7; }
+        .mon-dot { flex: none; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: #fff; margin-top: 1px; }
+        .mon-dot.ok  { background: #0ca30c; }
+        .mon-dot.bad { background: #d03b3b; }
+        .mon-name { font-size: 15px; font-weight: 600; color: #1D1D1F; }
+        .mon-state { font-size: 13px; font-weight: 700; margin-left: 8px; }
+        .mon-state.ok  { color: #006300; }
+        .mon-state.bad { color: #d03b3b; }
+        .mon-detail { font-size: 13px; color: #6E6E73; margin-top: 2px; line-height: 1.5; }
+        html.dark .mon-banner.ok   { background: rgba(12,163,12,0.12);  color: #0ca30c; }
+        html.dark .mon-banner.bad  { background: rgba(208,59,59,0.15);  color: #e06060; }
+        html.dark .mon-banner.warn { background: rgba(250,178,25,0.12); color: #fab219; }
+        html.dark .mon-group-title { color: #8391a8; }
+        html.dark .mon-row + .mon-row { border-color: #1c2840; }
+        html.dark .mon-name { color: #eef2fa; }
+        html.dark .mon-state.ok { color: #0ca30c; }
+        html.dark .mon-state.bad { color: #e06060; }
+        html.dark .mon-detail { color: #94a3b8; }
+
         /* ── 新增員工 Modal ── */
         #add-user-modal {
             position: fixed; inset: 0; z-index: 3000;
@@ -337,6 +363,7 @@
                     <button id="btn-dt" onclick="location.href='dynamic.html'" class="tab-btn hidden"><i class="fa-solid fa-bolt mr-1"></i>動態查詢</button>
                     <button id="btn-report" onclick="switchTab('report')" class="tab-btn hidden">業績報表</button>
                     <button id="btn-hanshu" onclick="switchTab('hanshu')" class="tab-btn hidden">銷售分析</button>
+                    <button id="btn-monitor" onclick="switchTab('monitor')" class="tab-btn hidden">系統監視</button>
                     <button id="btn-team" onclick="switchTab('team')" class="tab-btn hidden">小組管理</button>
                     <button id="btn-admin" onclick="switchTab('admin')" class="tab-btn hidden">帳號管理</button>
                 </div>
@@ -510,6 +537,23 @@
                 </div>
             </div>
 
+            <!-- 3.6 系統監視 — 只有 admin 看得到 -->
+            <div id="panel-monitor" class="panel hidden space-y-4">
+                <div class="flex items-baseline gap-3 flex-wrap">
+                    <h2 class="text-2xl font-extrabold tracking-tight text-gray-900">系統監視</h2>
+                    <span id="mon-stamp" class="text-xs text-gray-500"></span>
+                </div>
+                <div id="mon-body">
+                    <div class="apple-card p-10 text-center text-gray-500 text-sm">
+                        <i class="fas fa-circle-notch fa-spin mr-2"></i> 讀取中…
+                    </div>
+                </div>
+                <p class="text-[11px] text-gray-500 leading-relaxed px-1">
+                    監視器在辦公室電腦上每 10 分鐘自動巡邏一次；本頁每 60 秒自動更新。<br>
+                    「最後巡邏」時間停超過 30 分鐘，代表監視器本身（或辦公室電腦）停了。
+                </p>
+            </div>
+
             <!-- 4. 小組管理 -->
             <div id="panel-team" class="panel hidden space-y-10">
                 <div class="apple-card p-6 border border-gray-100">
@@ -655,10 +699,12 @@
                 document.getElementById('btn-dt').classList.remove('hidden');
             }
             if (r === 'admin') {
-                ['btn-admin', 'btn-team', 'btn-hanshu', 'record-post-area'].forEach(id => {
+                ['btn-admin', 'btn-team', 'btn-hanshu', 'btn-monitor', 'record-post-area'].forEach(id => {
                     document.getElementById(id).classList.remove('hidden');
                 });
                 loadHanshu();
+                loadMonitor();
+                setInterval(loadMonitor, 60000);
             }
         }
 
@@ -1083,6 +1129,54 @@
         };
         const hsMoney = n => n >= 1e8 ? (n / 1e8).toFixed(2) + ' 億' : Math.round(n / 1e4) + ' 萬';
         const hsPct = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '–';
+
+        // ── 系統監視（只有 admin）──────────────────────────────────
+        // 資料來源：辦公室電腦上的監視器每 10 分鐘巡邏一次，
+        // 結果寫在 discovered-contract 專案的 monitor/status（走 REST，跟本站的 Firebase 專案無關）
+        const MON_URL = "https://firestore.googleapis.com/v1/projects/discovered-contract/databases/(default)/documents/monitor/status";
+        const MON_GROUPS = ["團團成交", "合約系統", "NAS 漢書解析", "每日排程"];
+        const monEsc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+        async function loadMonitor() {
+            const box = document.getElementById('mon-body');
+            if (!box) return;
+            try {
+                const r = await fetch(MON_URL);
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const docJson = await r.json();
+                const p = JSON.parse(docJson.fields.payload.stringValue);
+                const ageMin = (Date.now() - new Date(p.updatedAt).getTime()) / 60000;
+                const stale = ageMin > 30;
+                const failed = p.checks.filter(c => !c.ok);
+                document.getElementById('mon-stamp').textContent = '最後巡邏：' + p.updatedAtText;
+
+                let html = '';
+                if (stale) {
+                    html += `<div class="mon-banner warn">⏸️ 監視器已 ${Math.round(ageMin)} 分鐘沒有回報 — 底下是舊資料（辦公室電腦可能沒開）</div>`;
+                } else if (!failed.length) {
+                    html += `<div class="mon-banner ok">✓ 全部系統正常運作中</div>`;
+                } else {
+                    html += `<div class="mon-banner bad">✕ ${failed.length} 個項目異常，請查看紅色項目</div>`;
+                }
+                for (const g of MON_GROUPS) {
+                    const rows = p.checks.filter(c => c.group === g);
+                    if (!rows.length) continue;
+                    html += `<div class="mon-group-title">${monEsc(g)}</div>`
+                        + `<div class="apple-card border border-gray-100 overflow-hidden">`
+                        + rows.map(c =>
+                            `<div class="mon-row">`
+                            + `<div class="mon-dot ${c.ok ? 'ok' : 'bad'}">${c.ok ? '✓' : '✕'}</div>`
+                            + `<div><span class="mon-name">${monEsc(c.name)}</span>`
+                            + `<span class="mon-state ${c.ok ? 'ok' : 'bad'}">${c.ok ? '正常' : '異常'}</span>`
+                            + `<div class="mon-detail">${monEsc(c.detail)}</div></div>`
+                            + `</div>`).join('')
+                        + `</div>`;
+                }
+                box.innerHTML = html;
+            } catch (e) {
+                box.innerHTML = `<div class="mon-banner warn">⚠️ 讀不到巡邏結果（${monEsc(e.message || e)}）— 可能是網路問題</div>`;
+            }
+        }
 
         async function loadHanshu() {
             try {
