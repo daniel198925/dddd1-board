@@ -808,7 +808,7 @@ function renderFiles() {
 
   const fmtTime = ms => { if (!ms) return ''; const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const fileRow = (f, pad, hl) =>
-    `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2 ${hl ? 'bg-blue-500/10' : ''}" style="padding-left:${pad}rem">
+    `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2 ${hl ? 'bg-blue-500/10' : ''}" ${hl ? 'data-hl="1"' : ''} style="padding-left:${pad}rem">
       <button class="file-pick ${hl ? 'text-blue-300 font-bold' : 'text-blue-400'} hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${hl ? '⭐ ' : ''}${esc(f.n.replace(/\.pdf$/i,''))}</button>
       <span class="shrink-0 flex items-center gap-2">
         <span class="m4 text-xs">${fmtTime(f.t)}</span>
@@ -851,6 +851,12 @@ function renderFiles() {
     $('files-modal').classList.add('hidden');
     toast('已選取：' + btn.dataset.n);
     if (!$('convert-modal').classList.contains('hidden')) fillConvert();
+  });
+
+  // 相關行程模式：自動捲到星號那個檔案（檔案多時不用一直往下滑）
+  if (related) requestAnimationFrame(() => {
+    const hl = $('files-tree').querySelector('[data-hl]');
+    if (hl) hl.scrollIntoView({ block: 'center' });
   });
 }
 
