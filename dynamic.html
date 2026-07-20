@@ -756,17 +756,28 @@ function inFilePeriod(nm, dt) {
 // 天數轉中文（首爾等線檔名寫「五日」不是「5日」）：5→五、10→十、12→十二、15→十五
 const _CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 function dayCN(n) { if (n <= 10) return _CN[n]; if (n < 20) return '十' + _CN[n - 10]; return _CN[Math.floor(n / 10)] + '十' + (n % 10 ? _CN[n % 10] : ''); }
+// 航空簡稱（檔名常寫「華航」「星宇」而非全名或代碼；使用者 2026-07-20 指正）
+const AL_SHORT = {
+  CI: '華航', JX: '星宇', BR: '長榮', TR: '酷航', IT: '虎航', B7: '立榮', AE: '華信', UO: '香港快運',
+  CX: '國泰', CA: '國航', MU: '東方', CZ: '南方', MF: '廈航', HU: '海航', HO: '吉祥', FM: '上航',
+  JL: '日航', NH: '全日空', MM: '樂桃', KE: '大韓', OZ: '韓亞', TG: '泰航', SL: '獅航', VZ: '越捷',
+  SQ: '新航', MH: '馬航', VN: '越航', VJ: '越捷', PR: '菲航', EK: '阿聯酋', QR: '卡達', TK: '土航',
+  NX: '澳航', ZE: '易斯達', '7C': '濟州', TW: '德威', BX: '釜山',
+};
 function scoreFile(t, f) {
   let s = 0; const nm = f.n;
   const al = TT_ALIAS[t.tt] || (t.tt ? [t.tt] : []);
   if (al.some(a => nm.includes(a))) s += 10;
-  if (t.dy && (nm.includes(t.dy + '日') || nm.includes(dayCN(t.dy) + '日'))) s += 8;   // 阿拉伯或中文天數都算
+  // 天數：阿拉伯/中文 ×「日」或「天」都算（首爾寫「五日」、長程寫「9天」「十天」）
+  if (t.dy && [t.dy + '日', dayCN(t.dy) + '日', t.dy + '天', dayCN(t.dy) + '天'].some(x => nm.includes(x))) s += 8;
   if (t.dp && t.dp !== '台北' && nm.includes(t.dp)) s += 5;    // 台北是預設，寫不寫都算
   else if (t.dp === '台北' && !/台中|高雄/.test(nm)) s += 2;
-  // 航空：檔名可能寫全名（越捷航空）或代碼（(ZE)）——兩種都比對，才分得出同行程不同航空的版本
-  if (t.an && nm.includes(t.an.replace('航空', ''))) s += 4;
+  // 航空：全名（越捷航空）／代碼（(ZE)）／簡稱（華航）任一命中就算
   const alCode = t.c.slice(-8, -6);
-  if (/^[A-Z0-9]{2}$/.test(alCode) && nm.includes('(' + alCode)) s += 4;
+  const anBare = t.an ? t.an.replace('航空', '') : '';
+  if ((anBare && nm.includes(anBare)) ||
+      (/^[A-Z0-9]{2}$/.test(alCode) && nm.includes('(' + alCode)) ||
+      (AL_SHORT[alCode] && nm.includes(AL_SHORT[alCode]))) s += 4;
   const p = inFilePeriod(nm, t.dt);
   if (p === true) s += 3; else if (p === false) s -= 6;         // 期間明確不符 → 壓下去
   return s;
