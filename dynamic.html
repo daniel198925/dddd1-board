@@ -181,36 +181,6 @@
   </div>
 </div>
 
-<!-- ══ 轉換連結 modal ══ -->
-<div id="convert-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-  <div class="surface border bd rounded-2xl w-full max-w-md shadow-2xl">
-    <div class="flex items-center justify-between px-5 py-4 border-b bd2">
-      <span class="font-bold"><i class="fa-solid fa-plane text-indigo-400 mr-2"></i>轉換連結</span>
-      <button id="convert-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="p-5 space-y-3 text-sm">
-      <div class="flex justify-between"><span class="m3">團號</span><span id="cv-code" class="font-mono font-bold text-blue-300"></span></div>
-      <div>
-        <label class="text-xs m3 font-bold">行程</label>
-        <div id="cv-file-row" class="mt-1"></div>
-        <input id="cv-file-paste" class="w-full input-style mt-1.5" placeholder="或直接貼上行程 PDF 的雲端連結（drive.google.com/file/d/…）">
-      </div>
-      <label class="flex items-center gap-2 cursor-pointer select-none m1">
-        <input id="cv-remain" type="checkbox" class="accent-indigo-500" checked>顯示剩餘名額（客人頁面）
-      </label>
-      <button id="cv-go" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>產生連結</button>
-      <div id="cv-result" class="hidden surface2 border border-indigo-900 rounded-xl p-3">
-        <div class="flex items-center gap-2">
-          <input id="cv-short" readonly class="flex-1 input-style font-mono text-indigo-300">
-          <button id="cv-copy" class="bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg px-3 py-2"><i class="fa-regular fa-copy"></i></button>
-        </div>
-        <a id="cv-preview" target="_blank" rel="noopener" class="inline-block text-xs m2 hover:text-indigo-300 mt-2"><i class="fa-solid fa-eye mr-1"></i>預覽客人看到的頁面</a>
-      </div>
-      <p id="cv-msg" class="text-xs text-red-400 min-h-[1rem]"></p>
-    </div>
-  </div>
-</div>
-
 <!-- ══ 行程檔案選擇 modal ══ -->
 <!-- 浮動視窗（不遮住後面的動態表，可拖曳；使用者 2026-07-20：要邊看動態表核實航班邊選行程）-->
 <div id="files-modal" class="hidden fixed left-1/2 top-14 -translate-x-1/2 w-[92vw] max-w-2xl max-h-[78vh] surface border bd rounded-2xl flex flex-col shadow-2xl z-[60]">
@@ -646,9 +616,9 @@ function priceOfRow(r) {
   const base = r.alt.find(a => a[0] === p)?.[1];
   return base == null ? { price: r.pr, tt: r.tt } : { price: base + (r.adj || 0), tt: p };
 }
-// 報價文案（團費/航空/出發日/天數 ＋ 行程檔名 ＋ Drive連結 ＋ 選填短網址）
-//   copy-btn（複製）和 convert（轉換連結）共用，格式一致（使用者 2026-07-20 指定）
-function buildQuoteText(fileId, fileName, shortUrl) {
+// 報價文案（團費/航空/出發日/天數 ＋ 行程檔名 ＋ 一條連結）
+//   copy-btn 傳 Drive 原始連結；convert 傳短網址（使用者 2026-07-20：轉換只留短網址）
+function buildQuoteText(fileName, linkUrl) {
   const rows = selRows();
   const mmdd = iso => iso ? iso.slice(5, 7) + '/' + iso.slice(8, 10) : '--';
   const anFull = an => /航$|航空$/.test(an) ? an : an + '航空';   // 易斯達→易斯達航空
@@ -663,8 +633,7 @@ function buildQuoteText(fileId, fileName, shortUrl) {
     `【團費：${fmt$(g.price)}】\n航空公司：${anFull(g.an)}\n出發日：${g.dates.join('、')}\n天數：${g.dy ? g.dy + '天' : '--'}`
   ).join('\n\n');
   let t = blocks;
-  if (fileId) t += `\n\n行程表如下列連結：${fileName ? '\n' + fileName : ''}\nhttps://drive.google.com/file/d/${fileId}/view?usp=drivesdk`;
-  if (shortUrl) t += `\n\n${shortUrl}`;
+  if (fileName || linkUrl) t += `\n\n行程表如下列連結：${fileName ? '\n' + fileName : ''}${linkUrl ? '\n' + linkUrl : ''}`;
   return t;
 }
 
@@ -673,8 +642,8 @@ $('copy-btn').onclick = () => {
   const priceOf = priceOfRow;
   let txt;
   if (CHOSENFILE) {
-    // 有選行程檔案 → 報價區塊 + 行程檔名 + 雲端連結
-    txt = buildQuoteText(CHOSENFILE.id, CHOSENFILE.n, null);
+    // 有選行程檔案 → 報價區塊 + 行程檔名 + Drive 原始連結
+    txt = buildQuoteText(CHOSENFILE.n, `https://drive.google.com/file/d/${CHOSENFILE.id}/view?usp=drivesdk`);
   } else {
     // 沒選檔案 → 純摘要（產品 團型 天數｜出發日｜航空｜團費）
     const g2 = [];
@@ -856,7 +825,6 @@ function renderFiles() {
     updateChosenFile();
     $('files-modal').classList.add('hidden');
     toast('已選取：' + btn.dataset.n);
-    if (!$('convert-modal').classList.contains('hidden')) fillConvert();
   });
 
   // 相關行程模式：自動捲到星號那個檔案（檔案多時不用一直往下滑）
@@ -893,81 +861,42 @@ $('agent-save').onclick = async () => {
   } catch (e) { toast('儲存失敗：' + e.message); }
 };
 
-// ── 轉換連結 ──
-$('convert-btn').onclick = () => {
-  if (!selRows().length) return;
-  if (!AGENT.name) {
-    toast('請先完成業務設定（至少填姓名）');
-    $('agent-btn').onclick();
-    return;
-  }
-  fillConvert();
-  $('cv-result').classList.add('hidden');
-  $('cv-msg').textContent = '';
-  $('convert-modal').classList.remove('hidden');
-};
-function fillConvert() {
-  const rows = selRows();
-  $('cv-code').innerHTML = rows.length === 1
-    ? esc(rows[0].c)
-    : `${rows.length} 團<div class="text-[.65rem] m3 font-sans font-normal mt-1 max-w-[220px] text-right">${rows.map(r => esc(fmtDt(r.dt))).join('、')}</div>`;
-  $('cv-file-row').innerHTML = CHOSENFILE
-    ? `<div class="flex items-center gap-2 surface2 border bd rounded-xl px-3 py-2"><i class="fa-regular fa-file-pdf text-red-400"></i><span class="flex-1 truncate">${esc(CHOSENFILE.n)}</span></div>`
-    : `<button id="cv-pick" class="w-full bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 rounded-xl transition"><i class="fa-regular fa-folder-open mr-1"></i>從公司雲選取</button>`;
-  const pick = $('cv-pick');
-  if (pick) pick.onclick = () => $('files-btn').onclick();
-}
-$('convert-close').onclick = () => $('convert-modal').classList.add('hidden');
-$('convert-modal').onclick = e => { if (e.target === $('convert-modal')) $('convert-modal').classList.add('hidden'); };
-
-$('cv-go').onclick = async () => {
+// ── 轉換連結（一鍵：直接產生短網址＋複製「報價＋短網址」，不再開第二層視窗）──
+$('convert-btn').onclick = async () => {
   const rows = selRows();
   if (!rows.length) return;
-  $('cv-msg').textContent = '';
-  // 行程檔：優先用選取的，否則從貼上的雲端連結抓 id
-  let fileId = CHOSENFILE?.id || null;
-  if (!fileId) {
-    const m = $('cv-file-paste').value.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (m) fileId = m[1];
-  }
-  if (!fileId) { $('cv-msg').textContent = '請選取行程，或貼上雲端 PDF 連結'; return; }
+  if (!AGENT.name) { toast('請先完成業務設定（至少填姓名）'); $('agent-btn').onclick(); return; }
+  if (!CHOSENFILE) { toast('請先選取行程'); $('files-btn').onclick(); return; }
 
-  let longUrl = `${ITIN_BASE}/?id=${fileId}&n=${encodeURIComponent(AGENT.name)}`;
+  // 組中轉頁長網址（帶名片 + 這幾團的團號，客人頁會列即時班次）
+  let longUrl = `${ITIN_BASE}/?id=${CHOSENFILE.id}&n=${encodeURIComponent(AGENT.name)}`;
   if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
   if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
   if (AGENT.fb)    longUrl += `&fb=${encodeURIComponent(AGENT.fb)}`;
   if (AGENT.lg)    longUrl += `&lg=${encodeURIComponent(AGENT.lg)}`;
-  // 多選＝同一份行程的多個出發梯次，全部帶進 codes，客人頁面就會列出這幾團的班次
   longUrl += `&codes=${encodeURIComponent(rows.map(r => r.c).join(','))}`;
-  if (!$('cv-remain').checked) longUrl += `&remain=0`;
+  if (!dshow.r) longUrl += `&remain=0`;   // 客人頁餘位顯示跟「剩餘名額」欄一致
 
-  $('cv-go').disabled = true;
-  $('cv-go').innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>產生中…';
+  const btn = $('convert-btn'), orig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
   try {
-    // 用登入身分授權（不再要授權信箱）：帶 Firebase ID token 給縮網址服務驗證
     const idToken = await auth.currentUser.getIdToken();
     const res = await fetch(`${ITIN_BASE}/api/shorten`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target: longUrl, idToken }),
     });
-    if (!res.ok) throw new Error(res.status === 403 ? '沒有轉換連結的權限（請重新登入試試）' : '產生失敗（' + res.status + '）');
+    if (!res.ok) throw new Error(res.status === 403 ? '沒有轉換連結的權限（請重新登入）' : '產生失敗 ' + res.status);
     const data = await res.json();
     if (!data.shortUrl) throw new Error('產生失敗');
-    // 完整文案：報價區塊 ＋ 行程 Drive 連結 ＋ 短網址（使用者 2026-07-20 指定）
-    const fullText = buildQuoteText(fileId, CHOSENFILE?.n || null, data.shortUrl);
-    $('cv-short').value = data.shortUrl;         // 輸入框顯示短網址（給預覽用）
-    $('cv-short').dataset.full = fullText;       // 完整文案存起來給「複製」
-    $('cv-preview').href = data.shortUrl;
-    $('cv-result').classList.remove('hidden');
-    navigator.clipboard?.writeText(fullText).then(() => toast('報價＋連結已複製'));
+    // 複製：報價 ＋ 行程檔名 ＋ 短網址（不含 Drive 原始連結）
+    await navigator.clipboard.writeText(buildQuoteText(CHOSENFILE.n, data.shortUrl));
+    toast('已轉換並複製（報價＋連結）');
   } catch (e) {
-    $('cv-msg').textContent = e.message;
+    toast('轉換失敗：' + e.message);
   } finally {
-    $('cv-go').disabled = false;
-    $('cv-go').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-1"></i>產生連結';
+    btn.disabled = false; btn.innerHTML = orig;
   }
 };
-$('cv-copy').onclick = () => { navigator.clipboard.writeText($('cv-short').dataset.full || $('cv-short').value).then(() => toast('已複製報價＋連結')); };
 
 // ── 篩選事件 ──
 $('f-line').onchange = loadFile;
