@@ -755,7 +755,7 @@ function findLineFolder(lineName) {
 // 雜項過濾（讓畫面像舊系統一樣清爽，只留正式行程）——保守：只藏最明確的
 //   資料夾：圖片/素材/照片…等非行程夾，或複製/副本/備份夾
 //   檔案：複製/副本/舊版/作廢…（「舊金山」的「舊」不會誤中，因為只認「(舊)」「舊版」等）
-const isNoiseFolder = name => /圖片|素材|照片|相片|海報|文宣|封面|備份|複製|副本/.test(name);
+const isNoiseFolder = name => /圖片|素材|照片|相片|海報|文宣|封面|備份|複製|副本|舊(?!金山)/.test(name);
 const isNoiseFile = name => /複製|副本|[-\s]copy|\(舊\)|舊版|舊檔|作廢|勿用|停售|停用|不用|草稿|test/i.test(name);
 
 function bestMatchIds(folder, t) {
