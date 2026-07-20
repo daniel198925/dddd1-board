@@ -626,7 +626,7 @@ function priceOfRow(r) {
 //   copy-btn 傳 Drive 原始連結；convert 傳短網址（使用者 2026-07-20：轉換只留短網址）
 function buildQuoteText(fileName, linkUrl) {
   const rows = selRows();
-  const mmdd = iso => iso ? iso.slice(5, 7) + '/' + iso.slice(8, 10) : '--';
+  const mmdd = iso => fmtDt(iso);   // MM/DD(週) 含星期（使用者 2026-07-20）
   const anFull = an => /航$|航空$/.test(an) ? an : an + '航空';   // 易斯達→易斯達航空
   const groups = [], idx = new Map();
   for (const r of rows) {
