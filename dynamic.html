@@ -639,36 +639,42 @@ function showCard() {
   });
 })();
 
-$('copy-btn').onclick = () => {
-  const rows = selRows(); if (!rows.length) return;
-  // 價格跟著業務當下選的團型走（沒切換就是漢書原價）
-  const priceOf = r => {
-    const p = TTPICK[groupKey(r)];
-    if (!p || !r.alt || p === r.tt) return { price: r.pr, tt: r.tt };
-    const base = r.alt.find(a => a[0] === p)?.[1];
-    return base == null ? { price: r.pr, tt: r.tt } : { price: base + (r.adj || 0), tt: p };
-  };
+// 價格跟著業務當下選的團型走（沒切換就是漢書原價）
+function priceOfRow(r) {
+  const p = TTPICK[groupKey(r)];
+  if (!p || !r.alt || p === r.tt) return { price: r.pr, tt: r.tt };
+  const base = r.alt.find(a => a[0] === p)?.[1];
+  return base == null ? { price: r.pr, tt: r.tt } : { price: base + (r.adj || 0), tt: p };
+}
+// 報價文案（團費/航空/出發日/天數 ＋ 行程檔名 ＋ Drive連結 ＋ 選填短網址）
+//   copy-btn（複製）和 convert（轉換連結）共用，格式一致（使用者 2026-07-20 指定）
+function buildQuoteText(fileId, fileName, shortUrl) {
+  const rows = selRows();
   const mmdd = iso => iso ? iso.slice(5, 7) + '/' + iso.slice(8, 10) : '--';
-  // 依「團費+航空+天數」分組，同組多梯次的出發日併在一起
-  const groups = [];
-  const idx = new Map();
+  const anFull = an => /航$|航空$/.test(an) ? an : an + '航空';   // 易斯達→易斯達航空
+  const groups = [], idx = new Map();
   for (const r of rows) {
-    const { price } = priceOf(r);
+    const { price } = priceOfRow(r);
     const k = [price, r.an, r.dy].join('|');
     if (!idx.has(k)) { idx.set(k, groups.length); groups.push({ price, an: r.an, dy: r.dy, dates: [] }); }
     groups[idx.get(k)].dates.push(mmdd(r.dt));
   }
+  const blocks = groups.map(g =>
+    `【團費：${fmt$(g.price)}】\n航空公司：${anFull(g.an)}\n出發日：${g.dates.join('、')}\n天數：${g.dy ? g.dy + '天' : '--'}`
+  ).join('\n\n');
+  let t = blocks;
+  if (fileId) t += `\n\n行程表如下列連結：${fileName ? '\n' + fileName : ''}\nhttps://drive.google.com/file/d/${fileId}/view?usp=drivesdk`;
+  if (shortUrl) t += `\n\n${shortUrl}`;
+  return t;
+}
 
+$('copy-btn').onclick = () => {
+  const rows = selRows(); if (!rows.length) return;
+  const priceOf = priceOfRow;
   let txt;
   if (CHOSENFILE) {
-    // 有選行程檔案 → 舊系統格式：報價區塊 + 行程檔名 + 雲端連結（使用者 2026-07-20 指定）
-    const driveUrl = `https://drive.google.com/file/d/${CHOSENFILE.id}/view?usp=drivesdk`;
-    // 航空補「航空」二字（易斯達→易斯達航空；台灣虎航/泰國獅航 已以「航」結尾就不補）
-    const anFull = an => /航$|航空$/.test(an) ? an : an + '航空';
-    const blocks = groups.map(g =>
-      `【團費：${fmt$(g.price)}】\n航空公司：${anFull(g.an)}\n出發日：${g.dates.join('、')}\n天數：${g.dy ? g.dy + '天' : '--'}`
-    ).join('\n\n');
-    txt = `${blocks}\n\n行程表如下列連結：\n${CHOSENFILE.n}\n${driveUrl}`;
+    // 有選行程檔案 → 報價區塊 + 行程檔名 + 雲端連結
+    txt = buildQuoteText(CHOSENFILE.id, CHOSENFILE.n, null);
   } else {
     // 沒選檔案 → 純摘要（產品 團型 天數｜出發日｜航空｜團費）
     const g2 = [];
@@ -947,10 +953,13 @@ $('cv-go').onclick = async () => {
     if (!res.ok) throw new Error(res.status === 403 ? '沒有轉換連結的權限（請重新登入試試）' : '產生失敗（' + res.status + '）');
     const data = await res.json();
     if (!data.shortUrl) throw new Error('產生失敗');
-    $('cv-short').value = data.shortUrl;
+    // 完整文案：報價區塊 ＋ 行程 Drive 連結 ＋ 短網址（使用者 2026-07-20 指定）
+    const fullText = buildQuoteText(fileId, CHOSENFILE?.n || null, data.shortUrl);
+    $('cv-short').value = data.shortUrl;         // 輸入框顯示短網址（給預覽用）
+    $('cv-short').dataset.full = fullText;       // 完整文案存起來給「複製」
     $('cv-preview').href = data.shortUrl;
     $('cv-result').classList.remove('hidden');
-    navigator.clipboard?.writeText(data.shortUrl).then(() => toast('連結已產生並複製'));
+    navigator.clipboard?.writeText(fullText).then(() => toast('報價＋連結已複製'));
   } catch (e) {
     $('cv-msg').textContent = e.message;
   } finally {
@@ -958,7 +967,7 @@ $('cv-go').onclick = async () => {
     $('cv-go').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-1"></i>產生連結';
   }
 };
-$('cv-copy').onclick = () => { navigator.clipboard.writeText($('cv-short').value).then(() => toast('已複製')); };
+$('cv-copy').onclick = () => { navigator.clipboard.writeText($('cv-short').dataset.full || $('cv-short').value).then(() => toast('已複製報價＋連結')); };
 
 // ── 篩選事件 ──
 $('f-line').onchange = loadFile;
