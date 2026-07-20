@@ -735,7 +735,13 @@ $('files-search').oninput = () => renderFiles();
 
 // ── 團 → 行程檔案配對（使用者 2026-07-20：點團自動列出相關行程，不用一層層點）──
 // 檔名命名很規律：0701~1024=精彩北越5日-星宇航空-台北出發。用團型/天數/出發地/航空/期間評分。
-const TT_ALIAS = { 夜臥沙: ['夜臥', '沙壩', '火車'], 快閃: ['快閃'], 精彩: ['精彩'], 豪華: ['豪華'], 超值: ['超值'], 尊爵: ['尊爵'], 尊: ['尊爵', '尊'] };
+// 團型 → 檔名可能出現的字（檔名跟漢書團型名不完全一致時補；沒列的用團型名本身比對）
+const TT_ALIAS = {
+  夜臥沙: ['夜臥', '沙壩', '火車'], 快閃: ['快閃'], 精彩: ['精彩'], 豪華: ['豪華'],
+  超值: ['超值'], 尊爵: ['尊爵'], 尊: ['尊爵', '尊'],
+  賞櫻: ['櫻花', '賞櫻'], 賞楓: ['賞楓', '楓'], 滑雪: ['滑雪'], 冰釣: ['冰釣'],
+  樹冰: ['樹冰'], 鐵道楓: ['鐵道'], 奧入楓: ['奧入'], 雪壁: ['雪壁', '雪璧'], 雪璧: ['雪壁', '雪璧'],
+};
 function findLineFolder(lineName) {
   // 找對應這條產品線的第一層資料夾（檔名前綴 06.河內 對到 dt_tours 的 ln=河內）
   return (FILETREE.children || []).find(c => c.name.replace(/^[0-9.\s]+/, '').replace(/\s/g, '').includes(lineName.replace(/[AB]$/, '')))
@@ -928,6 +934,14 @@ $('f-search').oninput = render;
     localStorage.setItem('d1dt_' + id, on ? '1' : '0');
     render();
   };
+});
+
+// ESC 關掉最上層的浮動視窗（使用者 2026-07-20）：選擇行程 → 業務設定 → 選取資料卡
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('files-modal').classList.contains('hidden')) $('files-modal').classList.add('hidden');
+  else if (!$('agent-modal').classList.contains('hidden')) $('agent-modal').classList.add('hidden');
+  else if (!$('detail-card').classList.contains('hidden')) $('detail-close').onclick();
 });
 </script>
 </body>
