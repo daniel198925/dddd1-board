@@ -701,17 +701,19 @@ $('files-search').oninput = () => renderFiles();
 // ── 團 → 行程檔案配對（使用者 2026-07-20：點團自動列出相關行程，不用一層層點）──
 // 檔名命名很規律：0701~1024=精彩北越5日-星宇航空-台北出發。用團型/天數/出發地/航空/期間評分。
 const TT_ALIAS = { 夜臥沙: ['夜臥', '沙壩', '火車'], 快閃: ['快閃'], 精彩: ['精彩'], 豪華: ['豪華'], 超值: ['超值'], 尊爵: ['尊爵'], 尊: ['尊爵', '尊'] };
-function flattenLine(lineName) {
+function findLineFolder(lineName) {
   // 找對應這條產品線的第一層資料夾（檔名前綴 06.河內 對到 dt_tours 的 ln=河內）
-  const folder = (FILETREE.children || []).find(c => c.name.replace(/^[0-9.\s]+/, '').replace(/\s/g, '').includes(lineName.replace(/[AB]$/, '')))
+  return (FILETREE.children || []).find(c => c.name.replace(/^[0-9.\s]+/, '').replace(/\s/g, '').includes(lineName.replace(/[AB]$/, '')))
     || (FILETREE.children || []).find(c => c.name.includes(lineName));
-  const out = [];
-  const walk = (n, path) => {
-    for (const f of n.files || []) if (/\.pdf$/i.test(f.n)) out.push({ ...f, path });
-    for (const c of n.children || []) walk(c, path + ' / ' + c.name);
-  };
-  if (folder) walk(folder, folder.name);
-  return out;
+}
+// 掃這個資料夾下所有 PDF，回傳「最相符」那幾個的 id（分數夠高才標，避免亂標）
+function bestMatchIds(folder, t) {
+  const all = []; const walk = n => { for (const f of n.files || []) if (/\.pdf$/i.test(f.n)) all.push(f); for (const c of n.children || []) walk(c); };
+  walk(folder);
+  let best = -1; for (const f of all) best = Math.max(best, scoreFile(t, f));
+  const ids = new Set();
+  if (best >= 18) for (const f of all) if (scoreFile(t, f) === best) ids.add(f.id);   // 18＝團型+天數至少都對
+  return ids;
 }
 function inFilePeriod(nm, dt) {
   if (!dt) return null;
@@ -745,43 +747,42 @@ function renderFiles() {
   $('files-collapse').classList.toggle('hidden', related);
 
   const fmtTime = ms => { if (!ms) return ''; const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-  const fileRow = (f, pad) =>
-    `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2" style="padding-left:${pad}rem">
-      <button class="file-pick text-blue-400 hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${esc(f.n.replace(/\.pdf$/i,''))}</button>
+  const fileRow = (f, pad, hl) =>
+    `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2 ${hl ? 'bg-blue-500/10' : ''}" style="padding-left:${pad}rem">
+      <button class="file-pick ${hl ? 'text-blue-300 font-bold' : 'text-blue-400'} hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${hl ? '⭐ ' : ''}${esc(f.n.replace(/\.pdf$/i,''))}</button>
       <span class="shrink-0 flex items-center gap-2">
         <span class="m4 text-xs">${fmtTime(f.t)}</span>
         <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" title="預覽" class="m3 hover:text-blue-400"><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
       </span>
     </div>`;
 
+  // 樹狀節點（forceOpen＝相關行程模式全展開；bestIds＝要標星號的檔案）
+  const node = (n, depth, forceOpen, bestIds) => {
+    if (n.files === undefined) return '';
+    const kids = (n.children || []).map(c => node(c, depth + 1, forceOpen, bestIds)).join('') +
+      (n.files || []).filter(f => /\.pdf$/i.test(f.n) && (!q || f.n.toLowerCase().includes(q))).map(f => fileRow(f, depth * 1.25 + 1, bestIds && bestIds.has(f.id))).join('');
+    if (q && !kids) return '';
+    const open = forceOpen || expandAll || q || depth === 0;
+    return `<details ${open ? 'open' : ''} style="padding-left:${depth ? 1.25 : 0}rem">
+      <summary class="cursor-pointer py-1 font-bold m1 hover:text-white select-none">${esc(n.name)}</summary>${kids}</details>`;
+  };
+
   if (related) {
-    // 相關行程：用第一個選中的團配對，分數高的排前面
+    // 相關行程：直接展開「這條產品線」的資料夾樹，保留原本分組，最相符的標星號
     const t = selRows()[0];
-    let list = flattenLine(t.ln)
-      .map(f => ({ f, s: scoreFile(t, f) }))
-      .filter(x => x.s >= 8 && (!q || x.f.n.toLowerCase().includes(q)))
-      .sort((a, b) => b.s - a.s);
-    if (!list.length) {
-      $('files-tree').innerHTML = `<div class="m3 text-center py-8">這團沒有自動配到相關行程<br><button id="jump-all" class="text-blue-400 hover:underline text-xs mt-2">改用「全部瀏覽」手動找 →</button></div>`;
+    const folder = findLineFolder(t.ln);
+    if (!folder) {
+      $('files-tree').innerHTML = `<div class="m3 text-center py-8">找不到「${esc(t.ln)}」對應的行程資料夾<br><button id="jump-all" class="text-blue-400 hover:underline text-xs mt-2">改用「全部瀏覽」手動找 →</button></div>`;
       $('jump-all').onclick = () => { filesMode = 'all'; renderFiles(); };
     } else {
-      const best = list[0].s;
+      const bestIds = bestMatchIds(folder, t);
       $('files-tree').innerHTML =
-        `<div class="m3 text-xs mb-2">為「${esc(t.p)}${t.tt ? ' ' + t.tt : ''}${t.dy ? ' ' + t.dy + '天' : ''}」配到 ${list.length} 個行程（最相符在最上面）</div>` +
-        list.map(x => `<div class="${x.s === best ? 'ring-1 ring-blue-500/40 rounded' : ''}">${fileRow(x.f, 0.5)}${x.s === best ? '' : ''}</div>`).join('');
+        `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${bestIds.size ? '，⭐ 是系統判斷跟這團最相符的' : ''}</div>` +
+        node(folder, 0, true, bestIds);
     }
   } else {
-    // 全部瀏覽：原本的樹狀
-    const node = (n, depth) => {
-      if (n.files === undefined) return '';
-      const kids = (n.children || []).map(c => node(c, depth + 1)).join('') +
-        (n.files || []).filter(f => /\.pdf$/i.test(f.n) && (!q || f.n.toLowerCase().includes(q))).map(f => fileRow(f, depth * 1.25 + 1)).join('');
-      if (q && !kids) return '';
-      const open = expandAll || q || depth === 0;
-      return `<details ${open ? 'open' : ''} style="padding-left:${depth ? 1.25 : 0}rem">
-        <summary class="cursor-pointer py-1 font-bold m1 hover:text-white select-none">${esc(n.name)}</summary>${kids}</details>`;
-    };
-    $('files-tree').innerHTML = (FILETREE.children || []).map(c => node(c, 0)).join('') || '<div class="m3">沒有符合的檔案</div>';
+    // 全部瀏覽：完整樹狀
+    $('files-tree').innerHTML = (FILETREE.children || []).map(c => node(c, 0, false, null)).join('') || '<div class="m3">沒有符合的檔案</div>';
   }
 
   $('files-tree').querySelectorAll('.file-pick').forEach(btn => btn.onclick = () => {
