@@ -216,13 +216,17 @@
 <div id="files-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
   <div class="surface border bd rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-5 py-4 border-b bd2">
-      <span class="font-bold">請選擇行程</span>
+      <span class="font-bold">選擇行程<span id="files-for" class="m3 font-normal text-sm"></span></span>
       <button id="files-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="px-5 py-3 border-b bd2 flex gap-2">
-      <input id="files-search" class="input-style flex-1" placeholder="請輸入關鍵字搜尋…">
-      <button id="files-expand" class="input-style text-xs">全部展開</button>
-      <button id="files-collapse" class="input-style text-xs">全部收合</button>
+    <div class="px-5 py-3 border-b bd2 flex flex-wrap gap-2 items-center">
+      <div class="flex rounded-lg overflow-hidden border bd text-xs font-bold">
+        <button id="tab-related" class="px-3 py-1.5">相關行程</button>
+        <button id="tab-all" class="px-3 py-1.5">全部瀏覽</button>
+      </div>
+      <input id="files-search" class="input-style flex-1 min-w-[140px]" placeholder="請輸入關鍵字搜尋…">
+      <button id="files-expand" class="input-style text-xs hidden">全部展開</button>
+      <button id="files-collapse" class="input-style text-xs hidden">全部收合</button>
     </div>
     <div id="files-tree" class="flex-1 overflow-y-auto p-4 text-sm"></div>
   </div>
@@ -665,7 +669,10 @@ $('copy-btn').onclick = () => {
 };
 
 // ── 行程檔案樹（dt_files 由同步程式維護；還沒開通就顯示說明）──
+let filesMode = 'related';   // related=只列相關｜all=瀏覽全樹
+
 $('files-btn').onclick = async () => {
+  if (!selRows().length) return;
   $('files-modal').classList.remove('hidden');
   if (!FILETREE) {
     $('files-tree').innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</div>';
@@ -676,44 +683,108 @@ $('files-btn').onclick = async () => {
     }
     FILETREE = JSON.parse(snap.data().tree);
   }
-  renderTree();
+  filesMode = 'related';
+  $('files-search').value = '';
+  const r0 = selRows()[0];
+  $('files-for').textContent = r0 ? `　${r0.p}${r0.tt ? ' ' + r0.tt : ''}${r0.dy ? ' ' + r0.dy + '天' : ''}` : '';
+  renderFiles();
 };
 $('files-close').onclick = () => $('files-modal').classList.add('hidden');
 $('files-modal').onclick = e => { if (e.target === $('files-modal')) $('files-modal').classList.add('hidden'); };
+$('tab-related').onclick = () => { filesMode = 'related'; renderFiles(); };
+$('tab-all').onclick = () => { filesMode = 'all'; renderFiles(); };
 
 let expandAll = false;
-$('files-expand').onclick = () => { expandAll = true; renderTree(); };
-$('files-collapse').onclick = () => { expandAll = false; renderTree(); };
-$('files-search').oninput = () => renderTree();
+$('files-expand').onclick = () => { expandAll = true; renderFiles(); };
+$('files-collapse').onclick = () => { expandAll = false; renderFiles(); };
+$('files-search').oninput = () => renderFiles();
 
-function renderTree() {
+// ── 團 → 行程檔案配對（使用者 2026-07-20：點團自動列出相關行程，不用一層層點）──
+// 檔名命名很規律：0701~1024=精彩北越5日-星宇航空-台北出發。用團型/天數/出發地/航空/期間評分。
+const TT_ALIAS = { 夜臥沙: ['夜臥', '沙壩', '火車'], 快閃: ['快閃'], 精彩: ['精彩'], 豪華: ['豪華'], 超值: ['超值'], 尊爵: ['尊爵'], 尊: ['尊爵', '尊'] };
+function flattenLine(lineName) {
+  // 找對應這條產品線的第一層資料夾（檔名前綴 06.河內 對到 dt_tours 的 ln=河內）
+  const folder = (FILETREE.children || []).find(c => c.name.replace(/^[0-9.\s]+/, '').replace(/\s/g, '').includes(lineName.replace(/[AB]$/, '')))
+    || (FILETREE.children || []).find(c => c.name.includes(lineName));
+  const out = [];
+  const walk = (n, path) => {
+    for (const f of n.files || []) if (/\.pdf$/i.test(f.n)) out.push({ ...f, path });
+    for (const c of n.children || []) walk(c, path + ' / ' + c.name);
+  };
+  if (folder) walk(folder, folder.name);
+  return out;
+}
+function inFilePeriod(nm, dt) {
+  if (!dt) return null;
+  const md = +dt.slice(5, 7) * 100 + +dt.slice(8, 10);
+  let m = nm.match(/(\d{2})(\d{2})[~\-](\d{2})(\d{2})/);
+  if (m) { const s = +m[1] * 100 + +m[2], e = +m[3] * 100 + +m[4]; return s <= e ? (md >= s && md <= e) : (md >= s || md <= e); }
+  if ((m = nm.match(/(\d{2})(\d{2})\s*起/))) return md >= +m[1] * 100 + +m[2];
+  if ((m = nm.match(/(\d{2})(\d{2})\s*前/))) return md <= +m[1] * 100 + +m[2];
+  return null;
+}
+function scoreFile(t, f) {
+  let s = 0; const nm = f.n;
+  const al = TT_ALIAS[t.tt] || (t.tt ? [t.tt] : []);
+  if (al.some(a => nm.includes(a))) s += 10;
+  if (t.dy && nm.includes(t.dy + '日')) s += 8;
+  if (t.dp && t.dp !== '台北' && nm.includes(t.dp)) s += 5;    // 台北是預設，寫不寫都算
+  else if (t.dp === '台北' && !/台中|高雄/.test(nm)) s += 2;
+  if (t.an && nm.includes(t.an.replace('航空', ''))) s += 4;
+  const p = inFilePeriod(nm, t.dt);
+  if (p === true) s += 3; else if (p === false) s -= 6;         // 期間明確不符 → 壓下去
+  return s;
+}
+
+function renderFiles() {
   if (!FILETREE) return;
   const q = $('files-search').value.trim().toLowerCase();
-  const fmtTime = ms => {
-    if (!ms) return '';
-    const d = new Date(ms);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  };
-  const node = (n, depth) => {
-    if (n.files !== undefined) {  // 資料夾
+  const related = filesMode === 'related';
+  $('tab-related').className = 'px-3 py-1.5 ' + (related ? 'bg-blue-600 text-white' : 'm2');
+  $('tab-all').className = 'px-3 py-1.5 ' + (!related ? 'bg-blue-600 text-white' : 'm2');
+  $('files-expand').classList.toggle('hidden', related);
+  $('files-collapse').classList.toggle('hidden', related);
+
+  const fmtTime = ms => { if (!ms) return ''; const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const fileRow = (f, pad) =>
+    `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2" style="padding-left:${pad}rem">
+      <button class="file-pick text-blue-400 hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${esc(f.n.replace(/\.pdf$/i,''))}</button>
+      <span class="shrink-0 flex items-center gap-2">
+        <span class="m4 text-xs">${fmtTime(f.t)}</span>
+        <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" title="預覽" class="m3 hover:text-blue-400"><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
+      </span>
+    </div>`;
+
+  if (related) {
+    // 相關行程：用第一個選中的團配對，分數高的排前面
+    const t = selRows()[0];
+    let list = flattenLine(t.ln)
+      .map(f => ({ f, s: scoreFile(t, f) }))
+      .filter(x => x.s >= 8 && (!q || x.f.n.toLowerCase().includes(q)))
+      .sort((a, b) => b.s - a.s);
+    if (!list.length) {
+      $('files-tree').innerHTML = `<div class="m3 text-center py-8">這團沒有自動配到相關行程<br><button id="jump-all" class="text-blue-400 hover:underline text-xs mt-2">改用「全部瀏覽」手動找 →</button></div>`;
+      $('jump-all').onclick = () => { filesMode = 'all'; renderFiles(); };
+    } else {
+      const best = list[0].s;
+      $('files-tree').innerHTML =
+        `<div class="m3 text-xs mb-2">為「${esc(t.p)}${t.tt ? ' ' + t.tt : ''}${t.dy ? ' ' + t.dy + '天' : ''}」配到 ${list.length} 個行程（最相符在最上面）</div>` +
+        list.map(x => `<div class="${x.s === best ? 'ring-1 ring-blue-500/40 rounded' : ''}">${fileRow(x.f, 0.5)}${x.s === best ? '' : ''}</div>`).join('');
+    }
+  } else {
+    // 全部瀏覽：原本的樹狀
+    const node = (n, depth) => {
+      if (n.files === undefined) return '';
       const kids = (n.children || []).map(c => node(c, depth + 1)).join('') +
-        (n.files || []).filter(f => !q || f.n.toLowerCase().includes(q)).map(f =>
-          `<div class="flex justify-between items-center py-1 pr-2 hover:bg-[#1a2336] rounded" style="padding-left:${depth * 1.25 + 1}rem">
-            <button class="file-pick text-blue-400 hover:underline truncate text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${esc(f.n)}</button>
-            <span class="shrink-0 ml-3 flex items-center gap-2">
-              <span class="m4 text-xs">${fmtTime(f.t)}</span>
-              <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" title="預覽" class="m3 hover:text-blue-400"><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
-            </span>
-          </div>`).join('');
+        (n.files || []).filter(f => /\.pdf$/i.test(f.n) && (!q || f.n.toLowerCase().includes(q))).map(f => fileRow(f, depth * 1.25 + 1)).join('');
       if (q && !kids) return '';
       const open = expandAll || q || depth === 0;
       return `<details ${open ? 'open' : ''} style="padding-left:${depth ? 1.25 : 0}rem">
         <summary class="cursor-pointer py-1 font-bold m1 hover:text-white select-none">${esc(n.name)}</summary>${kids}</details>`;
-    }
-    return '';
-  };
-  $('files-tree').innerHTML = (FILETREE.children || []).map(c => node(c, 0)).join('') || '<div class="m3">沒有符合的檔案</div>';
-  // 點檔名＝選取這個行程檔（顯示在明細卡上，轉換連結會用它）
+    };
+    $('files-tree').innerHTML = (FILETREE.children || []).map(c => node(c, 0)).join('') || '<div class="m3">沒有符合的檔案</div>';
+  }
+
   $('files-tree').querySelectorAll('.file-pick').forEach(btn => btn.onclick = () => {
     CHOSENFILE = { id: btn.dataset.id, n: btn.dataset.n };
     updateChosenFile();
