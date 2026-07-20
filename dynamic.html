@@ -175,8 +175,7 @@
       <div><label class="text-xs m3 font-bold">LINE ID</label><input id="ag-line" class="w-full input-style mt-1" placeholder="不含 @ 符號"></div>
       <div><label class="text-xs m3 font-bold">FB 粉專／社團連結</label><input id="ag-fb" class="w-full input-style mt-1" placeholder="https://www.facebook.com/…（選填）"></div>
       <div><label class="text-xs m3 font-bold">LINE 社群連結</label><input id="ag-lg" class="w-full input-style mt-1" placeholder="https://line.me/ti/g2/…（選填）"></div>
-      <div><label class="text-xs m3 font-bold">授權信箱 *</label><input id="ag-email" class="w-full input-style mt-1" placeholder="跟原本外掛用的同一個信箱">
-        <p class="text-[.65rem] m4 mt-1">縮網址授權用。填你在「行程連結轉換器」外掛裡用的那個信箱。</p></div>
+      <p class="text-[.65rem] m4">這些是客人打開行程頁時看到的名片資訊。登入身分即授權，不必再填信箱。</p>
       <button id="agent-save" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl transition">儲存</button>
     </div>
   </div>
@@ -801,7 +800,7 @@ function updateChosenFile() {
 $('chosen-file-clear').onclick = () => { CHOSENFILE = null; updateChosenFile(); };
 
 // ── 業務設定 ──
-const AG_FIELDS = { name: 'ag-name', phone: 'ag-phone', line: 'ag-line', fb: 'ag-fb', lg: 'ag-lg', email: 'ag-email' };
+const AG_FIELDS = { name: 'ag-name', phone: 'ag-phone', line: 'ag-line', fb: 'ag-fb', lg: 'ag-lg' };
 $('agent-btn').onclick = () => {
   for (const [k, id] of Object.entries(AG_FIELDS)) $(id).value = AGENT[k] || '';
   $('agent-modal').classList.remove('hidden');
@@ -824,8 +823,8 @@ $('agent-save').onclick = async () => {
 // ── 轉換連結 ──
 $('convert-btn').onclick = () => {
   if (!selRows().length) return;
-  if (!AGENT.name || !AGENT.email) {
-    toast('請先完成業務設定（姓名＋授權信箱）');
+  if (!AGENT.name) {
+    toast('請先完成業務設定（至少填姓名）');
     $('agent-btn').onclick();
     return;
   }
@@ -872,11 +871,13 @@ $('cv-go').onclick = async () => {
   $('cv-go').disabled = true;
   $('cv-go').innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>產生中…';
   try {
+    // 用登入身分授權（不再要授權信箱）：帶 Firebase ID token 給縮網址服務驗證
+    const idToken = await auth.currentUser.getIdToken();
     const res = await fetch(`${ITIN_BASE}/api/shorten`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target: longUrl, email: AGENT.email }),
+      body: JSON.stringify({ target: longUrl, idToken }),
     });
-    if (!res.ok) throw new Error(res.status === 403 ? '此信箱未授權，請確認業務設定裡的授權信箱' : '產生失敗（' + res.status + '）');
+    if (!res.ok) throw new Error(res.status === 403 ? '沒有轉換連結的權限（請重新登入試試）' : '產生失敗（' + res.status + '）');
     const data = await res.json();
     if (!data.shortUrl) throw new Error('產生失敗');
     $('cv-short').value = data.shortUrl;
