@@ -212,11 +212,11 @@
 </div>
 
 <!-- ══ 行程檔案選擇 modal ══ -->
-<div id="files-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-  <div class="surface border bd rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
-    <div class="flex items-center justify-between px-5 py-4 border-b bd2">
-      <span class="font-bold">選擇行程<span id="files-for" class="m3 font-normal text-sm"></span></span>
-      <button id="files-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+<!-- 浮動視窗（不遮住後面的動態表，可拖曳；使用者 2026-07-20：要邊看動態表核實航班邊選行程）-->
+<div id="files-modal" class="hidden fixed left-1/2 top-14 -translate-x-1/2 w-[92vw] max-w-2xl max-h-[78vh] surface border bd rounded-2xl flex flex-col shadow-2xl z-[60]">
+    <div id="files-head" class="flex items-center justify-between px-5 py-3.5 border-b bd2 cursor-move select-none" style="touch-action:none">
+      <span class="font-bold"><i class="fa-solid fa-grip-vertical m4 mr-2"></i>選擇行程<span id="files-for" class="m3 font-normal text-sm"></span></span>
+      <button id="files-close" class="m2 hover:text-red-400 w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="px-5 py-3 border-b bd2 flex flex-wrap gap-2 items-center">
       <div class="flex rounded-lg overflow-hidden border bd text-xs font-bold">
@@ -228,7 +228,6 @@
       <button id="files-collapse" class="input-style text-xs hidden">全部收合</button>
     </div>
     <div id="files-tree" class="flex-1 overflow-y-auto p-4 text-sm"></div>
-  </div>
 </div>
 
 <div id="toast" class="bg-blue-600 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-xl"></div>
@@ -649,22 +648,44 @@ $('copy-btn').onclick = () => {
     const base = r.alt.find(a => a[0] === p)?.[1];
     return base == null ? { price: r.pr, tt: r.tt } : { price: base + (r.adj || 0), tt: p };
   };
-  // 格式（使用者 2026-07-19 指定）：產品 團型 天數｜出發日 出發｜航空｜團費
-  //   同一組（同產品/團型/天數/航空/團費）多個梯次時，抬頭寫一次、日期各自一行
+  const mmdd = iso => iso ? iso.slice(5, 7) + '/' + iso.slice(8, 10) : '--';
+  // 依「團費+航空+天數」分組，同組多梯次的出發日併在一起
   const groups = [];
   const idx = new Map();
   for (const r of rows) {
-    const { price, tt } = priceOf(r);
-    const head = `${r.p}${tt ? ' ' + tt : ''}${r.dy ? ' ' + r.dy + '天' : ''}`;
-    const k = [head, r.an, price].join('|');
-    if (!idx.has(k)) { idx.set(k, groups.length); groups.push({ head, an: r.an, price, dates: [] }); }
-    groups[idx.get(k)].dates.push(fmtDt(r.dt) + ' 出發' + (dshow.r ? `（餘 ${r.r} 位）` : ''));
+    const { price } = priceOf(r);
+    const k = [price, r.an, r.dy].join('|');
+    if (!idx.has(k)) { idx.set(k, groups.length); groups.push({ price, an: r.an, dy: r.dy, dates: [] }); }
+    groups[idx.get(k)].dates.push(mmdd(r.dt));
   }
-  const txt = groups.map(g => g.dates.length === 1
-    ? `${g.head}｜${g.dates[0]}｜${g.an}｜團費 ${fmt$(g.price)}`
-    : `${g.head}｜${g.an}｜團費 ${fmt$(g.price)}\n` + g.dates.map(d => '　' + d).join('\n')
-  ).join('\n\n');
-  navigator.clipboard.writeText(txt).then(() => toast(`已複製 ${rows.length} 筆摘要`));
+
+  let txt;
+  if (CHOSENFILE) {
+    // 有選行程檔案 → 舊系統格式：報價區塊 + 行程檔名 + 雲端連結（使用者 2026-07-20 指定）
+    const driveUrl = `https://drive.google.com/file/d/${CHOSENFILE.id}/view?usp=drivesdk`;
+    // 航空補「航空」二字（易斯達→易斯達航空；台灣虎航/泰國獅航 已以「航」結尾就不補）
+    const anFull = an => /航$|航空$/.test(an) ? an : an + '航空';
+    const blocks = groups.map(g =>
+      `【團費：${fmt$(g.price)}】\n航空公司：${anFull(g.an)}\n出發日：${g.dates.join('、')}\n天數：${g.dy ? g.dy + '天' : '--'}`
+    ).join('\n\n');
+    txt = `${blocks}\n\n行程表如下列連結：\n${CHOSENFILE.n}\n${driveUrl}`;
+  } else {
+    // 沒選檔案 → 純摘要（產品 團型 天數｜出發日｜航空｜團費）
+    const g2 = [];
+    const im = new Map();
+    for (const r of rows) {
+      const { price, tt } = priceOf(r);
+      const head = `${r.p}${tt ? ' ' + tt : ''}${r.dy ? ' ' + r.dy + '天' : ''}`;
+      const k = [head, r.an, price].join('|');
+      if (!im.has(k)) { im.set(k, g2.length); g2.push({ head, an: r.an, price, dates: [] }); }
+      g2[im.get(k)].dates.push(fmtDt(r.dt) + ' 出發' + (dshow.r ? `（餘 ${r.r} 位）` : ''));
+    }
+    txt = g2.map(g => g.dates.length === 1
+      ? `${g.head}｜${g.dates[0]}｜${g.an}｜團費 ${fmt$(g.price)}`
+      : `${g.head}｜${g.an}｜團費 ${fmt$(g.price)}\n` + g.dates.map(d => '　' + d).join('\n')
+    ).join('\n\n');
+  }
+  navigator.clipboard.writeText(txt).then(() => toast(CHOSENFILE ? '已複製報價＋行程連結' : `已複製 ${rows.length} 筆摘要`));
 };
 
 // ── 行程檔案樹（dt_files 由同步程式維護；還沒開通就顯示說明）──
@@ -673,6 +694,14 @@ let filesMode = 'related';   // related=只列相關｜all=瀏覽全樹
 $('files-btn').onclick = async () => {
   if (!selRows().length) return;
   $('files-modal').classList.remove('hidden');
+  // 套用上次拖到的位置（沒拖過就維持 CSS 預設：置中上方）
+  const savedPos = JSON.parse(localStorage.getItem('d1dt_filespos') || 'null');
+  if (savedPos) requestAnimationFrame(() => {
+    const c = $('files-modal'), w = c.offsetWidth, h = c.offsetHeight;
+    c.style.left = Math.max(4, Math.min(savedPos.x, innerWidth - w - 4)) + 'px';
+    c.style.top = Math.max(4, Math.min(savedPos.y, innerHeight - h - 4)) + 'px';
+    c.style.transform = 'none';
+  });
   if (!FILETREE) {
     $('files-tree').innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</div>';
     const snap = await getDoc(doc(db, 'dt_files', 'tree'));
@@ -689,7 +718,32 @@ $('files-btn').onclick = async () => {
   renderFiles();
 };
 $('files-close').onclick = () => $('files-modal').classList.add('hidden');
-$('files-modal').onclick = e => { if (e.target === $('files-modal')) $('files-modal').classList.add('hidden'); };
+// 選擇行程視窗可拖曳（抓標題列移動，位置記住），不遮住後面動態表
+(function makeFilesDraggable() {
+  const card = $('files-modal'), head = $('files-head');
+  let drag = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  const place = (x, y) => {
+    const w = card.offsetWidth, h = card.offsetHeight;
+    x = Math.max(4, Math.min(x, innerWidth - w - 4));
+    y = Math.max(4, Math.min(y, innerHeight - h - 4));
+    card.style.left = x + 'px'; card.style.top = y + 'px'; card.style.transform = 'none';
+    return { x, y };
+  };
+  head.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    const r = card.getBoundingClientRect();
+    drag = true; sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+    head.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  head.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const p = place(ox + e.clientX - sx, oy + e.clientY - sy);
+    localStorage.setItem('d1dt_filespos', JSON.stringify(p));
+  });
+  const stop = e => { if (drag) { drag = false; try { head.releasePointerCapture(e.pointerId); } catch {} } };
+  head.addEventListener('pointerup', stop);
+  head.addEventListener('pointercancel', stop);
+})();
 $('tab-related').onclick = () => { filesMode = 'related'; renderFiles(); };
 $('tab-all').onclick = () => { filesMode = 'all'; renderFiles(); };
 
@@ -724,14 +778,20 @@ function inFilePeriod(nm, dt) {
   if ((m = nm.match(/(\d{2})(\d{2})\s*前/))) return md <= +m[1] * 100 + +m[2];
   return null;
 }
+// 天數轉中文（首爾等線檔名寫「五日」不是「5日」）：5→五、10→十、12→十二、15→十五
+const _CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+function dayCN(n) { if (n <= 10) return _CN[n]; if (n < 20) return '十' + _CN[n - 10]; return _CN[Math.floor(n / 10)] + '十' + (n % 10 ? _CN[n % 10] : ''); }
 function scoreFile(t, f) {
   let s = 0; const nm = f.n;
   const al = TT_ALIAS[t.tt] || (t.tt ? [t.tt] : []);
   if (al.some(a => nm.includes(a))) s += 10;
-  if (t.dy && nm.includes(t.dy + '日')) s += 8;
+  if (t.dy && (nm.includes(t.dy + '日') || nm.includes(dayCN(t.dy) + '日'))) s += 8;   // 阿拉伯或中文天數都算
   if (t.dp && t.dp !== '台北' && nm.includes(t.dp)) s += 5;    // 台北是預設，寫不寫都算
   else if (t.dp === '台北' && !/台中|高雄/.test(nm)) s += 2;
+  // 航空：檔名可能寫全名（越捷航空）或代碼（(ZE)）——兩種都比對，才分得出同行程不同航空的版本
   if (t.an && nm.includes(t.an.replace('航空', ''))) s += 4;
+  const alCode = t.c.slice(-8, -6);
+  if (/^[A-Z0-9]{2}$/.test(alCode) && nm.includes('(' + alCode)) s += 4;
   const p = inFilePeriod(nm, t.dt);
   if (p === true) s += 3; else if (p === false) s -= 6;         // 期間明確不符 → 壓下去
   return s;
