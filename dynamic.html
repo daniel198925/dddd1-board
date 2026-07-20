@@ -790,14 +790,15 @@ function scoreFile(t, f, path) {
   const hay = nm + ' ' + (path || '');   // 檔名＋所在資料夾（時段常在資料夾名）
   const al = TT_ALIAS[t.tt] || (t.tt ? [t.tt] : []);
   if (al.some(a => nm.includes(a))) s += 10;
-  // 班機時段（使用者 2026-07-20）：午班→午晚、晚班→午晚、早班→早午。行程檔名/資料夾標
-  //   時段組合（午晚/早午）或單一（(午)）。配到對應的加分；有時段但不是這團的 → 壓下去。
+  // 班機時段（使用者 2026-07-20）：午班→午晚、晚班→午晚、早班→早午。
+  //   ⚠ 精確比對時段組合（午晚/早午）或括號單一時段（(午)/（午）），
+  //   不能用「午班」模糊比對——「早午班機」資料夾含「午班」會誤中！
   if (t.fl) {
     const combo = { 午: '午晚', 晚: '午晚', 早: '早午', 夜: '午晚' }[t.fl];
-    const match = (combo && hay.includes(combo)) || hay.includes('(' + t.fl) || hay.includes(t.fl + '班');
-    const anyTime = /午晚|早午|[早午晚夜]班|\([早午晚夜]/.test(hay);
+    const match = hay.includes(combo) || hay.includes('(' + t.fl + ')') || hay.includes('（' + t.fl + '）');
+    const anyTime = /午晚|早午|\([早午晚夜]\)|（[早午晚夜]）/.test(hay);
     if (match) s += 6;
-    else if (anyTime) s -= 10;   // 有時段標記卻不是這團的（午班配到早午）→ 壓下
+    else if (anyTime) s -= 10;   // 有明確時段卻不是這團的（午班配到早午）→ 壓下
   }
   // 天數：阿拉伯/中文 ×「日」或「天」都算（首爾寫「五日」、長程寫「9天」「十天」）
   if (t.dy && [t.dy + '日', dayCN(t.dy) + '日', t.dy + '天', dayCN(t.dy) + '天'].some(x => nm.includes(x))) s += 8;
