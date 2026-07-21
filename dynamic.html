@@ -290,7 +290,14 @@ function applyTheme(t) {
 applyTheme(localStorage.getItem('d1dt_theme')
   || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
 // 頂部「合約」＝看合約清單（選取卡那顆「合約」是帶團號去開新合約，用途不同）
-$('contract-list-btn').href = `${CONTRACT_BASE}/list.html`;
+//   ⚠ 加到主畫面的獨立模式（尤其 iOS）用 target="_blank" 會開出一片空白，
+//     所以獨立模式改成同一個視窗跳過去（使用者 2026-07-21 回報 WebApp 點合約全空白）
+(() => {
+  const a = $('contract-list-btn');
+  a.href = `${CONTRACT_BASE}/list.html`;
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (standalone) a.removeAttribute('target');
+})();
 $('theme-btn').onclick = () =>
   applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
 // 手機：日期／搜尋收在「⚙」裡，需要才展開
