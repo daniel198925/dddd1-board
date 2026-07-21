@@ -351,16 +351,51 @@ onAuthStateChanged(auth, async user => {
   }
 });
 
+// 資料時間徽章（每次重新檢查都要重畫，「已超過 N 小時」才不會停在載入當下）
+function stampBadge() {
+  if (!META) return;
+  const ageMin = (Date.now() - new Date(META.stamp.replace(' ', 'T'))) / 60000;
+  const stale = ageMin > 150;
+  $('stamp-badge').className = 'chip ' + (stale ? 'bg-red-900/60 text-red-300' : 'surface2 m1');
+  $('stamp-badge').innerHTML = `<i class="fa-regular fa-clock mr-1"></i>資料時間 ${esc(META.stamp.slice(5))}（每小時更新${stale ? '｜⚠ 已超過 ' + Math.round(ageMin / 60) + ' 小時' : ''}）`;
+}
+
+// ── 回到前景就檢查有沒有新資料（使用者 2026-07-21）──
+//    手機/PWA 放著不關，切回來時畫面還是上次載入的舊資料（中午開的，傍晚看還是中午的餘位），
+//    業務可能拿過時餘位去報價。做法：只重抓 _meta（約1KB）比對時間戳，
+//    真的換版才清快取重載，沒換就只更新徽章——不打擾正在選團的人。
+let LASTCHECK = 0;
+async function refreshIfStale() {
+  if (document.visibilityState !== 'visible' || !META) return;
+  if (Date.now() - LASTCHECK < 60000) return;        // 一分鐘內不重複查
+  LASTCHECK = Date.now();
+  try {
+    const m = await getDoc(doc(db, 'dt_tours', '_meta'));
+    if (!m.exists()) return;
+    const fresh = m.data();
+    if (fresh.stamp === META.stamp) { stampBadge(); return; }   // 沒換版 → 只重算「已超過幾小時」
+    META = fresh;
+    stampBadge();
+    for (const k of Object.keys(RAWCACHE)) delete RAWCACHE[k];   // 換版了，快取全部失效
+    for (const k of Object.keys(ROWCACHE)) delete ROWCACHE[k];
+    // 正在選團就先不重載——重載會清掉選取，業務報價報到一半會很錯愕。
+    //   等他關掉選取卡再更新（下次檢查時 SELLINES 已空）
+    if (SELLINES.length) { toast('有新的動態資料，關閉選取後會更新'); return; }
+    if ($('f-line').value) await loadFile();
+    toast('動態資料已更新');
+  } catch { /* 網路不通就等下次 */ }
+}
+document.addEventListener('visibilitychange', refreshIfStale);
+window.addEventListener('focus', refreshIfStale);
+setInterval(refreshIfStale, 5 * 60 * 1000);   // 一直開著沒切走的也要更新
+
 // ── 啟動 ──
 async function boot(metaSnap) {
   const m = metaSnap || await getDoc(doc(db, 'dt_tours', '_meta'));
   if (!m.exists()) { $('stamp-badge').innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i>還沒有資料'; return; }
   META = m.data();
 
-  const ageMin = (Date.now() - new Date(META.stamp.replace(' ', 'T'))) / 60000;
-  const stale = ageMin > 150;
-  $('stamp-badge').className = 'chip ' + (stale ? 'bg-red-900/60 text-red-300' : 'surface2 m1');
-  $('stamp-badge').innerHTML = `<i class="fa-regular fa-clock mr-1"></i>資料時間 ${esc(META.stamp.slice(5))}（每小時更新${stale ? '｜⚠ 已超過 ' + Math.round(ageMin/60) + ' 小時' : ''}）`;
+  stampBadge();
 
   // 動態選單：顯示漢書原始檔名（跟舊系統一樣）。第一項留空＝進來不預選、不載入任何線。
   const files = [...META.files].sort((a, b) => a.f.localeCompare(b.f));
