@@ -154,6 +154,7 @@
       <span id="user-name" class="text-sm m1 mobile-hide"></span>
       <button id="theme-btn" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition" title="深色／淺色切換"><i id="theme-icon" class="fa-solid fa-moon"></i></button>
       <button id="agent-btn" class="text-xs m2 hover:price border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-id-card mr-1"></i><span class="mobile-hide">業務設定</span></button>
+      <a id="contract-list-btn" href="#" target="_blank" rel="noopener" class="text-xs m2 hover:text-emerald-400 border bd rounded-lg px-3 py-1.5 transition" title="合約清單"><i class="fa-solid fa-file-signature mr-1"></i><span class="mobile-hide">合約</span></a>
       <a href="./" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-house mr-1"></i><span class="mobile-hide">回公佈欄</span></a>
       <button id="logout-btn" class="text-xs m2 hover:text-red-400 border bd rounded-lg px-3 py-1.5 transition">登出</button>
     </div>
@@ -288,6 +289,8 @@ function applyTheme(t) {
 }
 applyTheme(localStorage.getItem('d1dt_theme')
   || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+// 頂部「合約」＝看合約清單（選取卡那顆「合約」是帶團號去開新合約，用途不同）
+$('contract-list-btn').href = `${CONTRACT_BASE}/list.html`;
 $('theme-btn').onclick = () =>
   applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
 // 手機：日期／搜尋收在「⚙」裡，需要才展開
