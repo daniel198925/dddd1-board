@@ -299,7 +299,7 @@
                 <div>
                     <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">初始密碼</label>
                     <div class="relative">
-                        <input id="new-user-password" type="password" class="w-full input-style outline-none focus:border-blue-500 pr-12" placeholder="至少 6 碼">
+                        <input id="new-user-password" type="password" autocomplete="new-password" class="w-full input-style outline-none focus:border-blue-500 pr-12" placeholder="至少 6 碼">
                         <button type="button" onclick="toggleNewUserPwd()" class="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition">
                             <i id="pwd-eye-icon" class="fas fa-eye text-sm"></i>
                         </button>
@@ -1365,6 +1365,14 @@
             document.getElementById('login-page').classList.add('hidden');
             document.getElementById('main-page').classList.add('hidden');
             document.getElementById(id).classList.remove('hidden');
+            // 登入後把帳密欄位「停用」：只用 CSS 隱藏的話，iPhone 的密碼管理員照樣偵測得到，
+            //   每次進頁面/切頁都跳「要用密碼登入嗎」很擾人。disabled 的欄位會被忽略。
+            //   （使用者 2026-07-21 反映）
+            const off = id !== 'login-page';
+            ['email', 'password'].forEach(k => {
+                const el = document.getElementById(k);
+                if (el) { el.disabled = off; if (off) el.value = ''; }
+            });
         }
 
         // ── 登入 ──────────────────────────────────────────────────
