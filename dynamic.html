@@ -904,16 +904,26 @@ function scoreFile(t, f, path) {
     //   使用者 2026-07-21 指正：沒標記的團被配到午晚行程是錯的。
     s -= 10;
   }
-  // 天數：阿拉伯/中文 ×「日」或「天」都算（首爾寫「五日」、長程寫「9天」「十天」）
-  if (t.dy && [t.dy + '日', dayCN(t.dy) + '日', t.dy + '天', dayCN(t.dy) + '天'].some(x => nm.includes(x))) s += 8;
-  if (t.dp && t.dp !== '台北' && nm.includes(t.dp)) s += 5;    // 台北是預設，寫不寫都算
-  else if (t.dp === '台北' && !/台中|高雄/.test(nm)) s += 2;
-  // 航空：全名（越捷航空）／代碼（(ZE)）／簡稱（華航）任一命中就算
+  // 天數：阿拉伯/中文 ×「日」或「天」，另認泰國常見的「6D4N」＝6天4夜（使用者 2026-07-21）
+  if (t.dy) {
+    const cn = dayCN(t.dy);
+    if (new RegExp(`(?:^|\\D)(?:${t.dy}\\s*(?:日|天|D\\s*\\d+\\s*N)|${cn}(?:日|天))`).test(nm)) s += 8;
+  }
+  // 出發地：台北是預設（檔名多半不寫）；高雄/台中出發的檔案會明寫「高出」「高／」「亞航高出」
+  const OTHER_DEP = /高雄|高出|高／|高\/|台中|中出/;
+  if (t.dp && t.dp !== '台北') {
+    if (hay.includes(t.dp) || (t.dp === '高雄' && /高出|高／|高\//.test(hay))) s += 5;
+  } else if (OTHER_DEP.test(hay)) s -= 12;   // 台北的團配到「高雄出發」→ 明確不符，壓下去
+  else s += 2;
+  // 航空：對到 +4；檔名或資料夾明確標了「別家」航空 → 壓下去
+  //   （曼谷＝CI 的團不該配到「曼谷 = VZ」或「高／曼谷＝FD」；航空常寫在資料夾名，所以比對 hay 不是 nm）
   const alCode = t.c.slice(-8, -6);
   const anBare = t.an ? t.an.replace('航空', '') : '';
-  if ((anBare && nm.includes(anBare)) ||
-      (/^[A-Z0-9]{2}$/.test(alCode) && nm.includes('(' + alCode)) ||
-      (AL_SHORT[alCode] && nm.includes(AL_SHORT[alCode]))) s += 4;
+  const codeRe = c => new RegExp('[＝=(\\-\\s]' + c + '(?![A-Za-z])');
+  const mineAl = (anBare && hay.includes(anBare)) || (AL_SHORT[alCode] && hay.includes(AL_SHORT[alCode]))
+              || (/^[A-Z0-9]{2}$/.test(alCode) && codeRe(alCode).test(hay));
+  if (mineAl) s += 4;
+  else if (Object.entries(AL_SHORT).some(([c, sn]) => c !== alCode && (hay.includes(sn) || codeRe(c).test(hay)))) s -= 12;
   const p = inFilePeriod(nm, t.dt);
   if (p === true) s += 3; else if (p === false) s -= 6;         // 期間明確不符 → 壓下去
   return s;
