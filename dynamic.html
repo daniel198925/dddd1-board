@@ -297,10 +297,12 @@ $('more-btn').onclick = () => $('more-filters').classList.toggle('max-sm:hidden'
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt$ = n => n == null ? '--' : n.toLocaleString();
 const WD = ['日','一','二','三','四','五','六'];
-const fmtDt = iso => {
+// 出發日 MM/DD；星期 (一)(二) 依「顯示欄位」的勾選決定（使用者 2026-07-21）
+const fmtDt = (iso, withWeek = true) => {
   if (!iso) return '--';
   const [y, m, d] = iso.split('-').map(Number);
-  return `${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}(${WD[new Date(y, m-1, d).getDay()]})`;
+  const md = `${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}`;
+  return withWeek ? `${md}(${WD[new Date(y, m-1, d).getDay()]})` : md;
 };
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
 function showPage(id) {
@@ -539,11 +541,15 @@ const selRows = () => SELLINES.map(i => LINES[i]?.row).filter(Boolean);
 const DFIELDS = [
   { k: 'an',  name: '航空公司', def: 1 },
   { k: 'dt',  name: '出發日',   def: 1 },
+  { k: 'wk',  name: '　└ 星期', def: 1 },   // 出發日要不要帶 (一)(二)（使用者 2026-07-21）
   { k: 'dy',  name: '天數',     def: 1 },
   { k: 'r',   name: '剩餘名額', def: 1 },
 ];
 let dshow = JSON.parse(localStorage.getItem('d1dt_dfields') || 'null')
   || Object.fromEntries(DFIELDS.map(f => [f.k, !!f.def]));
+// 之後新增的欄位，舊使用者存的設定裡不會有 → 補預設值，
+//   不然新欄位會被當成「沒勾」（例如星期原本一直有顯示，改版後突然不見）
+for (const f of DFIELDS) if (!(f.k in dshow)) dshow[f.k] = !!f.def;
 
 function buildDMenu() {
   $('dcol-menu').innerHTML = DFIELDS.map(f =>
@@ -608,7 +614,7 @@ function groupBlock(g) {
     parts.push(`<div class="text-[.65rem] m3 text-right pb-1.5 border-b bd2">已切換團型，原為 ${esc(r0.tt)}</div>`);
   }
   if (dshow.an) parts.push(line('航空公司', anWithFlight(r0)));
-  if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt)}</span>`).join('')}</span>`));
+  if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt, !!dshow.wk)}</span>`).join('')}</span>`));
   if (dshow.dy) parts.push(line('天數', r0.dy ? r0.dy + '天' : '--'));
   if (dshow.p)  parts.push(line('產品', `${esc(r0.p)}${r0.gw !== '直飛' ? '｜' + esc(r0.gw) : ''}${r0.dp !== '台北' ? '｜' + esc(r0.dp) + '出發' : ''}`));
 
@@ -621,14 +627,14 @@ function groupBlock(g) {
       parts.push(
         `<div class="pt-2 overflow-x-auto"><table class="w-full text-xs">
           <thead><tr class="m3"><th class="text-left font-bold pb-1">出發日</th>${cols.map(f => `<th class="text-right font-bold pb-1 pl-3">${f.name}</th>`).join('')}</tr></thead>
-          <tbody>${g.map(r => `<tr class="border-t bd2"><td class="py-1">${fmtDt(r.dt)}</td>${cols.map(f => `<td class="text-right pl-3">${f.get(r)}</td>`).join('')}</tr>`).join('')}</tbody>
+          <tbody>${g.map(r => `<tr class="border-t bd2"><td class="py-1">${fmtDt(r.dt, !!dshow.wk)}</td>${cols.map(f => `<td class="text-right pl-3">${f.get(r)}</td>`).join('')}</tr>`).join('')}</tbody>
         </table></div>`);
     }
   }
   if (dshow.bs) {
     const bsAll = g.map(r => {
       const bs = (r.bs || []).map(([n, x, paid]) => `<span class="chip ${paid ? 'bg-emerald-900/50 text-emerald-300' : 'bg-slate-800 m2'}" title="${paid ? '已收訂' : '卡位未收款'}">${esc(n)}${x}</span>`).join(' ');
-      return bs ? `<div class="mt-1.5"><span class="m4 text-[.65rem]">${fmtDt(r.dt)}</span> ${bs}</div>` : '';
+      return bs ? `<div class="mt-1.5"><span class="m4 text-[.65rem]">${fmtDt(r.dt, !!dshow.wk)}</span> ${bs}</div>` : '';
     }).join('');
     if (bsAll) parts.push(`<div class="pt-2"><span class="m3 text-xs">報名明細</span>${bsAll}</div>`);
   }
@@ -718,7 +724,8 @@ function priceOfRow(r) {
 //   copy-btn 傳 Drive 原始連結；convert 傳短網址（使用者 2026-07-20：轉換只留短網址）
 function buildQuoteText(fileName, linkUrl) {
   const rows = selRows();
-  const mmdd = iso => fmtDt(iso);   // MM/DD(週) 含星期（使用者 2026-07-20）
+  // 文案要跟「顯示欄位」的勾選一致——原本天數是寫死的，取消勾選還是會出現（使用者 2026-07-21 回報）
+  const mmdd = iso => fmtDt(iso, !!dshow.wk);
   const anFull = an => /航$|航空$/.test(an) ? an : an + '航空';   // 易斯達→易斯達航空
   const groups = [], idx = new Map();
   for (const r of rows) {
@@ -727,9 +734,13 @@ function buildQuoteText(fileName, linkUrl) {
     if (!idx.has(k)) { idx.set(k, groups.length); groups.push({ price, an: r.an, dy: r.dy, fl: r.fl, dates: [] }); }
     groups[idx.get(k)].dates.push(mmdd(r.dt));
   }
-  const blocks = groups.map(g =>
-    `【團費：${fmt$(g.price)}】\n航空公司：${anFull(g.an)}${g.fl ? `（${g.fl}班）` : ''}\n出發日：${g.dates.join('、')}\n天數：${g.dy ? g.dy + '天' : '--'}`
-  ).join('\n\n');
+  const blocks = groups.map(g => {
+    const ls = [`【團費：${fmt$(g.price)}】`];
+    if (dshow.an) ls.push(`航空公司：${anFull(g.an)}${g.fl ? `（${g.fl}班）` : ''}`);
+    if (dshow.dt) ls.push(`出發日：${g.dates.join('、')}`);
+    if (dshow.dy) ls.push(`天數：${g.dy ? g.dy + '天' : '--'}`);
+    return ls.join('\n');
+  }).join('\n\n');
   let t = blocks;
   if (fileName || linkUrl) t += `\n\n行程表如下列連結：${fileName ? '\n' + fileName : ''}${linkUrl ? '\n' + linkUrl : ''}`;
   return t;
@@ -751,7 +762,7 @@ $('copy-btn').onclick = () => {
       const head = `${r.p}${tt ? ' ' + tt : ''}${r.dy ? ' ' + r.dy + '天' : ''}`;
       const k = [head, r.an, price].join('|');
       if (!im.has(k)) { im.set(k, g2.length); g2.push({ head, an: r.an, price, dates: [] }); }
-      g2[im.get(k)].dates.push(fmtDt(r.dt) + ' 出發' + (dshow.r ? `（餘 ${r.r} 位）` : ''));
+      g2[im.get(k)].dates.push(fmtDt(r.dt, !!dshow.wk) + ' 出發' + (dshow.r ? `（餘 ${r.r} 位）` : ''));
     }
     txt = g2.map(g => g.dates.length === 1
       ? `${g.head}｜${g.dates[0]}｜${g.an}｜團費 ${fmt$(g.price)}`
