@@ -837,6 +837,19 @@ function scoreFile(t, f, path) {
   }
   const al = TT_ALIAS[t.tt] || (t.tt ? [t.tt] : []);
   if (al.some(a => nm.includes(a))) s += 10;
+  // 同區塊有多個團型時要分乾淨（芬蘭：玻璃屋／破冰船／破＋玻）。
+  //   「玻璃屋」是「破冰船+玻璃屋」的子字串，光用包含比對會兩個都中（使用者 2026-07-21 回報）
+  if (t.tt && t.alt) {
+    const names = t.alt.map(a => a[0]).filter(Boolean);
+    const solo = names.filter(n => !/[＋+]/.test(n));
+    if (/[＋+]/.test(t.tt)) {
+      // 組合團型：漢書寫縮寫「破＋玻」，檔名寫全名「破冰船+玻璃屋」→ 用同區塊選項還原縮寫
+      const full = t.tt.split(/[＋+]/).filter(Boolean).map(p => solo.find(n => n.startsWith(p)) || p);
+      if (full.length > 1 && full.every(f => nm.includes(f))) s += 12;
+    } else if (solo.some(n => n !== t.tt && nm.includes(n))) {
+      s -= 12;   // 檔名出現同區塊「別的」團型 → 是別的商品或組合行程，不是這團
+    }
+  }
   // 班機時段（使用者 2026-07-20）：午班→午晚、晚班→午晚、早班→早午。
   //   ⚠ 精確比對時段組合（午晚/早午）或括號單一時段（(午)/（午）），
   //   不能用「午班」模糊比對——「早午班機」資料夾含「午班」會誤中！
