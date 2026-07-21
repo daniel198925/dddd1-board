@@ -216,9 +216,10 @@
     <div class="p-5 space-y-3 text-sm max-h-[65vh] overflow-y-auto">
       <div><label class="text-xs m3 font-bold">業務姓名 *</label><input id="ag-name" class="w-full input-style mt-1" placeholder="旅遊大仁哥"></div>
       <div><label class="text-xs m3 font-bold">聯絡電話</label><input id="ag-phone" class="w-full input-style mt-1" placeholder="0277463632"></div>
-      <div><label class="text-xs m3 font-bold">LINE ID</label><input id="ag-line" class="w-full input-style mt-1" placeholder="不含 @ 符號"></div>
+      <div><label class="text-xs m3 font-bold">LINE ID</label><input id="ag-line" class="w-full input-style mt-1" placeholder="個人 ID 直接填；官方帳號要含 @"></div>
       <div><label class="text-xs m3 font-bold">FB 粉專／社團連結</label><input id="ag-fb" class="w-full input-style mt-1" placeholder="https://www.facebook.com/…（選填）"></div>
       <div><label class="text-xs m3 font-bold">LINE 社群連結</label><input id="ag-lg" class="w-full input-style mt-1" placeholder="https://line.me/ti/g2/…（選填）"></div>
+      <div><label class="text-xs m3 font-bold">社群密碼</label><input id="ag-lgpw" class="w-full input-style mt-1" placeholder="社群需要密碼才填（選填）"></div>
       <p class="text-[.65rem] m4">這些是客人打開行程頁時看到的名片資訊。登入身分即授權，不必再填信箱。</p>
       <button id="agent-save" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl transition">儲存</button>
     </div>
@@ -1045,7 +1046,7 @@ function updateChosenFile() {
 $('chosen-file-clear').onclick = () => { CHOSENFILE = null; updateChosenFile(); };
 
 // ── 業務設定 ──
-const AG_FIELDS = { name: 'ag-name', phone: 'ag-phone', line: 'ag-line', fb: 'ag-fb', lg: 'ag-lg' };
+const AG_FIELDS = { name: 'ag-name', phone: 'ag-phone', line: 'ag-line', fb: 'ag-fb', lg: 'ag-lg', lgpw: 'ag-lgpw' };
 $('agent-btn').onclick = () => {
   for (const [k, id] of Object.entries(AG_FIELDS)) $(id).value = AGENT[k] || '';
   $('agent-modal').classList.remove('hidden');
@@ -1055,7 +1056,9 @@ $('agent-modal').onclick = e => { if (e.target === $('agent-modal')) $('agent-mo
 $('agent-save').onclick = async () => {
   const data = {};
   for (const [k, id] of Object.entries(AG_FIELDS)) data[k] = $(id).value.trim();
-  data.line = data.line.replace(/^@/, '');   // LINE ID 不含 @
+  // LINE ID：個人帳號沒有 @、官方帳號一定要留著 @（連結格式不同：~個人 vs @官方）。
+  //   原本一律砍掉 @ 會讓官方帳號的連結失效（使用者 2026-07-21 回報打了 @ 卻沒上去）
+  data.line = data.line.replace(/\s/g, '');
   if (!data.name) return toast('請填業務姓名');
   try {
     await setDoc(doc(db, 'dt_agent', UID), data, { merge: true });
@@ -1078,6 +1081,7 @@ $('convert-btn').onclick = async () => {
   if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
   if (AGENT.fb)    longUrl += `&fb=${encodeURIComponent(AGENT.fb)}`;
   if (AGENT.lg)    longUrl += `&lg=${encodeURIComponent(AGENT.lg)}`;
+  if (AGENT.lg && AGENT.lgpw) longUrl += `&lgpw=${encodeURIComponent(AGENT.lgpw)}`;   // 有社群才帶密碼
   longUrl += `&codes=${encodeURIComponent(rows.map(r => r.c).join(','))}`;
   if (!dshow.r) longUrl += `&remain=0`;   // 客人頁餘位顯示跟「剩餘名額」欄一致
 
