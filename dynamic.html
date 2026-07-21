@@ -405,6 +405,8 @@ async function loadFile() {
 }
 
 // ── 呈現（保留漢書原樣，只做過濾和上色）──
+// 團號列的樣子（含 ======0909A5 延續寫法）——篩選時用來擋「解析失敗但其實是團」的行
+const CODE_LINE = /[A-Z]{2,3}\d[A-Z0-9]{2}\d{4}[A-Z]\d|[=＝]{4,}\d{4}[A-Z]\d/;
 function render() {
   const from = $('f-from').value, to = $('f-to').value;
   const q = $('f-search').value.trim().toUpperCase();
@@ -430,10 +432,12 @@ function render() {
   //（有篩選時要把空掉的分區標題也藏起來，不然畫面一堆標題沒東西）
   const pass = new Set();
   const secHasRow = new Set();
+  const secOf = new Map();      // 每一行屬於哪個分區（篩選時要判斷摘要行留不留）
   let curSec = -1;
   for (const l of LINES) {
     if (l.isSec) curSec = l.i;
-    else if (l.row && rowPass(l.row) && (!q || l.text.toUpperCase().includes(q))) {
+    secOf.set(l.i, curSec);
+    if (!l.isSec && l.row && rowPass(l.row) && (!q || l.text.toUpperCase().includes(q))) {
       pass.add(l.i);
       if (curSec >= 0) secHasRow.add(curSec);
     }
@@ -454,7 +458,11 @@ function render() {
       if (filtering && !secHasRow.has(l.i)) continue;   // 這區沒有符合的團就整個不顯示
       out.push(`<div class="hl hl-sec">${esc(l.text)}</div>`);
     } else {
-      if (filtering) continue;                          // 篩選中就不放摘要/裝飾行，畫面清爽
+      // 篩選中：保留「這一區還有團」的摘要行（●團／時●、團型定價、利潤、去/回程班機、欄位表頭），
+      //   業務要看航班時間與成本才好報價（使用者 2026-07-21）。三個條件都要成立才留：
+      //   ① 這一區還有團 ② 有中文（純裝飾線 ▆▆▆／====／■(50+47)■ 丟掉）
+      //   ③ ⚠ 不是團號列——解析失敗的團 l.row 會是空的，不擋的話「被篩掉的團」會從這裡漏回畫面
+      if (filtering && (!secHasRow.has(secOf.get(l.i)) || !/[一-鿿]/.test(l.text) || CODE_LINE.test(l.text))) continue;
       out.push(`<div class="hl m2">${esc(l.text) || ' '}</div>`);
     }
   }
