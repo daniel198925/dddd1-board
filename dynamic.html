@@ -792,6 +792,9 @@ function bestMatchIds(folder, t) {
   const ids = new Set();
   // 分數夠高「且最佳檔真的對到目的地」才標——擋掉靠團型/天數跨國亂配（美西 vs 紐西蘭都叫國家公園）
   if (best >= 18) for (const s of scored) if (s.sc === best && s.dh) ids.add(s.id);
+  // 同分太多＝系統其實分不出來（例：團型空白時，精彩/豪華/超值/樹冰…全部同分）。
+  //   標一堆星等於沒篩選還誤導業務，不如不標，讓業務自己挑。（使用者 2026-07-21）
+  if (ids.size > 3) return new Set();
   return ids;
 }
 function inFilePeriod(nm, dt) {
@@ -834,6 +837,11 @@ function scoreFile(t, f, path) {
     const anyTime = /午晚|早午|\([早午晚夜]\)|（[早午晚夜]）/.test(hay);
     if (match) s += 6;
     else if (anyTime) s -= 10;   // 有明確時段卻不是這團的（午班配到早午）→ 壓下
+  } else if (/午晚/.test(hay)) {
+    // 團號前沒有「午」記號＝走漢書的預設班機，不是「午」那組。
+    //   （東京 TR：預設 TR866 0645去/TR867 1230回＝早午；有「午」記號才是 TR874 1530去/TR875 2115回＝午晚）
+    //   使用者 2026-07-21 指正：沒標記的團被配到午晚行程是錯的。
+    s -= 10;
   }
   // 天數：阿拉伯/中文 ×「日」或「天」都算（首爾寫「五日」、長程寫「9天」「十天」）
   if (t.dy && [t.dy + '日', dayCN(t.dy) + '日', t.dy + '天', dayCN(t.dy) + '天'].some(x => nm.includes(x))) s += 8;
