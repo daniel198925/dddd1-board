@@ -1,0 +1,16 @@
+{
+  "name": "D1 組公佈欄",
+  "short_name": "D1",
+  "description": "找到了旅遊 D1 組：公佈欄與動態查詢",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#131a28",
+  "theme_color": "#1c2840",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
