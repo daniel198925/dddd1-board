@@ -296,24 +296,36 @@ $('logout-btn').onclick = () => signOut(auth);
 onAuthStateChanged(auth, async user => {
   if (!user) return showPage('login-page');
   try {
-    const snap = await getDoc(doc(db, 'users', user.uid));
+    UID = user.uid;
+    // 登入速度：原本是「一趟等一趟」共 4 趟才看得到內容（身分→名片→選單→團表），
+    //   而最大宗的團表（160~580KB）排在最後才開始下載。改成能發的全部同時發出，
+    //   連上次看的那個檔也一起預取，等跑到 loadFile 時通常已經到了。（使用者 2026-07-21 反映登入慢）
+    const savedLine = localStorage.getItem('d1dt_line');
+    const pUser  = getDoc(doc(db, 'users', user.uid));
+    const pAgent = getDoc(doc(db, 'dt_agent', user.uid)).catch(() => null);
+    const pMeta  = getDoc(doc(db, 'dt_tours', '_meta')).catch(() => null);   // recorder 被規則擋下會失敗，下面本來就會登出
+    const pFile  = savedLine ? Promise.all([
+      getDoc(doc(db, 'dt_raw', savedLine)).catch(() => null),
+      getDoc(doc(db, 'dt_tours', savedLine)).catch(() => null),
+    ]).catch(() => null) : null;
+
+    const snap = await pUser;
     if (!snap.exists()) { $('login-msg').innerText = '權限錯誤：找不到使用者紀錄'; return signOut(auth); }
     // 外部紀錄員（recorder）不開放動態查詢——資料層規則也擋著，這裡是給人看的訊息
     if (snap.data().role === 'recorder') { $('login-msg').innerText = '此帳號沒有動態查詢的使用權限'; return signOut(auth); }
-    UID = user.uid;
     $('user-name').textContent = snap.data().nickname || snap.data().account || '';
     showPage('main-page');
     // 業務設定（轉換連結名片）
-    try { const ag = await getDoc(doc(db, 'dt_agent', UID)); AGENT = ag.exists() ? ag.data() : {}; } catch { AGENT = {}; }
-    await boot();
+    const ag = await pAgent; AGENT = ag && ag.exists() ? ag.data() : {};
+    await boot(await pMeta, savedLine, pFile);
   } catch (err) {
     $('login-msg').innerText = '讀取失敗：' + err.message; signOut(auth);
   }
 });
 
 // ── 啟動 ──
-async function boot() {
-  const m = await getDoc(doc(db, 'dt_tours', '_meta'));
+async function boot(metaSnap, savedLine, pFile) {
+  const m = metaSnap || await getDoc(doc(db, 'dt_tours', '_meta'));
   if (!m.exists()) { $('stamp-badge').innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i>還沒有資料'; return; }
   META = m.data();
 
@@ -334,6 +346,19 @@ async function boot() {
   const e = new Date(t); e.setFullYear(e.getFullYear() + 1);
   $('f-to').value = `${e.getFullYear()}-${p2(e.getMonth()+1)}-${p2(e.getDate())}`;
 
+  // 預取到的檔直接塞進快取，loadFile 就不必再等一趟網路（它發現有快取會跳過抓取）
+  if (pFile && savedLine && $('f-line').value === savedLine) {
+    try {
+      const r = await pFile;
+      if (r) {
+        const [rawSnap, rowSnap] = r;
+        if (rowSnap && rowSnap.exists()) {
+          RAWCACHE[savedLine] = rawSnap && rawSnap.exists() ? rawSnap.data() : { text: '' };
+          ROWCACHE[savedLine] = JSON.parse(rowSnap.data().rows);
+        }
+      }
+    } catch { /* 預取失敗就讓 loadFile 正常重抓 */ }
+  }
   await loadFile();
 }
 
