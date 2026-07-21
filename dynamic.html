@@ -14,6 +14,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="D1">
+<!-- LINE／FB 分享大圖（og:image 必須是完整網址，對方伺服器才抓得到） -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="D1 動態查詢">
+<meta property="og:description" content="找到了旅遊 D1 組｜團表即時查詢">
+<meta property="og:image" content="https://dddd1-board.vercel.app/og-cover.jpg">
+<meta property="og:url" content="https://dddd1-board.vercel.app/dynamic.html">
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -297,17 +303,12 @@ onAuthStateChanged(auth, async user => {
   if (!user) return showPage('login-page');
   try {
     UID = user.uid;
-    // 登入速度：原本是「一趟等一趟」共 4 趟才看得到內容（身分→名片→選單→團表），
-    //   而最大宗的團表（160~580KB）排在最後才開始下載。改成能發的全部同時發出，
-    //   連上次看的那個檔也一起預取，等跑到 loadFile 時通常已經到了。（使用者 2026-07-21 反映登入慢）
-    const savedLine = localStorage.getItem('d1dt_line');
+    // 登入速度（使用者 2026-07-21）：登入時只讀身分/名片/選單三份小資料（合計約 2KB），
+    //   **不預先載入任何團表**（160~580KB）——照舊系統的做法，進來是空白的，
+    //   業務自己選了哪條線才載哪條，不會下載到用不上的線。三份小資料同時發出，不排隊。
     const pUser  = getDoc(doc(db, 'users', user.uid));
     const pAgent = getDoc(doc(db, 'dt_agent', user.uid)).catch(() => null);
     const pMeta  = getDoc(doc(db, 'dt_tours', '_meta')).catch(() => null);   // recorder 被規則擋下會失敗，下面本來就會登出
-    const pFile  = savedLine ? Promise.all([
-      getDoc(doc(db, 'dt_raw', savedLine)).catch(() => null),
-      getDoc(doc(db, 'dt_tours', savedLine)).catch(() => null),
-    ]).catch(() => null) : null;
 
     const snap = await pUser;
     if (!snap.exists()) { $('login-msg').innerText = '權限錯誤：找不到使用者紀錄'; return signOut(auth); }
@@ -317,14 +318,14 @@ onAuthStateChanged(auth, async user => {
     showPage('main-page');
     // 業務設定（轉換連結名片）
     const ag = await pAgent; AGENT = ag && ag.exists() ? ag.data() : {};
-    await boot(await pMeta, savedLine, pFile);
+    await boot(await pMeta);
   } catch (err) {
     $('login-msg').innerText = '讀取失敗：' + err.message; signOut(auth);
   }
 });
 
 // ── 啟動 ──
-async function boot(metaSnap, savedLine, pFile) {
+async function boot(metaSnap) {
   const m = metaSnap || await getDoc(doc(db, 'dt_tours', '_meta'));
   if (!m.exists()) { $('stamp-badge').innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i>還沒有資料'; return; }
   META = m.data();
@@ -334,37 +335,34 @@ async function boot(metaSnap, savedLine, pFile) {
   $('stamp-badge').className = 'chip ' + (stale ? 'bg-red-900/60 text-red-300' : 'surface2 m1');
   $('stamp-badge').innerHTML = `<i class="fa-regular fa-clock mr-1"></i>資料時間 ${esc(META.stamp.slice(5))}（每小時更新${stale ? '｜⚠ 已超過 ' + Math.round(ageMin/60) + ' 小時' : ''}）`;
 
-  // 動態選單：顯示漢書原始檔名（跟舊系統一樣）
+  // 動態選單：顯示漢書原始檔名（跟舊系統一樣）。第一項留空＝進來不預選、不載入任何線。
   const files = [...META.files].sort((a, b) => a.f.localeCompare(b.f));
-  $('f-line').innerHTML = files.map(f =>
+  $('f-line').innerHTML = '<option value="">請選擇一個動態檔案…</option>' + files.map(f =>
     `<option value="${esc(f.f)}">${esc((f.name || f.line).replace(/\.txt$/i, '').replace(/\s+/g, ' '))}</option>`).join('');
-  const saved = localStorage.getItem('d1dt_line');
-  if (saved && files.some(f => f.f === saved)) $('f-line').value = saved;
+  $('f-line').value = '';
 
   const t = new Date(), p2 = n => String(n).padStart(2, '0');
   $('f-from').value = `${t.getFullYear()}-${p2(t.getMonth()+1)}-${p2(t.getDate())}`;
   const e = new Date(t); e.setFullYear(e.getFullYear() + 1);
   $('f-to').value = `${e.getFullYear()}-${p2(e.getMonth()+1)}-${p2(e.getDate())}`;
 
-  // 預取到的檔直接塞進快取，loadFile 就不必再等一趟網路（它發現有快取會跳過抓取）
-  if (pFile && savedLine && $('f-line').value === savedLine) {
-    try {
-      const r = await pFile;
-      if (r) {
-        const [rawSnap, rowSnap] = r;
-        if (rowSnap && rowSnap.exists()) {
-          RAWCACHE[savedLine] = rawSnap && rawSnap.exists() ? rawSnap.data() : { text: '' };
-          ROWCACHE[savedLine] = JSON.parse(rowSnap.data().rows);
-        }
-      }
-    } catch { /* 預取失敗就讓 loadFile 正常重抓 */ }
-  }
-  await loadFile();
+  // 進來不自動載入任何線（舊系統做法）：秒進畫面，選了才載
+  $('raw-view').innerHTML =
+    '<div class="m3 text-center py-16"><i class="fa-regular fa-folder-open text-4xl mb-3 block opacity-40"></i>' +
+    '請先從上方「動態」選擇一個檔案</div>';
 }
 
 // ── 載入一個漢書檔（原文＋解析資料）──
 async function loadFile() {
   const fno = $('f-line').value;
+  if (!fno) {          // 選回「請選擇…」→ 回到空白提示，不打網路
+    LINES = []; VISIBLE = []; SELLINES = [];
+    $('detail-card').classList.add('hidden');
+    $('raw-view').innerHTML =
+      '<div class="m3 text-center py-16"><i class="fa-regular fa-folder-open text-4xl mb-3 block opacity-40"></i>' +
+      '請先從上方「動態」選擇一個檔案</div>';
+    return;
+  }
   localStorage.setItem('d1dt_line', fno);
   $('raw-view').innerHTML = '<div class="m3 p-6"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</div>';
 
