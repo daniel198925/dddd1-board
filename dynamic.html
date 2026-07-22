@@ -835,6 +835,44 @@ function buildQuoteText(linkByFileId) {
   }).join('\n\n');
 }
 
+// 複製到剪貼簿（跨手機/桌機）。buildText 可能含 fetch（轉換要先產短網址）。
+//   iOS Safari 規定：await 之後再 writeText 會被擋（「not allowed by user agent」，使用者 2026-07-22 手機回報）。
+//   解法：手勢當下就用 ClipboardItem 帶 Promise「預約」，網址晚點算好再填進去，手勢不會斷。
+async function copyText(buildText) {
+  const p = Promise.resolve().then(buildText);   // 只跑一次（含 fetch）
+  p.catch(() => {});                             // 避免 unhandled rejection
+  if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/plain': p.then(t => new Blob([t], { type: 'text/plain' })),
+      })]);
+      return;                                    // iOS/桌機都吃這條
+    } catch (e) { /* ClipboardItem 被擋或不支援 → 往下退回 */ }
+  }
+  const text = await p;                          // buildText 失敗（fetch 403 等）會在這裡拋出
+  try { await navigator.clipboard.writeText(text); }
+  catch { showCopyBox(text); }                   // 最後退路：跳出可手動複製的方框
+}
+// 手動複製方框（自動選取，方便長按複製）——所有自動複製都失敗時的保底
+function showCopyBox(text) {
+  let box = $('copybox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'copybox';
+    box.className = 'hidden fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4';
+    box.innerHTML = `<div class="surface border bd rounded-2xl w-full max-w-md shadow-2xl p-4">
+      <div class="flex items-center justify-between mb-2"><span class="font-bold text-sm">請長按下方文字複製</span>
+        <button id="copybox-close" class="m2 hover:text-red-400 w-7 h-7"><i class="fa-solid fa-xmark"></i></button></div>
+      <textarea id="copybox-text" class="w-full input-style text-xs" rows="10" readonly></textarea></div>`;
+    document.body.appendChild(box);
+    $('copybox-close').onclick = () => box.classList.add('hidden');
+    box.onclick = e => { if (e.target === box) box.classList.add('hidden'); };
+  }
+  $('copybox-text').value = text;
+  box.classList.remove('hidden');
+  requestAnimationFrame(() => { const t = $('copybox-text'); t.focus(); t.select(); });
+}
+
 $('copy-btn').onclick = () => {
   const rows = selRows(); if (!rows.length) return;
   const priceOf = priceOfRow;
@@ -862,7 +900,7 @@ $('copy-btn').onclick = () => {
     ).join('\n\n');
   }
   const nf = new Set(files.map(f => f.id)).size;
-  navigator.clipboard.writeText(txt).then(() => toast(nf ? `已複製報價＋${nf > 1 ? nf + ' 份' : ''}行程連結` : `已複製 ${rows.length} 筆摘要`));
+  copyText(() => txt).then(() => toast(nf ? `已複製報價＋${nf > 1 ? nf + ' 份' : ''}行程連結` : `已複製 ${rows.length} 筆摘要`));
 };
 
 // ── 行程檔案樹（dt_files 由同步程式維護；還沒開通就顯示說明）──
@@ -1210,28 +1248,32 @@ $('convert-btn').onclick = async () => {
 
   const btn = $('convert-btn'), orig = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  // ⚠ 產短網址（fetch）＋複製一定要走 copyText：iOS Safari 不准「await 後才複製」，
+  //   所以把 fetch 放進 copyText 的 ClipboardItem promise 裡，保住點擊手勢（使用者 2026-07-22 手機回報轉換失敗）
   try {
-    const idToken = await auth.currentUser.getIdToken();
-    const links = {};
-    for (const { file, codes } of byFile.values()) {
-      let longUrl = `${ITIN_BASE}/?id=${file.id}&n=${encodeURIComponent(AGENT.name)}`;
-      if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
-      if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
-      if (AGENT.fb)    longUrl += `&fb=${encodeURIComponent(AGENT.fb)}`;
-      if (AGENT.lg)    longUrl += `&lg=${encodeURIComponent(AGENT.lg)}`;
-      if (AGENT.lg && AGENT.lgpw) longUrl += `&lgpw=${encodeURIComponent(AGENT.lgpw)}`;   // 有社群才帶密碼
-      longUrl += `&codes=${encodeURIComponent(codes.join(','))}`;   // 這份行程涵蓋的所有團號
-      if (!dshow.r) longUrl += `&remain=0`;   // 客人頁餘位顯示跟「剩餘名額」欄一致
-      const res = await fetch(`${ITIN_BASE}/api/shorten`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target: longUrl, idToken }),
-      });
-      if (!res.ok) throw new Error(res.status === 403 ? '沒有轉換連結的權限（請重新登入）' : '產生失敗 ' + res.status);
-      const data = await res.json();
-      if (!data.shortUrl) throw new Error('產生失敗');
-      links[file.id] = data.shortUrl;
-    }
-    await navigator.clipboard.writeText(buildQuoteText(links));
+    await copyText(async () => {
+      const idToken = await auth.currentUser.getIdToken();
+      const links = {};
+      for (const { file, codes } of byFile.values()) {
+        let longUrl = `${ITIN_BASE}/?id=${file.id}&n=${encodeURIComponent(AGENT.name)}`;
+        if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
+        if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
+        if (AGENT.fb)    longUrl += `&fb=${encodeURIComponent(AGENT.fb)}`;
+        if (AGENT.lg)    longUrl += `&lg=${encodeURIComponent(AGENT.lg)}`;
+        if (AGENT.lg && AGENT.lgpw) longUrl += `&lgpw=${encodeURIComponent(AGENT.lgpw)}`;   // 有社群才帶密碼
+        longUrl += `&codes=${encodeURIComponent(codes.join(','))}`;   // 這份行程涵蓋的所有團號
+        if (!dshow.r) longUrl += `&remain=0`;   // 客人頁餘位顯示跟「剩餘名額」欄一致
+        const res = await fetch(`${ITIN_BASE}/api/shorten`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: longUrl, idToken }),
+        });
+        if (!res.ok) throw new Error(res.status === 403 ? '沒有轉換連結的權限（請重新登入）' : '產生失敗 ' + res.status);
+        const data = await res.json();
+        if (!data.shortUrl) throw new Error('產生失敗');
+        links[file.id] = data.shortUrl;
+      }
+      return buildQuoteText(links);
+    });
     toast(byFile.size > 1 ? `已轉換 ${byFile.size} 條連結並複製` : '已轉換並複製（報價＋連結）');
   } catch (e) {
     toast('轉換失敗：' + e.message);
