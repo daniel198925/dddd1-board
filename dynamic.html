@@ -194,9 +194,15 @@
     <div id="dcol-menu" class="hidden absolute right-2 top-10 surface border bd rounded-xl p-3 shadow-2xl z-[70] w-36"></div>
   </div>
   <div id="detail-body" class="px-2 py-2 text-xs overflow-y-auto flex-1 min-h-0"></div>
-  <!-- 行程檔案改成「每一組各自掛」，按鈕在每組區塊裡（使用者 2026-07-21：早班/午班行程不同） -->
+  <!-- 共同行程：一份套用全部選取＝一條連結（常態）。真的要分才在各組「單獨改」（早班/午班） -->
+  <div id="shared-file" class="hidden mx-2 mb-1 px-2 py-1.5 surface2 border bd rounded-lg text-xs flex items-center gap-1.5">
+    <i class="fa-regular fa-file-pdf text-red-400 shrink-0"></i>
+    <span id="shared-file-name" class="flex-1 truncate m1"></span>
+    <button id="shared-file-clear" class="m3 hover:text-red-400 shrink-0 w-5"><i class="fa-solid fa-xmark"></i></button>
+  </div>
   <div id="detail-actions" class="grid grid-cols-2 gap-1 p-2 border-t bd2 shrink-0">
-    <button id="copy-btn" title="複製摘要" class="surface2 hover:opacity-80 m1 border bd font-bold py-1.5 rounded-lg text-[.7rem] transition col-span-2"><i class="fa-regular fa-copy"></i><span class="btn-txt ml-0.5">複製</span></button>
+    <button id="files-btn" title="選擇行程（套用全部選取）" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-folder-open"></i><span class="btn-txt ml-0.5">行程</span></button>
+    <button id="copy-btn" title="複製摘要" class="surface2 hover:opacity-80 m1 border bd font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-copy"></i><span class="btn-txt ml-0.5">複製</span></button>
     <button id="contract-btn" title="建立合約（帶團號＋團費開合約系統）" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-solid fa-file-signature"></i><span class="btn-txt ml-0.5">合約</span></button>
     <button id="convert-btn" title="轉換連結" class="bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-solid fa-plane"></i><span class="btn-txt ml-0.5">轉換</span></button>
   </div>
@@ -271,10 +277,14 @@ let ANCHOR = -1;              // Shift 框選的起點
 let FILETREE = null;          // 行程檔案樹
 let UID = null;               // 登入者 uid
 let AGENT = {};               // 業務設定（dt_agent/{uid}）
-// 選取的行程檔案，key＝groupKey：每一組（團型/航空/時段/團費相同的那批）各自掛自己的行程。
-//   早班跟午班是不同團、行程表也不同，只能掛一份不夠用（使用者 2026-07-21）
+// 行程檔案（使用者 2026-07-21 修正過度拆分）：
+//   SHAREDFILE＝共同行程，套用「全部選取」＝一條連結（常態：同行程不同日期）。
+//   CHOSENFILES[groupKey]＝某一組單獨改用的行程（早班/午班才需要）。優先於共同行程。
+//   連結數量 = 用到幾份「不同的」行程，不是幾組。
+let SHAREDFILE = null;
 let CHOSENFILES = {};
-let FILEPICK_GK = null;       // 目前正在幫哪一組挑檔案
+let FILEPICK_GK = null;       // null＝正在挑共同行程；否則＝正在幫某一組單獨挑
+const effFile = gk => CHOSENFILES[gk] || SHAREDFILE;   // 這一組實際用的行程
 let VISIBLE = [];             // 目前畫面上看得到的團行 index（Shift 框選用）
 const ITIN_BASE = 'https://discoveredtrip.com';   // 中轉頁
 const CONTRACT_BASE = 'https://findit-contract.vercel.app';   // 線上合約系統（吃 ?tour=團號&price=團費）
@@ -463,7 +473,7 @@ async function loadFile() {
   $('f-region').innerHTML = '<option value="">全部地區</option>' + secs.map(l =>
     `<option value="${l.i}">${esc(l.text.replace(/[■▆▂▄*＊\s　"]/g, ''))}</option>`).join('');
 
-  SELLINES = []; ANCHOR = -1;
+  SELLINES = []; ANCHOR = -1; SHAREDFILE = null; CHOSENFILES = {};   // 換檔＝全新報價，行程重來
   hideCard();
   render();
 }
@@ -623,7 +633,7 @@ const PERTOUR = [
   { k: 'r', name: '剩餘', get: r => `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'text-amber-300' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r}</span>` },
 ];
 
-function groupBlock(g) {
+function groupBlock(g, multi) {
   const r0 = g[0];
   const line = (k, v) => `<div class="dline flex justify-between py-1.5 border-b bd2 gap-3"><span class="m3 shrink-0">${k}</span><span class="font-bold text-right">${v}</span></div>`;
   const parts = [];
@@ -681,17 +691,20 @@ function groupBlock(g) {
     }).join('');
     if (bsAll) parts.push(`<div class="pt-2"><span class="m3 text-xs">報名明細</span>${bsAll}</div>`);
   }
-  // 這一組專屬的行程檔案（各組行程表可能不同，例如早班／午班）
+  // 行程檔案：預設用「共同行程」（見 action bar 的行程鈕）。只有這一組「單獨改」過才在這裡顯示，
+  //   或多組時給一個小連結讓業務把某一組換成別的行程（早班/午班）。單一組就不顯示，保持乾淨。
   const cf = CHOSENFILES[gk];
-  parts.push(cf
-    ? `<div class="mt-2 px-2 py-1.5 surface2 border bd rounded-lg text-xs flex items-center gap-1.5">
-         <i class="fa-regular fa-file-pdf text-red-400 shrink-0"></i>
-         <span class="flex-1 truncate m1" title="${esc(cf.n)}">${esc(cf.n)}</span>
-         <button class="gfile-clear m3 hover:text-red-400 shrink-0 w-5" data-gk="${esc(gk)}" title="移除"><i class="fa-solid fa-xmark"></i></button>
-       </div>`
-    : `<button class="gfile-pick mt-2 w-full bg-blue-700 hover:bg-blue-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition" data-gk="${esc(gk)}">
-         <i class="fa-regular fa-folder-open"></i> 選這組的行程
+  if (cf) {
+    parts.push(`<div class="mt-2 px-2 py-1.5 bg-amber-900/30 border border-amber-700/50 rounded-lg text-xs flex items-center gap-1.5">
+         <i class="fa-regular fa-file-pdf text-amber-400 shrink-0"></i>
+         <span class="flex-1 truncate m1" title="${esc(cf.n)}">本組另用：${esc(cf.n)}</span>
+         <button class="gfile-clear m3 hover:text-red-400 shrink-0 w-5" data-gk="${esc(gk)}" title="改回共同行程"><i class="fa-solid fa-xmark"></i></button>
+       </div>`);
+  } else if (multi) {
+    parts.push(`<button class="gfile-pick mt-1.5 text-[.68rem] m3 hover:text-blue-400 underline" data-gk="${esc(gk)}">
+         <i class="fa-regular fa-folder-open"></i> 這組單獨換行程
        </button>`);
+  }
   return parts.join('');
 }
 
@@ -708,8 +721,10 @@ function showDetail() {
   }
   groups.forEach(g => g.sort((a, b) => (a.dt || '').localeCompare(b.dt || '')));
   $('detail-count').textContent = `（共 ${rows.length} 筆${groups.length < rows.length ? '／' + groups.length + ' 種' : ''}）`;
+  const multi = groups.length > 1;
   $('detail-body').innerHTML =
-    groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g)}</div>`).join('<div class="border-t-2 bd mb-3"></div>');
+    groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g, multi)}</div>`).join('<div class="border-t-2 bd mb-3"></div>');
+  updateSharedFile();
   // 團型下拉：選了就記住並重畫（只影響畫面，不會動到漢書資料）
   $('detail-body').querySelectorAll('.tt-pick').forEach(sel => {
     sel.onchange = () => { TTPICK[sel.dataset.gk] = sel.value; showDetail(); };
@@ -726,7 +741,7 @@ function showDetail() {
   });
   showCard();
 }
-$('detail-close').onclick = () => { hideCard(); SELLINES = []; ANCHOR = -1; $('dcol-menu').classList.add('hidden'); render(); };
+$('detail-close').onclick = () => { hideCard(); SELLINES = []; ANCHOR = -1; SHAREDFILE = null; CHOSENFILES = {}; $('dcol-menu').classList.add('hidden'); render(); };
 
 // ── 明細卡：顯示／隱藏（顯示要用 flex，且顯示後重新校正位置把整張卡拉回畫面內，
 //    確保底部按鈕不會掉出畫面被切掉）──
@@ -783,30 +798,40 @@ function priceOfRow(r) {
   const base = r.alt.find(a => a[0] === p)?.[1];
   return base == null ? { price: r.pr, tt: r.tt } : { price: base + (r.adj || 0), tt: p };
 }
-// 報價文案（團費/航空/出發日/天數 ＋ 行程檔名 ＋ 一條連結）
-//   copy-btn 傳 Drive 原始連結；convert 傳短網址（使用者 2026-07-20：轉換只留短網址）
-//   linkByGk：{ groupKey: 網址 }，每一組各自的行程連結（沒給就只用該組掛的檔名）
-function buildQuoteText(linkByGk) {
+// 報價文案（團費/航空/出發日/天數 ＋ 行程檔名 ＋ 連結）
+//   linkByFileId：{ 檔案id: 網址 }。同一份行程只出一條連結（同行程不同日期＝一條，使用者 2026-07-21）
+function buildQuoteText(linkByFileId) {
   const rows = selRows();
   // 文案要跟「顯示欄位」的勾選一致——原本天數是寫死的，取消勾選還是會出現（使用者 2026-07-21 回報）
   const mmdd = iso => fmtDt(iso, !!dshow.wk);
   const anFull = an => /航$|航空$/.test(an) ? an : an + '航空';   // 易斯達→易斯達航空
-  // 用「選取卡的分組」當單位，這樣每組的行程檔案才對得起來（早班/午班各一份）
-  const groups = [], idx = new Map();
+  // 先照 groupKey 分價格區塊（跟卡片一致），再按「實際用的行程檔案」分桶：同檔＝同一條連結
+  const groups = [], gidx = new Map();
   for (const r of rows) {
     const gk = groupKey(r);
-    if (!idx.has(gk)) { idx.set(gk, groups.length); groups.push({ gk, r0: r, dates: [] }); }
-    groups[idx.get(gk)].dates.push(mmdd(r.dt));
+    if (!gidx.has(gk)) { gidx.set(gk, groups.length); groups.push({ gk, r0: r, dates: [] }); }
+    groups[gidx.get(gk)].dates.push(mmdd(r.dt));
   }
-  return groups.map(g => {
+  const blockOf = g => {
     const { price } = priceOfRow(g.r0);
     const ls = [`【團費：${fmt$(price)}】`];
     if (dshow.an) ls.push(`航空公司：${anFull(g.r0.an)}${g.r0.fl ? `（${g.r0.fl}班）` : ''}`);
     if (dshow.dt) ls.push(`出發日：${g.dates.join('、')}`);
     if (dshow.dy) ls.push(`天數：${g.r0.dy ? g.r0.dy + '天' : '--'}`);
-    const cf = CHOSENFILES[g.gk], url = linkByGk && linkByGk[g.gk];
-    if (cf || url) ls.push(`行程表如下列連結：${cf ? '\n' + cf.n : ''}${url ? '\n' + url : ''}`);
     return ls.join('\n');
+  };
+  const buckets = [], bidx = new Map();
+  for (const g of groups) {
+    const f = effFile(g.gk);
+    const key = f ? 'f:' + f.id : 'x:' + g.gk;   // 沒檔案的各自一桶
+    if (!bidx.has(key)) { bidx.set(key, buckets.length); buckets.push({ file: f, blocks: [] }); }
+    buckets[bidx.get(key)].blocks.push(blockOf(g));
+  }
+  return buckets.map(b => {
+    let t = b.blocks.join('\n\n');
+    const url = b.file && linkByFileId && linkByFileId[b.file.id];
+    if (b.file || url) t += `\n\n行程表如下列連結：${b.file ? '\n' + b.file.n : ''}${url ? '\n' + url : ''}`;
+    return t;
   }).join('\n\n');
 }
 
@@ -814,11 +839,11 @@ $('copy-btn').onclick = () => {
   const rows = selRows(); if (!rows.length) return;
   const priceOf = priceOfRow;
   let txt;
-  const picked = Object.keys(CHOSENFILES).length;
-  if (picked) {
-    // 有掛行程檔案 → 每組各自的報價區塊 ＋ 該組的檔名與 Drive 連結
+  const files = [SHAREDFILE, ...Object.values(CHOSENFILES)].filter(Boolean);
+  if (files.length) {
+    // 有掛行程 → 報價區塊 ＋ 每份行程一條 Drive 連結（同份只出一條）
     const links = {};
-    for (const [gk, f] of Object.entries(CHOSENFILES)) links[gk] = `https://drive.google.com/file/d/${f.id}/view?usp=drivesdk`;
+    for (const f of files) links[f.id] = `https://drive.google.com/file/d/${f.id}/view?usp=drivesdk`;
     txt = buildQuoteText(links);
   } else {
     // 沒選檔案 → 純摘要（產品 團型 天數｜出發日｜航空｜團費）
@@ -836,7 +861,8 @@ $('copy-btn').onclick = () => {
       : `${g.head}｜${g.an}｜團費 ${fmt$(g.price)}\n` + g.dates.map(d => '　' + d).join('\n')
     ).join('\n\n');
   }
-  navigator.clipboard.writeText(txt).then(() => toast(picked ? `已複製報價＋${picked} 份行程連結` : `已複製 ${rows.length} 筆摘要`));
+  const nf = new Set(files.map(f => f.id)).size;
+  navigator.clipboard.writeText(txt).then(() => toast(nf ? `已複製報價＋${nf > 1 ? nf + ' 份' : ''}行程連結` : `已複製 ${rows.length} 筆摘要`));
 };
 
 // ── 行程檔案樹（dt_files 由同步程式維護；還沒開通就顯示說明）──
@@ -1116,7 +1142,9 @@ function renderFiles() {
   }
 
   $('files-tree').querySelectorAll('.file-pick').forEach(btn => btn.onclick = () => {
-    if (FILEPICK_GK) CHOSENFILES[FILEPICK_GK] = { id: btn.dataset.id, n: btn.dataset.n };
+    const f = { id: btn.dataset.id, n: btn.dataset.n };
+    if (FILEPICK_GK) CHOSENFILES[FILEPICK_GK] = f;   // 某一組單獨改
+    else SHAREDFILE = f;                              // 共同行程（套用全部）
     showDetail();
     $('files-modal').classList.add('hidden');
     toast('已選取：' + btn.dataset.n);
@@ -1129,7 +1157,13 @@ function renderFiles() {
   });
 }
 
-// （已選檔案的顯示與移除改由 groupBlock 各組自己處理，見 CHOSENFILES）
+// 共同行程按鈕（套用全部選取）＋底部的已選檔名列
+$('files-btn').onclick = () => { if (!selRows().length) return; FILEPICK_GK = null; openFiles(); };
+$('shared-file-clear').onclick = () => { SHAREDFILE = null; updateSharedFile(); showDetail(); };
+function updateSharedFile() {
+  $('shared-file').classList.toggle('hidden', !SHAREDFILE);
+  if (SHAREDFILE) $('shared-file-name').textContent = '共同行程：' + SHAREDFILE.n;
+}
 
 // ── 業務設定 ──
 const AG_FIELDS = { name: 'ag-name', phone: 'ag-phone', line: 'ag-line', fb: 'ag-fb', lg: 'ag-lg', lgpw: 'ag-lgpw' };
@@ -1160,18 +1194,18 @@ $('convert-btn').onclick = async () => {
   if (!rows.length) return;
   if (!AGENT.name) { toast('請先完成業務設定（至少填姓名）'); $('agent-btn').onclick(); return; }
 
-  // 依選取卡的分組來產連結：每組各自帶自己的行程檔案與該組的團號
-  //   （早班/午班是不同團、行程表也不同，客人頁一個連結只能放一份 PDF）
-  const byGk = new Map();
+  // 按「實際用的行程檔案」分桶：同一份行程的團全部放進一條連結（常態＝一條）。
+  //   只有某些組單獨換了行程（早班/午班）才會有第二條。（使用者 2026-07-21：同行程別拆多條）
+  const byFile = new Map();   // fileId → { file, codes: [] }
+  const noFile = [];
   for (const r of rows) {
-    const gk = groupKey(r);
-    if (!byGk.has(gk)) byGk.set(gk, []);
-    byGk.get(gk).push(r);
+    const f = effFile(groupKey(r));
+    if (!f) { noFile.push(r); continue; }
+    if (!byFile.has(f.id)) byFile.set(f.id, { file: f, codes: [] });
+    byFile.get(f.id).codes.push(r.c);
   }
-  const missing = [...byGk.keys()].filter(gk => !CHOSENFILES[gk]);
-  if (missing.length) {
-    toast(byGk.size === 1 ? '請先選取行程' : `還有 ${missing.length} 組沒選行程`);
-    FILEPICK_GK = missing[0]; openFiles(); return;
+  if (noFile.length) {           // 有團還沒有行程 → 先挑共同行程
+    toast('請先選擇行程'); FILEPICK_GK = null; openFiles(); return;
   }
 
   const btn = $('convert-btn'), orig = btn.innerHTML;
@@ -1179,14 +1213,14 @@ $('convert-btn').onclick = async () => {
   try {
     const idToken = await auth.currentUser.getIdToken();
     const links = {};
-    for (const [gk, g] of byGk) {
-      let longUrl = `${ITIN_BASE}/?id=${CHOSENFILES[gk].id}&n=${encodeURIComponent(AGENT.name)}`;
+    for (const { file, codes } of byFile.values()) {
+      let longUrl = `${ITIN_BASE}/?id=${file.id}&n=${encodeURIComponent(AGENT.name)}`;
       if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
       if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
       if (AGENT.fb)    longUrl += `&fb=${encodeURIComponent(AGENT.fb)}`;
       if (AGENT.lg)    longUrl += `&lg=${encodeURIComponent(AGENT.lg)}`;
       if (AGENT.lg && AGENT.lgpw) longUrl += `&lgpw=${encodeURIComponent(AGENT.lgpw)}`;   // 有社群才帶密碼
-      longUrl += `&codes=${encodeURIComponent(g.map(r => r.c).join(','))}`;   // 只帶這一組的團號
+      longUrl += `&codes=${encodeURIComponent(codes.join(','))}`;   // 這份行程涵蓋的所有團號
       if (!dshow.r) longUrl += `&remain=0`;   // 客人頁餘位顯示跟「剩餘名額」欄一致
       const res = await fetch(`${ITIN_BASE}/api/shorten`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1195,10 +1229,10 @@ $('convert-btn').onclick = async () => {
       if (!res.ok) throw new Error(res.status === 403 ? '沒有轉換連結的權限（請重新登入）' : '產生失敗 ' + res.status);
       const data = await res.json();
       if (!data.shortUrl) throw new Error('產生失敗');
-      links[gk] = data.shortUrl;
+      links[file.id] = data.shortUrl;
     }
     await navigator.clipboard.writeText(buildQuoteText(links));
-    toast(byGk.size > 1 ? `已轉換 ${byGk.size} 組並複製` : '已轉換並複製（報價＋連結）');
+    toast(byFile.size > 1 ? `已轉換 ${byFile.size} 條連結並複製` : '已轉換並複製（報價＋連結）');
   } catch (e) {
     toast('轉換失敗：' + e.message);
   } finally {
