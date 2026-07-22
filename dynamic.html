@@ -739,6 +739,14 @@ function showDetail() {
     btn.onpointerdown = e => e.stopPropagation();
     btn.onclick = e => { e.stopPropagation(); delete CHOSENFILES[btn.dataset.gk]; showDetail(); };
   });
+  // 合約防呆：一團一份，選多筆就反灰不能點（使用者 2026-07-21）。
+  //   用行內樣式，不用 Tailwind class——CDN 版對 JS 動態加的 class 不一定即時生成
+  const one = rows.length === 1;
+  const cbtn = $('contract-btn');
+  cbtn.disabled = !one;
+  cbtn.style.opacity = one ? '' : '.4';
+  cbtn.style.cursor = one ? '' : 'not-allowed';
+  cbtn.title = one ? '建立合約（帶團號＋團費開合約系統）' : '合約一次一團，請只選一筆';
   showCard();
 }
 $('detail-close').onclick = () => { hideCard(); SELLINES = []; ANCHOR = -1; SHAREDFILE = null; CHOSENFILES = {}; $('dcol-menu').classList.add('hidden'); render(); };
@@ -1286,12 +1294,12 @@ $('convert-btn').onclick = async () => {
 //   合約系統有自己的登入門禁（跟舊外掛同一批白名單帳號），這裡只負責把資料帶過去。
 $('contract-btn').onclick = () => {
   const rows = selRows();
-  if (!rows.length) return;
-  const r = rows[0];                        // 合約一次一團，取第一筆
+  if (rows.length !== 1) return;            // 一團一份（按鈕已反灰，這裡再擋一層）
+  const r = rows[0];
   const { price } = priceOfRow(r);          // 團費跟著業務當下選的團型走
   const url = `${CONTRACT_BASE}/?tour=${encodeURIComponent(r.c)}&price=${encodeURIComponent(price)}`;
   window.open(url, '_blank', 'noopener');
-  toast(rows.length > 1 ? `合約一次一團，已帶第一筆（${r.c}）` : '已開啟合約系統，帶入團號＋團費');
+  toast('已開啟合約系統，帶入團號＋團費');
 };
 
 // ── 篩選事件 ──
