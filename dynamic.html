@@ -1076,17 +1076,27 @@ const AL_SHORT = {
   NX: '澳航', ZE: '易斯達', '7C': '濟州', TW: '德威', BX: '釜山',
   AK: '亞航', FD: '亞航', D7: '亞航',   // AirAsia 集團（AK馬亞航/FD泰亞航/D7），檔名多寫「亞航」
 };
+// 簡稱同時是「地名」的航空：濟州航空(7C)/釜山航空(BX) 的簡稱就是地名濟州/釜山，
+//   幾乎每個濟州/釜山行程檔都有這兩字，用文字比對會把整個韓國誤判成航空衝突（使用者 2026-07-23）。
+//   → 這種只用「代碼」(7C/BX) 比對，不用文字。
+const AMBIG_AIRLINE = new Set(['濟州', '釜山']);
 // 航空衝突：檔名/路徑明確標了「別家」航空（不是這團的）→ 硬條件，直接不配（使用者 2026-07-22：JX 星宇團被配到 AK 亞航）
 function airlineConflict(t, hay) {
   const alCode = (t.c || '').slice(-8, -6);
   if (!/^[A-Z0-9]{2}$/.test(alCode)) return false;
   const codeRe = c => new RegExp('[＝=(\\-\\s／/]' + c + '(?![A-Za-z0-9])');
   const anBare = t.an ? t.an.replace('航空', '') : '';
-  // 這團自己的航空有出現（全名/簡稱/代碼）→ 不衝突
-  if ((anBare && hay.includes(anBare)) || (AL_SHORT[alCode] && hay.includes(AL_SHORT[alCode])) || codeRe(alCode).test(hay)) return false;
-  // 明確標了別家航空（代碼或簡稱）→ 衝突；共用同簡稱的不算（AK/FD 都叫「亞航」）
-  return Object.entries(AL_SHORT).some(([c, sn]) =>
-    c !== alCode && sn && sn !== AL_SHORT[alCode] && (hay.includes(sn) || codeRe(c).test(hay)));
+  // 這團自己的航空有出現（全名/簡稱/代碼）→ 不衝突。地名型簡稱只認代碼，不認文字
+  const myShort = AL_SHORT[alCode];
+  if ((anBare && !AMBIG_AIRLINE.has(anBare) && hay.includes(anBare))
+      || (myShort && !AMBIG_AIRLINE.has(myShort) && hay.includes(myShort))
+      || codeRe(alCode).test(hay)) return false;
+  // 明確標了別家航空 → 衝突。共用同簡稱的不算（AK/FD 都「亞航」）；地名型簡稱只用代碼
+  return Object.entries(AL_SHORT).some(([c, sn]) => {
+    if (c === alCode || (sn && sn === myShort)) return false;
+    if (codeRe(c).test(hay)) return true;                          // 代碼一律比對
+    return sn && !AMBIG_AIRLINE.has(sn) && hay.includes(sn);       // 地名型簡稱不用文字比對
+  });
 }
 function scoreFile(t, f, path) {
   let s = 0; const nm = f.n;
