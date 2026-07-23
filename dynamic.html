@@ -1034,14 +1034,17 @@ function bestMatchIds(folder, t) {
   const dw = destWords(t);
   let best = -1;
   const scored = all.map(x => {
+    const hay = nz(x.f.n + ' ' + x.path);
     const sc = scoreFile(t, x.f, x.path);
-    const dh = dw.length ? dw.some(d => nz(x.f.n + ' ' + x.path).includes(d)) : true;  // 沒目的地資料就不設限
-    if (sc > best) best = sc;
-    return { id: x.f.id, sc, dh };
+    const dh = dw.length ? dw.some(d => hay.includes(d)) : true;   // 沒目的地資料就不設限
+    const alBad = airlineConflict(t, hay);                          // 檔名標了別家航空＝不能配（硬條件）
+    if (sc > best && !alBad) best = sc;   // 別家航空的檔不參與「最高分」，免得它把門檻墊高
+    return { id: x.f.id, sc, dh, alBad };
   });
   const ids = new Set();
-  // 分數夠高「且最佳檔真的對到目的地」才標——擋掉靠團型/天數跨國亂配（美西 vs 紐西蘭都叫國家公園）
-  if (best >= 18) for (const s of scored) if (s.sc === best && s.dh) ids.add(s.id);
+  // 分數夠高「且最佳檔真的對到目的地、航空也沒衝突」才標
+  //   （擋掉靠團型/天數亂配：美西 vs 紐西蘭都叫國家公園；JX 星宇團被配到 AK 亞航八日）
+  if (best >= 18) for (const s of scored) if (s.sc === best && s.dh && !s.alBad) ids.add(s.id);
   // 同分太多＝系統其實分不出來（例：團型空白時，精彩/豪華/超值/樹冰…全部同分）。
   //   標一堆星等於沒篩選還誤導業務，不如不標，讓業務自己挑。（使用者 2026-07-21）
   if (ids.size > 3) return new Set();
@@ -1066,7 +1069,20 @@ const AL_SHORT = {
   JL: '日航', NH: '全日空', MM: '樂桃', KE: '大韓', OZ: '韓亞', TG: '泰航', SL: '獅航', VZ: '越捷',
   SQ: '新航', MH: '馬航', VN: '越航', VJ: '越捷', PR: '菲航', EK: '阿聯酋', QR: '卡達', TK: '土航',
   NX: '澳航', ZE: '易斯達', '7C': '濟州', TW: '德威', BX: '釜山',
+  AK: '亞航', FD: '亞航', D7: '亞航',   // AirAsia 集團（AK馬亞航/FD泰亞航/D7），檔名多寫「亞航」
 };
+// 航空衝突：檔名/路徑明確標了「別家」航空（不是這團的）→ 硬條件，直接不配（使用者 2026-07-22：JX 星宇團被配到 AK 亞航）
+function airlineConflict(t, hay) {
+  const alCode = (t.c || '').slice(-8, -6);
+  if (!/^[A-Z0-9]{2}$/.test(alCode)) return false;
+  const codeRe = c => new RegExp('[＝=(\\-\\s／/]' + c + '(?![A-Za-z0-9])');
+  const anBare = t.an ? t.an.replace('航空', '') : '';
+  // 這團自己的航空有出現（全名/簡稱/代碼）→ 不衝突
+  if ((anBare && hay.includes(anBare)) || (AL_SHORT[alCode] && hay.includes(AL_SHORT[alCode])) || codeRe(alCode).test(hay)) return false;
+  // 明確標了別家航空（代碼或簡稱）→ 衝突；共用同簡稱的不算（AK/FD 都叫「亞航」）
+  return Object.entries(AL_SHORT).some(([c, sn]) =>
+    c !== alCode && sn && sn !== AL_SHORT[alCode] && (hay.includes(sn) || codeRe(c).test(hay)));
+}
 function scoreFile(t, f, path) {
   let s = 0; const nm = f.n;
   const hay = nz(nm + ' ' + (path || ''));   // 檔名＋所在資料夾（時段常在資料夾名）；全形正規化對得上「雪+墨」
@@ -1125,15 +1141,13 @@ function scoreFile(t, f, path) {
     if (hay.includes(t.dp) || (t.dp === '高雄' && /高出|高／|高\//.test(hay))) s += 5;
   } else if (OTHER_DEP.test(hay)) s -= 12;   // 台北的團配到「高雄出發」→ 明確不符，壓下去
   else s += 2;
-  // 航空：對到 +4；檔名或資料夾明確標了「別家」航空 → 壓下去
-  //   （曼谷＝CI 的團不該配到「曼谷 = VZ」或「高／曼谷＝FD」；航空常寫在資料夾名，所以比對 hay 不是 nm）
+  // 航空：對到 +4；別家航空 −12（而且 bestMatchIds 會直接不標星，硬條件）。
+  //   航空常寫在資料夾名（曼谷＝CI／九州-JX星宇），所以比對 hay 不是 nm
   const alCode = t.c.slice(-8, -6);
   const anBare = t.an ? t.an.replace('航空', '') : '';
-  const codeRe = c => new RegExp('[＝=(\\-\\s]' + c + '(?![A-Za-z])');
-  const mineAl = (anBare && hay.includes(anBare)) || (AL_SHORT[alCode] && hay.includes(AL_SHORT[alCode]))
-              || (/^[A-Z0-9]{2}$/.test(alCode) && codeRe(alCode).test(hay));
-  if (mineAl) s += 4;
-  else if (Object.entries(AL_SHORT).some(([c, sn]) => c !== alCode && (hay.includes(sn) || codeRe(c).test(hay)))) s -= 12;
+  if ((anBare && hay.includes(anBare)) || (AL_SHORT[alCode] && hay.includes(AL_SHORT[alCode]))
+      || (/^[A-Z0-9]{2}$/.test(alCode) && new RegExp('[＝=(\\-\\s／/]' + alCode + '(?![A-Za-z0-9])').test(hay))) s += 4;
+  else if (airlineConflict(t, hay)) s -= 12;
   const p = inFilePeriod(nm, t.dt);
   if (p === true) s += 3; else if (p === false) s -= 6;         // 期間明確不符 → 壓下去
   return s;
