@@ -197,8 +197,8 @@
   <!-- 共同行程：一份套用全部選取＝一條連結（常態）。真的要分才在各組「單獨改」（早班/午班） -->
   <div id="shared-file" class="hidden mx-2 mb-1 px-2 py-1.5 surface2 border bd rounded-lg text-xs flex items-center gap-1.5">
     <i class="fa-regular fa-file-pdf text-red-400 shrink-0"></i>
-    <span id="shared-file-name" class="flex-1 truncate m1"></span>
-    <button id="shared-file-clear" class="m3 hover:text-red-400 shrink-0 w-5"><i class="fa-solid fa-xmark"></i></button>
+    <button id="shared-file-name" class="flex-1 truncate m1 text-left hover:text-blue-400 hover:underline" title="點擊開啟行程表"></button>
+    <button id="shared-file-clear" class="m3 hover:text-red-400 shrink-0 w-5" title="移除"><i class="fa-solid fa-xmark"></i></button>
   </div>
   <div id="detail-actions" class="grid grid-cols-2 gap-1 p-2 border-t bd2 shrink-0">
     <button id="files-btn" title="選擇行程（套用全部選取）" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-folder-open"></i><span class="btn-txt ml-0.5">行程</span></button>
@@ -697,7 +697,7 @@ function groupBlock(g, multi) {
   if (cf) {
     parts.push(`<div class="mt-2 px-2 py-1.5 bg-amber-900/30 border border-amber-700/50 rounded-lg text-xs flex items-center gap-1.5">
          <i class="fa-regular fa-file-pdf text-amber-400 shrink-0"></i>
-         <span class="flex-1 truncate m1" title="${esc(cf.n)}">本組另用：${esc(cf.n)}</span>
+         <button class="gfile-open flex-1 truncate m1 text-left hover:text-blue-400 hover:underline" data-id="${esc(cf.id)}" title="點擊開啟行程表">本組另用：${esc(cf.n)}</button>
          <button class="gfile-clear m3 hover:text-red-400 shrink-0 w-5" data-gk="${esc(gk)}" title="改回共同行程"><i class="fa-solid fa-xmark"></i></button>
        </div>`);
   } else if (multi) {
@@ -738,6 +738,11 @@ function showDetail() {
   $('detail-body').querySelectorAll('.gfile-clear').forEach(btn => {
     btn.onpointerdown = e => e.stopPropagation();
     btn.onclick = e => { e.stopPropagation(); delete CHOSENFILES[btn.dataset.gk]; showDetail(); };
+  });
+  // 點某組行程檔名 → 開 Drive 預覽
+  $('detail-body').querySelectorAll('.gfile-open').forEach(btn => {
+    btn.onpointerdown = e => e.stopPropagation();
+    btn.onclick = e => { e.stopPropagation(); window.open(`https://drive.google.com/file/d/${btn.dataset.id}/view`, '_blank', 'noopener'); };
   });
   // 合約防呆：一團一份，選多筆就反灰不能點（使用者 2026-07-21）。
   //   用行內樣式，不用 Tailwind class——CDN 版對 JS 動態加的 class 不一定即時生成
@@ -1220,6 +1225,8 @@ function renderFiles() {
 // 共同行程按鈕（套用全部選取）＋底部的已選檔名列
 $('files-btn').onclick = () => { if (!selRows().length) return; FILEPICK_GK = null; openFiles(); };
 $('shared-file-clear').onclick = () => { SHAREDFILE = null; updateSharedFile(); showDetail(); };
+// 點檔名＝在新分頁開 Google Drive 預覽這份行程表
+$('shared-file-name').onclick = () => { if (SHAREDFILE) window.open(`https://drive.google.com/file/d/${SHAREDFILE.id}/view`, '_blank', 'noopener'); };
 function updateSharedFile() {
   $('shared-file').classList.toggle('hidden', !SHAREDFILE);
   if (SHAREDFILE) $('shared-file-name').textContent = '共同行程：' + SHAREDFILE.n;
