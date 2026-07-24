@@ -652,8 +652,10 @@ function groupBlock(g, multi) {
   // 定價：有團型清單就用該團型的；沒有清單（只有一種團型）就回推 定價 = 售價 − 調價
   const base = alts ? (alts.find(a => a[0] === picked)?.[1] ?? null)
                     : (adj !== 0 ? r0.pr - adj : null);
-  const shown = base != null ? base + adj : r0.pr;
   const switched = alts && picked !== r0.tt;
+  // 沒切換團型＝一律顯示漢書售價（真相）。只有真的切了才用「該團型定價＋調價」推算——
+  //   不然調價有漏抓時（349 100(...) 無符號寫法），定價+0 會顯示錯的價（使用者 2026-07-24 回報 24,900≠34,900）
+  const shown = switched && base != null ? base + adj : r0.pr;
 
   if (alts) {
     parts.push(line('團型',
@@ -1243,10 +1245,11 @@ function renderFiles() {
       $('files-tree').innerHTML = `<div class="m3 text-center py-8">找不到「${esc(t.ln)}」對應的行程資料夾<br><button id="jump-all" class="text-blue-400 hover:underline text-xs mt-2">改用「全部瀏覽」手動找 →</button></div>`;
       $('jump-all').onclick = () => { filesMode = 'all'; renderFiles(); };
     } else {
-      const bestIds = bestMatchIds(folder, t);
+      // 國旅/郵輪(special)沒有可配對標星的檔 → 只展開最外層、子資料夾摺疊，業務自己挑（使用者 2026-07-24）
+      const bestIds = t.sp ? new Set() : bestMatchIds(folder, t);
       $('files-tree').innerHTML =
-        `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${bestIds.size ? '，⭐ 是系統判斷跟這團最相符的' : ''}</div>` +
-        node(folder, 0, true, bestIds);
+        `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${t.sp ? '，請自行挑選' : (bestIds.size ? '，⭐ 是系統判斷跟這團最相符的' : '')}</div>` +
+        node(folder, 0, !t.sp, bestIds);
     }
   } else {
     // 全部瀏覽：完整樹狀
