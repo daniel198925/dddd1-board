@@ -176,6 +176,8 @@
       <!-- 快速篩選（開關型，按下去變亮）-->
       <button id="f-promo" class="filter-btn input-style whitespace-nowrap"><i class="fa-solid fa-tag mr-1"></i>促銷</button>
       <button id="f-avail" class="filter-btn input-style whitespace-nowrap"><i class="fa-solid fa-chair mr-1"></i>有位</button>
+      <!-- 瀏覽行程庫：不用先選團也能開（郵輪/國旅沒有可選團，靠這個看行程）-->
+      <button id="browse-btn" class="input-style whitespace-nowrap hover:text-blue-400" title="瀏覽公司雲行程檔"><i class="fa-regular fa-folder-open mr-1"></i>行程</button>
       <span id="count-badge" class="chip surface2 m2"></span>
     </div>
   </header>
@@ -953,6 +955,28 @@ async function openFiles() {
     : '';
   renderFiles();
 }
+// 瀏覽行程庫（不用先選團）：郵輪/國旅沒有可選團，靠這個直接開全樹看行程
+async function browseFiles() {
+  $('files-modal').classList.remove('hidden');
+  const savedPos = JSON.parse(localStorage.getItem('d1dt_filespos') || 'null');
+  if (savedPos) requestAnimationFrame(() => {
+    const c = $('files-modal'), w = c.offsetWidth, h = c.offsetHeight;
+    c.style.left = Math.max(4, Math.min(savedPos.x, innerWidth - w - 4)) + 'px';
+    c.style.top = Math.max(4, Math.min(savedPos.y, innerHeight - h - 4)) + 'px';
+    c.style.transform = 'none';
+  });
+  if (!FILETREE) {
+    $('files-tree').innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入中…</div>';
+    const snap = await getDoc(doc(db, 'dt_files', 'tree'));
+    if (!snap.exists()) { $('files-tree').innerHTML = '<div class="m3 text-center py-8">行程清單尚未開通</div>'; return; }
+    FILETREE = JSON.parse(snap.data().tree);
+  }
+  filesMode = 'all';
+  $('files-search').value = '';
+  $('files-for').textContent = '';
+  renderFiles();
+}
+$('browse-btn').onclick = browseFiles;
 $('files-close').onclick = () => $('files-modal').classList.add('hidden');
 // 選擇行程視窗可拖曳（抓標題列移動，位置記住），不遮住後面動態表
 (function makeFilesDraggable() {
@@ -1198,7 +1222,7 @@ function renderFiles() {
       <summary class="cursor-pointer py-1 font-bold m1 hover:text-white select-none">${esc(n.name)}</summary>${kids}</details>`;
   };
 
-  if (related) {
+  if (related && pickTarget()) {
     // 相關行程：直接展開「這條產品線」的資料夾樹，保留原本分組，最相符的標星號
     const t = pickTarget();
     const folder = findLineFolder(t.ln);
