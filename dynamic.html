@@ -627,7 +627,8 @@ document.addEventListener('click', e => { if (!$('dcol-menu').contains(e.target)
 // 剛好算出同一個售價被誤併成一組）
 // 時段（早/午/晚班）也納入分組——同航班不同時段是不同團，不可合併（使用者 2026-07-20）
 const groupKey = r => [r.pr, r.an, r.dy, r.p, r.gw, r.dp, r.tt || '', r.adj || 0, r.fl || ''].join('|');
-const anWithFlight = r => esc(r.an) + (r.fl ? `（${r.fl}）` : '');   // 酷航（午）
+// 國旅/郵輪沒有航空公司 → 顯示 ***（使用者 2026-07-23）
+const anWithFlight = r => r.sp ? '＊＊＊' : esc(r.an) + (r.fl ? `（${r.fl}）` : '');   // 酷航（午）
 // 業務手動切換的團型（key = groupKey）。只存在這次瀏覽，重整就回到漢書上的原團型
 const TTPICK = {};
 // 每團可能不一樣的欄位：合併顯示時要跟著日期一筆一筆列，不能只印一個
@@ -830,7 +831,7 @@ function buildQuoteText(linkByFileId) {
   const blockOf = g => {
     const { price } = priceOfRow(g.r0);
     const ls = [`【團費：${fmt$(price)}】`];
-    if (dshow.an) ls.push(`航空公司：${anFull(g.r0.an)}${g.r0.fl ? `（${g.r0.fl}班）` : ''}`);
+    if (dshow.an && !g.r0.sp) ls.push(`航空公司：${anFull(g.r0.an)}${g.r0.fl ? `（${g.r0.fl}班）` : ''}`);   // 國旅/郵輪沒航空，複製文案略過
     if (dshow.dt) ls.push(`出發日：${g.dates.join('、')}`);
     if (dshow.dy) ls.push(`天數：${g.r0.dy ? g.r0.dy + '天' : '--'}`);
     return ls.join('\n');
@@ -1021,15 +1022,18 @@ const TT_ALIAS = {
   賞櫻: ['櫻花', '賞櫻'], 賞楓: ['賞楓', '楓'], 滑雪: ['滑雪'], 冰釣: ['冰釣'],
   樹冰: ['樹冰'], 鐵道楓: ['鐵道'], 奧入楓: ['奧入'], 雪壁: ['雪壁', '雪璧'], 雪璧: ['雪壁', '雪璧'],
 };
+// 郵輪三條線的行程都在同一個「17.日韓郵輪行程」資料夾（使用者 2026-07-23）
+const LINE_FOLDER_ALIAS = { 歌詩達: '日韓郵輪', MSC: '日韓郵輪', 麗星輪: '日韓郵輪' };
 function findLineFolder(lineName) {
   // 找對應這條產品線的第一層資料夾（檔名前綴 06.河內 對到 dt_tours 的 ln=河內）
   // ⚠ 每條線在雲端都有精確資料夾（含 A/B）：長程A→15.長程A、長程B→16.長程B。
   //   一定要「精確比對」優先，否則「長程B」會誤中排在前面的「15.長程A」→整條長程B全掛。
   const clean = s => s.replace(/^[0-9.\s]+/, '').replace(/\s/g, '');
-  const ln = lineName.replace(/\s/g, '');
+  const key = LINE_FOLDER_ALIAS[lineName] || lineName;   // 郵輪 → 日韓郵輪
+  const ln = key.replace(/\s/g, '');
   return (FILETREE.children || []).find(c => clean(c.name) === ln)
     || (FILETREE.children || []).find(c => clean(c.name).includes(ln))
-    || (FILETREE.children || []).find(c => c.name.includes(lineName));
+    || (FILETREE.children || []).find(c => c.name.includes(key));
 }
 // 掃這個資料夾下所有 PDF，回傳「最相符」那幾個的 id（分數夠高才標，避免亂標）
 // 雜項過濾（讓畫面像舊系統一樣清爽，只留正式行程）——保守：只藏最明確的
