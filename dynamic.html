@@ -1022,18 +1022,27 @@ const TT_ALIAS = {
   賞櫻: ['櫻花', '賞櫻'], 賞楓: ['賞楓', '楓'], 滑雪: ['滑雪'], 冰釣: ['冰釣'],
   樹冰: ['樹冰'], 鐵道楓: ['鐵道'], 奧入楓: ['奧入'], 雪壁: ['雪壁', '雪璧'], 雪璧: ['雪壁', '雪璧'],
 };
-// 郵輪三條線的行程都在同一個「17.日韓郵輪行程」資料夾（使用者 2026-07-23）
-const LINE_FOLDER_ALIAS = { 歌詩達: '日韓郵輪', MSC: '日韓郵輪', 麗星輪: '日韓郵輪' };
+// 郵輪各線直接展開自己那艘船的資料夾（子夾巢狀在「17.日韓郵輪行程」底下，要遞迴找）。
+//   歌詩達不變（明年那艘船不來，維持指到整個郵輪行程夾）。使用者 2026-07-23
+const LINE_FOLDER_ALIAS = { 歌詩達: '日韓郵輪', MSC: 'MSC榮耀', 麗星輪: '麗星探索' };
+const _cleanFolder = s => s.replace(/^[0-9.\s]+/, '').replace(/\s/g, '');
+function findFolderDeep(keyword) {   // 整棵樹遞迴找第一個名稱含 keyword 的資料夾
+  let hit = null;
+  const walk = ns => { for (const c of ns || []) { if (hit) return; if (_cleanFolder(c.name).includes(keyword)) { hit = c; return; } walk(c.children); } };
+  walk(FILETREE.children);
+  return hit;
+}
 function findLineFolder(lineName) {
   // 找對應這條產品線的第一層資料夾（檔名前綴 06.河內 對到 dt_tours 的 ln=河內）
   // ⚠ 每條線在雲端都有精確資料夾（含 A/B）：長程A→15.長程A、長程B→16.長程B。
   //   一定要「精確比對」優先，否則「長程B」會誤中排在前面的「15.長程A」→整條長程B全掛。
-  const clean = s => s.replace(/^[0-9.\s]+/, '').replace(/\s/g, '');
-  const key = LINE_FOLDER_ALIAS[lineName] || lineName;   // 郵輪 → 日韓郵輪
-  const ln = key.replace(/\s/g, '');
+  const clean = _cleanFolder;
+  const alias = LINE_FOLDER_ALIAS[lineName];             // 郵輪：可能是巢狀子夾，遞迴找
+  if (alias) { const f = findFolderDeep(alias); if (f) return f; }
+  const ln = lineName.replace(/\s/g, '');
   return (FILETREE.children || []).find(c => clean(c.name) === ln)
     || (FILETREE.children || []).find(c => clean(c.name).includes(ln))
-    || (FILETREE.children || []).find(c => c.name.includes(key));
+    || (FILETREE.children || []).find(c => c.name.includes(lineName));
 }
 // 掃這個資料夾下所有 PDF，回傳「最相符」那幾個的 id（分數夠高才標，避免亂標）
 // 雜項過濾（讓畫面像舊系統一樣清爽，只留正式行程）——保守：只藏最明確的
