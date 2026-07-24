@@ -276,6 +276,7 @@ let ROWCACHE = {};            // 檔號 → rows
 let LINES = [];               // 目前檔案的行（含 row 對應）
 let SELLINES = [];            // 選取的行 index（可多筆，照舊系統：Shift 框選、Ctrl 加選）
 let ANCHOR = -1;              // Shift 框選的起點
+let SELBASE = [];             // Shift 框選的基準＝上一次一般點擊後的選取（讓多段框選能保留前面的段）
 let FILETREE = null;          // 行程檔案樹
 let UID = null;               // 登入者 uid
 let AGENT = {};               // 業務設定（dt_agent/{uid}）
@@ -475,7 +476,7 @@ async function loadFile() {
   $('f-region').innerHTML = '<option value="">全部地區</option>' + secs.map(l =>
     `<option value="${l.i}">${esc(l.text.replace(/[■▆▂▄*＊\s　"]/g, ''))}</option>`).join('');
 
-  SELLINES = []; ANCHOR = -1; SHAREDFILE = null; CHOSENFILES = {};   // 換檔＝全新報價，行程重來
+  SELLINES = []; ANCHOR = -1; SELBASE = []; SHAREDFILE = null; CHOSENFILES = {};   // 換檔＝全新報價，行程重來
   hideCard();
   render();
 }
@@ -579,11 +580,15 @@ function selectLine(i, e) {
     const a = VISIBLE.indexOf(ANCHOR), b = VISIBLE.indexOf(i);
     if (a >= 0 && b >= 0) {
       const [lo, hi] = a <= b ? [a, b] : [b, a];
-      SELLINES = VISIBLE.slice(lo, hi + 1);          // 只框「目前看得到」的行，不會把被篩掉的偷偷選進去
+      const range = VISIBLE.slice(lo, hi + 1);       // 只框「目前看得到」的行，不會把被篩掉的偷偷選進去
+      // 併入「基準選取」而不是覆蓋 → 選第二段時第一段還在（使用者 2026-07-24）。
+      //   每次從 SELBASE 重算，所以同一段還能用 Shift 調整大小、不會愈選愈多
+      SELLINES = [...new Set([...SELBASE, ...range])];
     }
   } else {
     SELLINES = SELLINES.includes(i) ? SELLINES.filter(x => x !== i) : [...SELLINES, i];
     ANCHOR = i;
+    SELBASE = [...SELLINES];                          // 下一次 Shift 就從這裡往上加
   }
   document.getSelection()?.removeAllRanges();        // Shift 點擊會反白整片文字，清掉
   render();
@@ -759,7 +764,7 @@ function showDetail() {
   cbtn.title = one ? '建立合約（帶團號＋團費開合約系統）' : '合約一次一團，請只選一筆';
   showCard();
 }
-$('detail-close').onclick = () => { hideCard(); SELLINES = []; ANCHOR = -1; SHAREDFILE = null; CHOSENFILES = {}; $('dcol-menu').classList.add('hidden'); render(); };
+$('detail-close').onclick = () => { hideCard(); SELLINES = []; ANCHOR = -1; SELBASE = []; SHAREDFILE = null; CHOSENFILES = {}; $('dcol-menu').classList.add('hidden'); render(); };
 
 // ── 明細卡：顯示／隱藏（顯示要用 flex，且顯示後重新校正位置把整張卡拉回畫面內，
 //    確保底部按鈕不會掉出畫面被切掉）──
