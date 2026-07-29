@@ -218,14 +218,20 @@
       <button id="agent-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="p-5 space-y-3 text-sm max-h-[65vh] overflow-y-auto">
+      <!-- 名片分頁：點哪張就切到那張並直接使用（最多 4 張） -->
+      <div id="ag-tabs" class="flex flex-wrap gap-1.5"></div>
+      <div><label class="text-xs m3 font-bold">分頁名稱</label><input id="ag-label" class="w-full input-style mt-1" placeholder="例：一般 / 促銷 / LINE社群（選填）"></div>
       <div><label class="text-xs m3 font-bold">業務姓名 *</label><input id="ag-name" class="w-full input-style mt-1" placeholder="旅遊大仁哥"></div>
       <div><label class="text-xs m3 font-bold">聯絡電話</label><input id="ag-phone" class="w-full input-style mt-1" placeholder="0277463632"></div>
       <div><label class="text-xs m3 font-bold">LINE ID</label><input id="ag-line" class="w-full input-style mt-1" placeholder="個人 ID 直接填；官方帳號要含 @"></div>
       <div><label class="text-xs m3 font-bold">FB 粉專／社團連結</label><input id="ag-fb" class="w-full input-style mt-1" placeholder="https://www.facebook.com/…（選填）"></div>
       <div><label class="text-xs m3 font-bold">LINE 社群連結</label><input id="ag-lg" class="w-full input-style mt-1" placeholder="https://line.me/ti/g2/…（選填）"></div>
       <div><label class="text-xs m3 font-bold">社群密碼</label><input id="ag-lgpw" class="w-full input-style mt-1" placeholder="社群需要密碼才填（選填）"></div>
-      <p class="text-[.65rem] m4">這些是客人打開行程頁時看到的名片資訊。登入身分即授權，不必再填信箱。</p>
-      <button id="agent-save" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl transition">儲存</button>
+      <p class="text-[.65rem] m4">這些是客人打開行程頁時看到的名片資訊。切換分頁即切換要用哪張名片。登入身分即授權，不必再填信箱。</p>
+      <div class="flex gap-2">
+        <button id="agent-del" class="text-xs border bd2 m3 hover:text-red-400 rounded-xl px-4 transition">刪除這張</button>
+        <button id="agent-save" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl transition">儲存</button>
+      </div>
     </div>
   </div>
 </div>
@@ -279,7 +285,8 @@ let ANCHOR = -1;              // Shift 框選的起點
 let SELBASE = [];             // Shift 框選的基準＝上一次一般點擊後的選取（讓多段框選能保留前面的段）
 let FILETREE = null;          // 行程檔案樹
 let UID = null;               // 登入者 uid
-let AGENT = {};               // 業務設定（dt_agent/{uid}）
+let AGENT = {};               // 目前使用中的名片（= AG_CARDS[AG_ACTIVE]，下游轉換連結都讀這個）
+let AG_CARDS = [], AG_ACTIVE = 0;   // 多張名片＋目前選中第幾張（dt_agent/{uid} 存 {cards,active}）
 // 行程檔案（使用者 2026-07-21 修正過度拆分）：
 //   SHAREDFILE＝共同行程，套用「全部選取」＝一條連結（常態：同行程不同日期）。
 //   CHOSENFILES[groupKey]＝某一組單獨改用的行程（早班/午班才需要）。優先於共同行程。
@@ -366,8 +373,16 @@ onAuthStateChanged(auth, async user => {
     if (snap.data().role === 'recorder') { $('login-msg').innerText = '此帳號沒有動態查詢的使用權限'; return signOut(auth); }
     $('user-name').textContent = snap.data().nickname || snap.data().account || '';
     showPage('main-page');
-    // 業務設定（轉換連結名片）
-    const ag = await pAgent; AGENT = ag && ag.exists() ? ag.data() : {};
+    // 業務設定（轉換連結名片）——多張分頁：{cards:[...], active}
+    const ag = await pAgent; const ad = ag && ag.exists() ? ag.data() : {};
+    if (Array.isArray(ad.cards) && ad.cards.length) {
+      AG_CARDS = ad.cards;
+      AG_ACTIVE = Math.min(Math.max(0, ad.active || 0), AG_CARDS.length - 1);
+    } else if (ad.name) {          // 舊資料是單張攤平在最外層 → 轉成一張名片
+      AG_CARDS = [{ label: '', name: ad.name, phone: ad.phone || '', line: ad.line || '', fb: ad.fb || '', lg: ad.lg || '', lgpw: ad.lgpw || '' }];
+      AG_ACTIVE = 0;
+    } else { AG_CARDS = []; AG_ACTIVE = 0; }
+    AGENT = AG_CARDS[AG_ACTIVE] || {};
     await boot(await pMeta);
   } catch (err) {
     $('login-msg').innerText = '讀取失敗：' + err.message; signOut(auth);
@@ -1289,22 +1304,80 @@ function updateSharedFile() {
 
 // ── 業務設定 ──
 const AG_FIELDS = { name: 'ag-name', phone: 'ag-phone', line: 'ag-line', fb: 'ag-fb', lg: 'ag-lg', lgpw: 'ag-lgpw' };
+const agBlank = () => ({ label: '', name: '', phone: '', line: '', fb: '', lg: '', lgpw: '' });
+// 分頁標籤：優先顯示分頁名稱，其次業務姓名，都沒有就「名片N」
+const agLabel = (c, i) => (c.label && c.label.trim()) || (c.name && c.name.trim()) || `名片${i + 1}`;
+
+function agLoadFields() {   // 把目前這張名片載進欄位
+  const c = AG_CARDS[AG_ACTIVE] || {};
+  $('ag-label').value = c.label || '';
+  for (const [k, id] of Object.entries(AG_FIELDS)) $(id).value = c[k] || '';
+}
+function agReadFields() {   // 把欄位內容寫回目前這張名片（切分頁前先保住編輯）
+  const c = AG_CARDS[AG_ACTIVE]; if (!c) return;
+  c.label = $('ag-label').value.trim();
+  for (const [k, id] of Object.entries(AG_FIELDS)) c[k] = $(id).value.trim();
+}
+function renderAgTabs() {
+  const bar = $('ag-tabs'); bar.innerHTML = '';
+  AG_CARDS.forEach((c, i) => {
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'text-xs px-3 py-1.5 rounded-lg border transition ' +
+      (i === AG_ACTIVE ? 'bg-amber-600 text-white border-amber-600' : 'bd m2 hover:price');
+    b.textContent = agLabel(c, i);
+    b.onclick = () => agSwitch(i);
+    bar.appendChild(b);
+  });
+  if (AG_CARDS.length < 4) {
+    const add = document.createElement('button'); add.type = 'button';
+    add.className = 'text-xs px-3 py-1.5 rounded-lg border bd2 m3 hover:price transition';
+    add.innerHTML = '<i class="fa-solid fa-plus"></i>';
+    add.onclick = agAdd; bar.appendChild(add);
+  }
+  $('agent-del').style.display = AG_CARDS.length > 1 ? '' : 'none';
+}
+function agSwitch(i) {
+  if (i === AG_ACTIVE) return;
+  agReadFields();                 // 保住目前分頁的編輯
+  AG_ACTIVE = i; AGENT = AG_CARDS[i] || {};
+  agLoadFields(); renderAgTabs();
+  // 靜默記住「使用中是哪張」，下次登入沿用（不影響尚未儲存的欄位編輯）
+  if (UID) setDoc(doc(db, 'dt_agent', UID), { active: i }, { merge: true }).catch(() => {});
+}
+function agAdd() {
+  if (AG_CARDS.length >= 4) return;
+  agReadFields();
+  AG_CARDS.push(agBlank()); AG_ACTIVE = AG_CARDS.length - 1; AGENT = AG_CARDS[AG_ACTIVE];
+  agLoadFields(); renderAgTabs();
+}
 $('agent-btn').onclick = () => {
-  for (const [k, id] of Object.entries(AG_FIELDS)) $(id).value = AGENT[k] || '';
+  if (!AG_CARDS.length) { AG_CARDS = [agBlank()]; AG_ACTIVE = 0; }
+  if (AG_ACTIVE >= AG_CARDS.length) AG_ACTIVE = 0;
+  AGENT = AG_CARDS[AG_ACTIVE];
+  agLoadFields(); renderAgTabs();
   $('agent-modal').classList.remove('hidden');
 };
 $('agent-close').onclick = () => $('agent-modal').classList.add('hidden');
 $('agent-modal').onclick = e => { if (e.target === $('agent-modal')) $('agent-modal').classList.add('hidden'); };
+$('agent-del').onclick = async () => {
+  if (AG_CARDS.length <= 1) return;
+  const gone = agLabel(AG_CARDS[AG_ACTIVE], AG_ACTIVE);
+  AG_CARDS.splice(AG_ACTIVE, 1);
+  if (AG_ACTIVE >= AG_CARDS.length) AG_ACTIVE = AG_CARDS.length - 1;
+  AGENT = AG_CARDS[AG_ACTIVE] || {};
+  agLoadFields(); renderAgTabs();
+  try { await setDoc(doc(db, 'dt_agent', UID), { cards: AG_CARDS, active: AG_ACTIVE }, { merge: true }); toast(`已刪除「${gone}」`); }
+  catch (e) { toast('刪除失敗：' + e.message); }
+};
 $('agent-save').onclick = async () => {
-  const data = {};
-  for (const [k, id] of Object.entries(AG_FIELDS)) data[k] = $(id).value.trim();
+  agReadFields();
   // LINE ID：個人帳號沒有 @、官方帳號一定要留著 @（連結格式不同：~個人 vs @官方）。
   //   原本一律砍掉 @ 會讓官方帳號的連結失效（使用者 2026-07-21 回報打了 @ 卻沒上去）
-  data.line = data.line.replace(/\s/g, '');
-  if (!data.name) return toast('請填業務姓名');
+  AG_CARDS.forEach(c => c.line = (c.line || '').replace(/\s/g, ''));
+  if (!AG_CARDS[AG_ACTIVE].name) return toast('請填業務姓名');
   try {
-    await setDoc(doc(db, 'dt_agent', UID), data, { merge: true });
-    AGENT = { ...AGENT, ...data };
+    await setDoc(doc(db, 'dt_agent', UID), { cards: AG_CARDS, active: AG_ACTIVE }, { merge: true });
+    AGENT = AG_CARDS[AG_ACTIVE];
     $('agent-modal').classList.add('hidden');
     toast('業務設定已儲存');
   } catch (e) { toast('儲存失敗：' + e.message); }
