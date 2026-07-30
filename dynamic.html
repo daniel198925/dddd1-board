@@ -81,6 +81,9 @@
   .hl-tour { cursor:pointer; }
   .hl-tour:hover { background:var(--hover); }
   .hl-tour.sel { background:var(--sel-bg); color:var(--sel-fg); }       /* 選取行：金黃（仿舊系統）*/
+  /* 地區跳位後閃一下，讓眼睛知道停在哪一區 */
+  @keyframes secflash { 0%,100% { filter:none; } 30%,70% { filter:brightness(1.9); } }
+  .hl-sec.flash { animation: secflash 1.4s ease-in-out; }
   .hl-tour .code { color:var(--code-fg); background:var(--code-bg); border-radius:.2rem; }
   .hl-tour.sel .code { color:var(--sel-fg); background:var(--sel-code-bg); }
   .hl-tour .promo { color:var(--promo); }
@@ -162,7 +165,11 @@
       <span class="m3 font-bold mobile-hide">動態：</span>
       <select id="f-line" class="input-style font-bold min-w-[220px] max-w-full flex-1 sm:flex-none"></select>
       <span class="m3 font-bold ml-2 mobile-hide">地區：</span>
-      <select id="f-region" class="input-style min-w-[140px] max-w-full flex-1 sm:flex-none"><option value="">全部地區</option></select>
+      <!-- 地區＝跳到那一區（不是篩選）；選了才出現 X，按 X 回到最上面 -->
+      <div class="relative flex items-center min-w-[140px] max-w-full flex-1 sm:flex-none">
+        <select id="f-region" class="input-style w-full pr-7"><option value="">全部地區</option></select>
+        <button id="f-region-clear" class="hidden absolute right-6 m3 hover:text-red-400 text-xs w-5 h-5" title="清除地區"><i class="fa-solid fa-xmark"></i></button>
+      </div>
       <button id="more-btn" class="input-style sm:hidden"><i class="fa-solid fa-sliders"></i></button>
       <div id="more-filters" class="flex flex-wrap items-center gap-2 max-sm:hidden max-sm:w-full">
         <span class="m3 font-bold mobile-hide">日期：</span>
@@ -490,6 +497,7 @@ async function loadFile() {
   const secs = LINES.filter(l => l.isSec && l.text.replace(/[■▆▂▄*＊\s　"]/g, ''));
   $('f-region').innerHTML = '<option value="">全部地區</option>' + secs.map(l =>
     `<option value="${l.i}">${esc(l.text.replace(/[■▆▂▄*＊\s　"]/g, ''))}</option>`).join('');
+  $('f-region-clear').classList.add('hidden');   // 換檔＝地區重來（選單重建，值已回全部地區）
 
   SELLINES = []; ANCHOR = -1; SELBASE = []; SHAREDFILE = null; CHOSENFILES = {};   // 換檔＝全新報價，行程重來
   hideCard();
@@ -523,15 +531,8 @@ $('f-date-clear').onclick = e => {
 function render() {
   const [from, to] = DATERANGE;
   const q = $('f-search').value.trim().toUpperCase();
-  const regionStart = $('f-region').value === '' ? -1 : +$('f-region').value;
-
-  // 地區範圍：選定分區 → 只顯示該分區到下一個分區之間
-  let regionEnd = Infinity;
-  if (regionStart >= 0) {
-    const next = LINES.find(l => l.isSec && l.i > regionStart);
-    regionEnd = next ? next.i : Infinity;
-  }
-
+  // 地區不再是「篩選」而是「跳位」：整份還是全部顯示，只把畫面捲到那一區，
+  //   業務才看得到上下區塊的前後文（使用者 2026-07-30）。跳位邏輯在 scrollToRegion()
   const promoOn = $('f-promo').classList.contains('on');
   const availOn = $('f-avail').classList.contains('on');
   const filtering = !!(q || promoOn || availOn || from || to);   // 日期也算篩選（空掉的分區要收起來）
@@ -558,7 +559,6 @@ function render() {
 
   const out = [];
   for (const l of LINES) {
-    if (regionStart >= 0 && (l.i < regionStart || l.i >= regionEnd)) continue;
     if (l.row) {
       if (!pass.has(l.i)) continue;
       let h = esc(l.text);
@@ -569,7 +569,7 @@ function render() {
       out.push(`<div class="hl hl-tour ${SELLINES.includes(l.i) ? 'sel' : ''}" data-i="${l.i}">${h}</div>`);
     } else if (l.isSec) {
       if (filtering && !secHasRow.has(l.i)) continue;   // 這區沒有符合的團就整個不顯示
-      out.push(`<div class="hl hl-sec">${esc(l.text)}</div>`);
+      out.push(`<div class="hl hl-sec" data-i="${l.i}">${esc(l.text)}</div>`);
     } else {
       // 篩選中：保留「這一區還有團」的摘要行（●團／時●、團型定價、利潤、去/回程班機、欄位表頭），
       //   業務要看航班時間與成本才好報價（使用者 2026-07-21）。三個條件都要成立才留：
@@ -1453,7 +1453,22 @@ $('contract-btn').onclick = () => {
 
 // ── 篩選事件 ──
 $('f-line').onchange = loadFile;
-$('f-region').onchange = render;   // 日期改用 flatpickr，變動在它的 onChange 觸發
+// 地區＝跳到那一區（不篩選，所以不用 render）。日期改用 flatpickr，變動在它的 onChange 觸發
+function scrollToRegion() {
+  const v = $('f-region').value;
+  $('f-region-clear').classList.toggle('hidden', v === '');
+  const box = $('raw-view');
+  if (v === '') return box.scrollTo({ top: 0, behavior: 'smooth' });
+  const el = box.querySelector(`.hl-sec[data-i="${v}"]`);
+  // 篩選（促銷/有位/日期/搜尋）可能把整區收起來 → 這區現在畫面上不存在
+  if (!el) return toast('這個地區目前被篩選條件擋掉了');
+  // 用 rect 差值算捲動距離，不靠 offsetTop（raw-view 沒設 position，offsetParent 會跑掉）
+  const top = box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top;
+  box.scrollTo({ top, behavior: 'smooth' });
+  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+}
+$('f-region').onchange = scrollToRegion;
+$('f-region-clear').onclick = e => { e.stopPropagation(); $('f-region').value = ''; scrollToRegion(); };
 $('f-search').oninput = render;
 
 // 快速篩選（促銷／有位）：開關型，狀態記住，下次打開還在
