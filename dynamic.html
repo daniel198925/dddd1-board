@@ -264,6 +264,9 @@
 
 <div id="toast" class="bg-blue-600 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-xl"></div>
 
+<!-- 滑鼠指到團號列時跟著游標的小提示：出發日全年份＋星期（團號裡只有 MMDD 看不出年份/星期）-->
+<div id="hovertip" class="hidden fixed z-[70] pointer-events-none surface border bd rounded-lg shadow-xl px-2.5 py-1 text-xs font-bold whitespace-nowrap"></div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -611,6 +614,33 @@ function selectLine(i, e) {
 }
 const selRows = () => SELLINES.map(i => LINES[i]?.row).filter(Boolean);
 
+// ── 滑到團號列 → 跟著游標顯示「出發日＋星期」（使用者 2026-07-30）──
+//    團號裡只有 MMDD（例 DAD6IT0814B5），看不出年份也算不出星期，滑過去直接告訴他。
+//    用事件委派掛在 raw-view 上：一份漢書幾千行，逐行掛 listener 太重。
+(() => {
+  const tip = $('hovertip'), view = $('raw-view');
+  let lastI = -1;
+  view.addEventListener('mousemove', e => {
+    const el = e.target.closest && e.target.closest('.hl-tour');
+    const r = el ? LINES[+el.dataset.i]?.row : null;
+    if (!r || !r.dt) { tip.classList.add('hidden'); lastI = -1; return; }
+    const i = +el.dataset.i;
+    if (i !== lastI) {                     // 換行才重算文字，同一行只更新位置
+      lastI = i;
+      const [y, m, d] = r.dt.split('-').map(Number);
+      tip.textContent = `${y}/${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}（${WD[new Date(y, m - 1, d).getDay()]}）`;
+    }
+    tip.classList.remove('hidden');        // 要先顯示才量得到寬高
+    const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = e.clientX + pad, ty = e.clientY + pad;
+    if (x + w > innerWidth  - 8) x  = e.clientX - w - pad;   // 靠右邊界就翻到游標左邊
+    if (ty + h > innerHeight - 8) ty = e.clientY - h - pad;   // 靠底部就翻到游標上面
+    tip.style.left = x + 'px'; tip.style.top = ty + 'px';
+  });
+  view.addEventListener('mouseleave', () => { tip.classList.add('hidden'); lastI = -1; });
+  view.addEventListener('scroll',     () => { tip.classList.add('hidden'); lastI = -1; });
+})();
+
 // ── 明細卡欄位設定（照舊系統：預設只顯示團費/航空/出發日/天數，其他用「顯示欄位」勾）──
 // 只留這四個（使用者 2026-07-19：其他欄位用不到）
 const DFIELDS = [
@@ -745,13 +775,6 @@ function showDetail() {
     groups[idx.get(k)].push(r);
   }
   groups.forEach(g => g.sort((a, b) => (a.dt || '').localeCompare(b.dt || '')));
-  // 便宜的排上面（使用者 2026-08-06）：價格用「業務當下選的團型」算，切了團型會即時重排。
-  //   同價再按出發日，讓同價的幾組自然黏在一起、順序也固定不會跳。
-  groups.sort((a, b) => {
-    const pa = priceOfRow(a[0]).price, pb = priceOfRow(b[0]).price;
-    if (pa !== pb) return (pa ?? Infinity) - (pb ?? Infinity);
-    return (a[0].dt || '').localeCompare(b[0].dt || '');
-  });
   $('detail-count').textContent = `（共 ${rows.length} 筆${groups.length < rows.length ? '／' + groups.length + ' 種' : ''}）`;
   const multi = groups.length > 1;
   $('detail-body').innerHTML =
