@@ -178,6 +178,18 @@
           <input id="f-date" class="input-style w-[190px] max-sm:w-full cursor-pointer" placeholder="全部日期（點選篩選）" readonly>
           <button id="f-date-clear" class="hidden absolute right-2 m3 hover:text-red-400 text-xs w-5 h-5" title="清除日期"><i class="fa-solid fa-xmark"></i></button>
         </div>
+        <!-- 星期篩選：可複選（週五+週六出發最常查）。按鈕顯示目前選了哪幾天 -->
+        <div class="relative">
+          <button id="f-wd-btn" class="filter-btn input-style whitespace-nowrap"><i class="fa-regular fa-calendar-check mr-1"></i><span id="f-wd-label">星期</span></button>
+          <div id="f-wd-panel" class="hidden absolute left-0 mt-1 z-[55] surface border bd rounded-xl shadow-2xl p-2 w-[190px]">
+            <div id="f-wd-chips" class="grid grid-cols-4 gap-1"></div>
+            <div class="flex gap-1 mt-2 pt-2 border-t bd2">
+              <button id="f-wd-week" class="flex-1 text-[.7rem] border bd2 m3 hover:price rounded-lg py-1 transition">平日</button>
+              <button id="f-wd-end" class="flex-1 text-[.7rem] border bd2 m3 hover:price rounded-lg py-1 transition">週末</button>
+              <button id="f-wd-clear" class="flex-1 text-[.7rem] border bd2 m3 hover:text-red-400 rounded-lg py-1 transition">清除</button>
+            </div>
+          </div>
+        </div>
         <input id="f-search" class="input-style w-44 max-sm:w-full ml-2 max-sm:ml-0" placeholder="🔍 搜尋（團號/任意字）">
       </div>
       <!-- 快速篩選（開關型，按下去變亮）-->
@@ -515,6 +527,12 @@ const CODE_LINE = /[A-Z]{2,3}\d[A-Z0-9]{2}\d{4}[A-Z]\d|[=＝]{4,}\d{4}[A-Z]\d/;
 //    ['',''] 代表沒設限；只選一天時頭尾同一天。日期一律自己組字串，不用 toISOString（會差時區）
 let DATERANGE = ['', ''];
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// ── 星期篩選（使用者 2026-07-30）──
+//    可複選（週五+週六出發最常查）。空的＝不篩。0=日 … 6=六，跟 WD 陣列同一套。
+//    ⚠ 星期一定要用 new Date(y, m-1, d) 從數字組，不能 new Date('2026-08-14')（UTC 解讀會差一天）
+const WDSEL = new Set();
+const wdOf = iso => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d).getDay(); };
 const fpDate = flatpickr('#f-date', {
   mode: 'range', dateFormat: 'Y-m-d', locale: 'zh_tw',
   onChange(sel) {
@@ -538,11 +556,12 @@ function render() {
   //   業務才看得到上下區塊的前後文（使用者 2026-07-30）。跳位邏輯在 scrollToRegion()
   const promoOn = $('f-promo').classList.contains('on');
   const availOn = $('f-avail').classList.contains('on');
-  const filtering = !!(q || promoOn || availOn || from || to);   // 日期也算篩選（空掉的分區要收起來）
+  const filtering = !!(q || promoOn || availOn || from || to || WDSEL.size);   // 日期/星期也算篩選（空掉的分區要收起來）
 
   // 這一團過不過篩選
   const rowPass = r =>
     !(from && r.dt && r.dt < from) && !(to && r.dt && r.dt > to) &&
+    !(WDSEL.size && !(r.dt && WDSEL.has(wdOf(r.dt)))) &&   // 沒出發日的團在篩星期時一律不留
     !(promoOn && !r.pm) && !(availOn && !(r.r > 0));
 
   // 先掃一遍：哪些團留下來、各分區底下還有沒有團
@@ -1499,6 +1518,31 @@ function scrollToRegion() {
 }
 $('f-region').onchange = scrollToRegion;
 $('f-region-clear').onclick = e => { e.stopPropagation(); $('f-region').value = ''; scrollToRegion(); };
+
+// ── 星期篩選：七個小格子可複選，另有平日／週末／清除三個快捷 ──
+function renderWd() {
+  $('f-wd-chips').innerHTML = '';
+  WD.forEach((n, i) => {
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'text-xs py-1 rounded-lg border transition ' +
+      (WDSEL.has(i) ? 'bg-blue-600 text-white border-blue-600' : 'bd m2 hover:price');
+    b.textContent = n;
+    b.onclick = () => { WDSEL.has(i) ? WDSEL.delete(i) : WDSEL.add(i); renderWd(); render(); };
+    $('f-wd-chips').appendChild(b);
+  });
+  // 按鈕文字：沒選＝「星期」，有選就把選到的天列出來（例：星期五六）
+  const picked = [...WDSEL].sort().map(i => WD[i]).join('');
+  $('f-wd-label').textContent = picked ? '星期' + picked : '星期';
+  $('f-wd-btn').classList.toggle('on', WDSEL.size > 0);
+}
+const wdSet = arr => { WDSEL.clear(); arr.forEach(i => WDSEL.add(i)); renderWd(); render(); };
+$('f-wd-btn').onclick = e => { e.stopPropagation(); $('f-wd-panel').classList.toggle('hidden'); };
+$('f-wd-panel').onclick = e => e.stopPropagation();
+$('f-wd-week').onclick  = () => wdSet([1, 2, 3, 4]);      // 平日＝一~四（週五常算週末出發）
+$('f-wd-end').onclick   = () => wdSet([5, 6, 0]);          // 週末＝五六日
+$('f-wd-clear').onclick = () => wdSet([]);
+document.addEventListener('click', () => $('f-wd-panel').classList.add('hidden'));   // 點外面收起來
+renderWd();
 $('f-search').oninput = render;
 
 // 快速篩選（促銷／有位）：開關型，狀態記住，下次打開還在
