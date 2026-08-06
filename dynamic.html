@@ -745,6 +745,13 @@ function showDetail() {
     groups[idx.get(k)].push(r);
   }
   groups.forEach(g => g.sort((a, b) => (a.dt || '').localeCompare(b.dt || '')));
+  // 便宜的排上面（使用者 2026-08-06）：價格用「業務當下選的團型」算，切了團型會即時重排。
+  //   同價再按出發日，讓同價的幾組自然黏在一起、順序也固定不會跳。
+  groups.sort((a, b) => {
+    const pa = priceOfRow(a[0]).price, pb = priceOfRow(b[0]).price;
+    if (pa !== pb) return (pa ?? Infinity) - (pb ?? Infinity);
+    return (a[0].dt || '').localeCompare(b[0].dt || '');
+  });
   $('detail-count').textContent = `（共 ${rows.length} 筆${groups.length < rows.length ? '／' + groups.length + ' 種' : ''}）`;
   const multi = groups.length > 1;
   $('detail-body').innerHTML =
