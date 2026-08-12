@@ -711,6 +711,20 @@ function groupBlock(g, multi) {
   const parts = [];
   if (g.some(r => r.pm)) parts.push(`<div class="mb-1.5"><span class="chip bg-pink-900/60 text-pink-300">促銷</span></div>`);
 
+  // 團號放最上面且點一下就複製：業務要把團號貼到科威系統，
+  // 原本得回列表用滑鼠圈選，很難圈準（使用者 2026-08-11 回報）
+  const codes = g.map(r => r.c).filter(Boolean);
+  if (codes.length) {
+    parts.push(
+      `<div class="dline flex justify-between items-center py-1.5 border-b bd2 gap-3">
+         <span class="m3 shrink-0">團號</span>
+         <button class="code-copy font-bold text-right hover:text-blue-400 transition"
+                 data-codes="${esc(codes.join(','))}" title="點一下複製團號">
+           ${codes.length > 2 ? `共 ${codes.length} 個團號` : codes.map(esc).join('、')}<i class="fa-regular fa-copy ml-1.5 m3"></i>
+         </button>
+       </div>`);
+  }
+
   // ── 團費（可切換團型）──
   //   漢書上的售價 = 該團型定價 + 本團特價（例：精彩 25,900 −2,000 = 23,900）
   //   換團型後特價還算不算，公司沒有硬規則 → 兩個數字都列出來，業務自己判斷
@@ -799,6 +813,16 @@ function showDetail() {
   $('detail-body').innerHTML =
     groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g, multi)}</div>`).join('<div class="border-t-2 bd mb-3"></div>');
   updateSharedFile();
+  // 團號一鍵複製（多筆就一行一個，方便連續貼）
+  $('detail-body').querySelectorAll('.code-copy').forEach(btn => {
+    btn.onpointerdown = e => e.stopPropagation();          // 別把卡片拖走
+    btn.onclick = e => {
+      e.stopPropagation();
+      const list = btn.dataset.codes.split(',');
+      copyText(() => list.join('\n'))
+        .then(() => toast(list.length > 1 ? `已複製 ${list.length} 個團號` : '已複製團號 ' + list[0]));
+    };
+  });
   // 團型下拉：選了就記住並重畫（只影響畫面，不會動到漢書資料）
   $('detail-body').querySelectorAll('.tt-pick').forEach(sel => {
     sel.onchange = () => { TTPICK[sel.dataset.gk] = sel.value; showDetail(); };
