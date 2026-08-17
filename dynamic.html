@@ -711,20 +711,6 @@ function groupBlock(g, multi) {
   const parts = [];
   if (g.some(r => r.pm)) parts.push(`<div class="mb-1.5"><span class="chip bg-pink-900/60 text-pink-300">促銷</span></div>`);
 
-  // 團號放最上面且點一下就複製：業務要把團號貼到科威系統，
-  // 原本得回列表用滑鼠圈選，很難圈準（使用者 2026-08-11 回報）
-  const codes = g.map(r => r.c).filter(Boolean);
-  if (codes.length) {
-    parts.push(
-      `<div class="dline flex justify-between items-center py-1.5 border-b bd2 gap-3">
-         <span class="m3 shrink-0">團號</span>
-         <button class="code-copy font-bold text-right hover:text-blue-400 transition"
-                 data-codes="${esc(codes.join(','))}" title="點一下複製團號">
-           ${codes.length > 2 ? `共 ${codes.length} 個團號` : codes.map(esc).join('、')}<i class="fa-regular fa-copy ml-1.5 m3"></i>
-         </button>
-       </div>`);
-  }
-
   // ── 團費（可切換團型）──
   //   漢書上的售價 = 該團型定價 + 本團特價（例：精彩 25,900 −2,000 = 23,900）
   //   換團型後特價還算不算，公司沒有硬規則 → 兩個數字都列出來，業務自己判斷
@@ -813,16 +799,6 @@ function showDetail() {
   $('detail-body').innerHTML =
     groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g, multi)}</div>`).join('<div class="border-t-2 bd mb-3"></div>');
   updateSharedFile();
-  // 團號一鍵複製（多筆就一行一個，方便連續貼）
-  $('detail-body').querySelectorAll('.code-copy').forEach(btn => {
-    btn.onpointerdown = e => e.stopPropagation();          // 別把卡片拖走
-    btn.onclick = e => {
-      e.stopPropagation();
-      const list = btn.dataset.codes.split(',');
-      copyText(() => list.join('\n'))
-        .then(() => toast(list.length > 1 ? `已複製 ${list.length} 個團號` : '已複製團號 ' + list[0]));
-    };
-  });
   // 團型下拉：選了就記住並重畫（只影響畫面，不會動到漢書資料）
   $('detail-body').querySelectorAll('.tt-pick').forEach(sel => {
     sel.onchange = () => { TTPICK[sel.dataset.gk] = sel.value; showDetail(); };
@@ -1146,6 +1122,20 @@ function findLineFolder(lineName) {
 const isNoiseFolder = name => /圖片|素材|照片|相片|海報|文宣|封面|備份|複製|副本|舊(?!金山)/.test(name);
 const isNoiseFile = name => /複製|副本|[-\s]copy|\(舊\)|舊版|舊檔|作廢|勿用|停售|停用|不用|草稿|test/i.test(name);
 
+// ── 哪些檔案算「行程」──（使用者 2026-07-30：西葡明明 3 支行程卻只出現 1 支）
+//   ⚠ 絕對不能用副檔名判斷：雲端很多真 PDF 的檔名沒有 .pdf，用 /\.pdf$/ 會把它們整個藏起來。
+//   同步時已把 Drive 的真實格式記在 k（p=PDF、w=Word）；舊的檔案樹還沒有 k 就退回看副檔名。
+const fKind = f => f.k || (/\.pdf$/i.test(f.n) ? 'p' : /\.docx?$/i.test(f.n) ? 'w' : '');
+// 去掉副檔名＋空白，用來判斷 PDF 和 Word 是不是同一份行程
+const fBase = n => n.replace(/\.(pdf|docx?)$/i, '').replace(/\s+/g, '').trim();
+// 一份行程通常 PDF／Word 各存一份（檔名只差副檔名，有的甚至完全同名）→ 只留 PDF 那份，
+//   清單才不會整個重複一倍；「只有 Word 沒有 PDF」的行程照樣留著，不然業務就看不到了
+function itinFiles(files) {
+  const ok = (files || []).filter(f => fKind(f) && !isNoiseFile(f.n));
+  const pdfBase = new Set(ok.filter(f => fKind(f) === 'p').map(f => fBase(f.n)));
+  return ok.filter(f => fKind(f) === 'p' || !pdfBase.has(fBase(f.n)));
+}
+
 // 全形正規化：漢書「雪＋墨」的全形＋、全形／要對得上資料夾「雪+墨」的半形
 const nz = s => (s || '').replace(/＋/g, '+').replace(/／/g, '/').replace(/　/g, '');
 // 全形數字→半形（航班選項代號：漢書寫 ２、檔名可能寫 (２) 或 (2)）
@@ -1164,7 +1154,7 @@ function bestMatchIds(folder, t) {
   // 帶著「所在資料夾路徑」一起評分——時段（午/早/晚）常寫在資料夾名（酷航(午晚)），不在檔名
   const all = [];
   const walk = (n, path) => {
-    for (const f of n.files || []) if (/\.pdf$/i.test(f.n) && !isNoiseFile(f.n)) all.push({ f, path });
+    for (const f of itinFiles(n.files)) all.push({ f, path });
     for (const c of n.children || []) if (!isNoiseFolder(c.name)) walk(c, path + '/' + c.name);
   };
   walk(folder, folder.name);
@@ -1312,8 +1302,9 @@ function renderFiles() {
   const fmtTime = ms => { if (!ms) return ''; const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const fileRow = (f, pad, hl) =>
     `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2 ${hl ? 'file-hl' : ''}" ${hl ? 'data-hl="1"' : ''} style="padding-left:${pad}rem">
-      <button class="file-pick ${hl ? 'text-amber-300 font-bold' : 'text-blue-400'} hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${hl ? '⭐ ' : ''}${esc(f.n.replace(/\.pdf$/i,''))}</button>
+      <button class="file-pick ${hl ? 'text-amber-300 font-bold' : 'text-blue-400'} hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${hl ? '⭐ ' : ''}${esc(f.n.replace(/\.(pdf|docx?)$/i,''))}</button>
       <span class="shrink-0 flex items-center gap-2">
+        ${fKind(f) === 'w' ? '<span class="text-[.6rem] font-bold text-blue-300 border border-blue-400/40 rounded px-1" title="這份只有 Word 檔">W</span>' : ''}
         <span class="m4 text-xs">${fmtTime(f.t)}</span>
         <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" title="預覽" class="m3 hover:text-blue-400"><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
       </span>
@@ -1323,7 +1314,7 @@ function renderFiles() {
   const node = (n, depth, forceOpen, bestIds) => {
     if (n.files === undefined) return '';
     const kids = (n.children || []).filter(c => !isNoiseFolder(c.name)).map(c => node(c, depth + 1, forceOpen, bestIds)).join('') +
-      (n.files || []).filter(f => /\.pdf$/i.test(f.n) && !isNoiseFile(f.n) && (!q || f.n.toLowerCase().includes(q))).map(f => fileRow(f, depth * 1.25 + 1, bestIds && bestIds.has(f.id))).join('');
+      itinFiles(n.files).filter(f => !q || f.n.toLowerCase().includes(q)).map(f => fileRow(f, depth * 1.25 + 1, bestIds && bestIds.has(f.id))).join('');
     if (q && !kids) return '';
     const open = forceOpen || expandAll || q || depth === 0;
     return `<details ${open ? 'open' : ''} style="padding-left:${depth ? 1.25 : 0}rem">
