@@ -1642,7 +1642,7 @@ $('mine-btn').onclick = async () => {
     for (const t of all) {
       for (const b of t.bs || []) {
         if (b[0] !== abbr) continue;
-        mine.push({ t, pax: b[1] || 0, paid: !!b[2], ti: tiISO(t.ti, t.dt) });
+        mine.push({ t, pax: b[1] || 0, paid: !!b[2], shared: b[3] || 0, ti: tiISO(t.ti, t.dt) });
       }
     }
     mine.sort((a, b) => (a.t.dt || '').localeCompare(b.t.dt || ''));
@@ -1664,7 +1664,7 @@ $('mine-btn').onclick = async () => {
         <td class="py-1 whitespace-nowrap">${fmtDt(t.dt, true)}</td>
         <td class="px-2 whitespace-nowrap"><span class="code">${esc(t.c || '')}</span></td>
         <td class="px-2">${esc(t.p || '')}${t.tt ? ' ' + esc(t.tt) : ''} ${t.dy || ''}天</td>
-        <td class="px-2 text-right whitespace-nowrap">${x.pax} 人</td>
+        <td class="px-2 text-right whitespace-nowrap">${x.pax} 人${x.shared ? `<span class="m4 text-[.65rem]" title="漢書上是 ${x.shared} 位業務合報一組人數，系統平均分">（${x.shared}人合報）</span>` : ''}</td>
         <td class="px-2 whitespace-nowrap">${x.paid ? '<span class="text-emerald-400">已收訂</span>' : '<span class="text-amber-400 font-bold">卡位</span>'}</td>
         <td class="px-2 text-right whitespace-nowrap">${seat}</td>
         <td class="px-2 whitespace-nowrap ${tiCls}">${x.ti ? x.ti.slice(5).replace('-', '/') + (late ? '(過)' : '') : '--'}</td>
