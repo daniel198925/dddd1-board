@@ -80,7 +80,13 @@
   .hl-sec  { color:var(--sec-fg); font-weight:700; background:var(--sec-bg); }
   .hl-tour { cursor:pointer; }
   .hl-tour:hover { background:var(--hover); }
+  /* 餘位提示：快滿橘條、已滿灰條並變暗。
+     用 inset box-shadow 不用 border-left——border 會把整行往右推 3px，破壞漢書的等寬對齊。
+     也刻意不動背景色，才不會跟「選取行」的金黃底打架。 */
+  .hl-tour.seat-low  { box-shadow: inset 3px 0 0 #f59e0b; }
+  .hl-tour.seat-full { box-shadow: inset 3px 0 0 #64748b; opacity:.55; }
   .hl-tour.sel { background:var(--sel-bg); color:var(--sel-fg); }       /* 選取行：金黃（仿舊系統）*/
+  .hl-tour.sel.seat-full { opacity:1; }                                 /* 選到了就別再半透明，看不清楚 */
   /* 地區跳位後閃一下，讓眼睛知道停在哪一區 */
   @keyframes secflash { 0%,100% { filter:none; } 30%,70% { filter:brightness(1.9); } }
   .hl-sec.flash { animation: secflash 1.4s ease-in-out; }
@@ -156,6 +162,7 @@
       <div class="flex-1"></div>
       <span id="user-name" class="text-sm m1 mobile-hide"></span>
       <button id="theme-btn" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition" title="深色／淺色切換"><i id="theme-icon" class="fa-solid fa-moon"></i></button>
+      <button id="mine-btn" class="text-xs m2 hover:text-emerald-400 border bd rounded-lg px-3 py-1.5 transition" title="我名下的團：收訂進度、待開票"><i class="fa-solid fa-user-check mr-1"></i><span class="mobile-hide">我的團</span></button>
       <button id="gap-btn" class="text-xs m2 hover:text-amber-400 border bd rounded-lg px-3 py-1.5 transition" title="檢查哪些團沒有配到行程（給產品部補檔用）"><i class="fa-solid fa-triangle-exclamation mr-1"></i><span class="mobile-hide">行程缺件</span></button>
       <button id="agent-btn" class="text-xs m2 hover:price border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-id-card mr-1"></i><span class="mobile-hide">業務設定</span></button>
       <a id="contract-list-btn" href="#" target="_blank" rel="noopener" class="text-xs m2 hover:text-emerald-400 border bd rounded-lg px-3 py-1.5 transition" title="合約清單"><i class="fa-solid fa-file-signature mr-1"></i><span class="mobile-hide">合約</span></a>
@@ -199,6 +206,7 @@
       <!-- 瀏覽行程庫：不用先選團也能開（郵輪/國旅沒有可選團，靠這個看行程）-->
       <button id="browse-btn" class="input-style whitespace-nowrap hover:text-blue-400" title="瀏覽公司雲行程檔"><i class="fa-regular fa-folder-open mr-1"></i>行程</button>
       <span id="count-badge" class="chip surface2 m2"></span>
+      <span id="seat-legend" class="hidden text-[.65rem] m4 whitespace-nowrap"><span class="text-amber-500">▍</span>餘 3 位內　<span class="text-slate-500">▍</span>已滿</span>
     </div>
   </header>
 
@@ -277,6 +285,20 @@
 
 <div id="toast" class="bg-blue-600 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-xl"></div>
 
+<!-- 我的團：業務名下的團、收訂進度、待開票（使用者 2026-07-30）-->
+<div id="mine-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+  <div class="surface border bd rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b bd2 shrink-0">
+      <span class="font-bold"><i class="fa-solid fa-user-check text-emerald-400 mr-2"></i>我的團<span id="mine-who" class="m3 font-normal text-sm ml-2"></span></span>
+      <div class="flex items-center gap-2">
+        <button id="mine-copy" class="hidden text-xs border bd2 m2 hover:price rounded-lg px-3 py-1.5 transition"><i class="fa-regular fa-copy mr-1"></i>複製</button>
+        <button id="mine-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+    <div id="mine-body" class="p-5 text-sm overflow-y-auto flex-1"></div>
+  </div>
+</div>
+
 <!-- 行程缺件報表：哪些團配不到行程，給產品部補檔（使用者 2026-07-30）-->
 <div id="gap-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
   <div class="surface border bd rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col shadow-2xl">
@@ -314,6 +336,7 @@ const db = getFirestore(app);
 
 // ── 全域狀態 ──
 let META = null;
+let ME = null;                // 登入者的 users 文件（nickname＝全名，「我的團」用它對回漢書簡稱）
 let RAWCACHE = {};            // 檔號 → { name, lines:[...] }
 let ROWCACHE = {};            // 檔號 → rows
 let LINES = [];               // 目前檔案的行（含 row 對應）
@@ -408,7 +431,8 @@ onAuthStateChanged(auth, async user => {
     if (!snap.exists()) { $('login-msg').innerText = '權限錯誤：找不到使用者紀錄'; return signOut(auth); }
     // 外部紀錄員（recorder）不開放動態查詢——資料層規則也擋著，這裡是給人看的訊息
     if (snap.data().role === 'recorder') { $('login-msg').innerText = '此帳號沒有動態查詢的使用權限'; return signOut(auth); }
-    $('user-name').textContent = snap.data().nickname || snap.data().account || '';
+    ME = snap.data();                       // 「我的團」要用暱稱（全名）反查漢書業務簡稱
+    $('user-name').textContent = ME.nickname || ME.account || '';
     showPage('main-page');
     // 業務設定（轉換連結名片）——多張分頁：{cards:[...], active}
     const ag = await pAgent; const ad = ag && ag.exists() ? ag.data() : {};
@@ -603,7 +627,11 @@ function render() {
       // 只標團號裡的日期四碼（跟舊系統一樣），不是整串團號
       h = h.replace(/([A-Z]{2,3}\d[A-Z0-9]{2}|[=＝]{4,})(\d{4})(?=[A-Z]\d)/, (m, pre, dt) => `${pre}<span class="code">${dt}</span>`);
       h = h.replace(/(&quot;促銷&quot;)/g, '<span class="promo">$1</span>');
-      out.push(`<div class="hl hl-tour ${SELLINES.includes(l.i) ? 'sel' : ''}" data-i="${l.i}">${h}</div>`);
+      // 餘位提示（使用者 2026-07-30）：快滿的要主動催客人、已滿的別再推。
+      //   只有解析得出餘位的團才標；國旅/郵輪(sp)沒有餘位欄，不標
+      const rm = l.row.r;
+      const seat = l.row.sp || typeof rm !== 'number' ? '' : rm <= 0 ? ' seat-full' : rm <= 3 ? ' seat-low' : '';
+      out.push(`<div class="hl hl-tour${seat} ${SELLINES.includes(l.i) ? 'sel' : ''}" data-i="${l.i}">${h}</div>`);
     } else if (l.isSec) {
       if (filtering && !secHasRow.has(l.i)) continue;   // 這區沒有符合的團就整個不顯示
       out.push(`<div class="hl hl-sec" data-i="${l.i}">${esc(l.text)}</div>`);
@@ -618,6 +646,7 @@ function render() {
   }
   $('raw-view').innerHTML = out.join('') || '<div class="m3 p-6">沒有符合條件的團</div>';
   $('count-badge').textContent = filtering ? `${pass.size} 團` : '';
+  $('seat-legend').classList.toggle('hidden', !LINES.length);   // 有載入動態才顯示圖例
   VISIBLE = [...$('raw-view').querySelectorAll('.hl-tour')].map(el => +el.dataset.i);
   $('raw-view').querySelectorAll('.hl-tour').forEach(el => el.onclick = e => selectLine(+el.dataset.i, e));
 }
@@ -1566,6 +1595,105 @@ function scrollToRegion() {
 }
 $('f-region').onchange = scrollToRegion;
 $('f-region-clear').onclick = e => { e.stopPropagation(); $('f-region').value = ''; scrollToRegion(); };
+
+// ── 我的團（使用者 2026-07-30）──
+//    漢書的報名明細只記業務「簡稱」（例：仁、孜、樺），登入者拿到的是全名，
+//    所以用 _meta.team（同步時從 d1-team.mjs 帶上來的對照表）反查簡稱。名單只有一份，不會走鐘。
+// 開票日漢書只寫 MM/DD 沒有年 → 用出發日回推：開票一定在出發前，
+//    先套出發那年，比出發日還晚就退一年（跨年團：出發 1/05、開票 12/20 → 前一年）
+function tiISO(ti, dt) {
+  if (!ti || !dt) return '';
+  const m = String(ti).match(/(\d{1,2})\D+(\d{1,2})/);
+  if (!m) return '';
+  const p = n => String(n).padStart(2, '0');
+  const y = +dt.slice(0, 4), cand = `${y}-${p(+m[1])}-${p(+m[2])}`;
+  return cand <= dt ? cand : `${y - 1}-${p(+m[1])}-${p(+m[2])}`;
+}
+let MINETEXT = '', MINEPAST = false;
+$('mine-close').onclick = () => $('mine-modal').classList.add('hidden');
+$('mine-modal').onclick = e => { if (e.target === $('mine-modal')) $('mine-modal').classList.add('hidden'); };
+$('mine-copy').onclick = () => { copyText(() => MINETEXT).then(() => toast('已複製')); };
+$('mine-btn').onclick = async () => {
+  $('mine-modal').classList.remove('hidden');
+  $('mine-copy').classList.add('hidden');
+  const body = $('mine-body');
+  const me = (ME && (ME.nickname || ME.account)) || '';
+  // 全名 → 漢書簡稱
+  const team = (META && META.team) || {};
+  const abbr = Object.keys(team).find(k => team[k] === me);
+  $('mine-who').textContent = me ? `（${me}${abbr ? '／' + abbr : ''}）` : '';
+  if (!abbr) {
+    body.innerHTML = `<div class="m3 py-8 text-center">找不到「${esc(me)}」對應的漢書業務代號。<br>
+      <span class="text-xs">此功能目前只支援 D1 組業務；名單在 <b>d1-team.mjs</b>，有新人要加進去。</span></div>`;
+    return;
+  }
+  body.innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>整理中…（要讀全部動態，約需十幾秒）</div>';
+  try {
+    const all = [];
+    for (const f of META.files) {
+      if (!ROWCACHE[f.f]) {
+        const s = await getDoc(doc(db, 'dt_tours', f.f));
+        ROWCACHE[f.f] = s.exists() ? JSON.parse(s.data().rows) : [];
+      }
+      all.push(...ROWCACHE[f.f]);
+    }
+    const today = ymd(new Date());
+    const mine = [];
+    for (const t of all) {
+      for (const b of t.bs || []) {
+        if (b[0] !== abbr) continue;
+        mine.push({ t, pax: b[1] || 0, paid: !!b[2], ti: tiISO(t.ti, t.dt) });
+      }
+    }
+    mine.sort((a, b) => (a.t.dt || '').localeCompare(b.t.dt || ''));
+    const show = MINEPAST ? mine : mine.filter(x => !x.t.dt || x.t.dt >= today);
+    const pastN = mine.length - mine.filter(x => !x.t.dt || x.t.dt >= today).length;
+
+    const sum = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
+    const unpaid = show.filter(x => !x.paid);
+    const d14 = new Date(Date.now() + 14 * 864e5), ti14 = ymd(d14);
+    const soonTi = show.filter(x => x.ti && x.ti >= today && x.ti <= ti14);
+    const chip = (label, v, cls) => `<span class="chip surface2 ${cls || 'm2'}">${label} <b>${v}</b></span>`;
+
+    const rows = show.map(x => {
+      const t = x.t, late = x.ti && x.ti < today;
+      const tiCls = !x.ti ? 'm4' : late ? 'text-red-400' : x.ti <= ti14 ? 'text-amber-400 font-bold' : 'm2';
+      const seat = t.sp || typeof t.r !== 'number' ? '--' : t.r <= 0 ? '<span class="text-slate-500">已滿</span>'
+        : t.r <= 3 ? `<span class="text-amber-400 font-bold">餘${t.r}</span>` : `餘${t.r}`;
+      return `<tr class="border-t bd2">
+        <td class="py-1 whitespace-nowrap">${fmtDt(t.dt, true)}</td>
+        <td class="px-2 whitespace-nowrap"><span class="code">${esc(t.c || '')}</span></td>
+        <td class="px-2">${esc(t.p || '')}${t.tt ? ' ' + esc(t.tt) : ''} ${t.dy || ''}天</td>
+        <td class="px-2 text-right whitespace-nowrap">${x.pax} 人</td>
+        <td class="px-2 whitespace-nowrap">${x.paid ? '<span class="text-emerald-400">已收訂</span>' : '<span class="text-amber-400 font-bold">卡位</span>'}</td>
+        <td class="px-2 text-right whitespace-nowrap">${seat}</td>
+        <td class="px-2 whitespace-nowrap ${tiCls}">${x.ti ? x.ti.slice(5).replace('-', '/') + (late ? '(過)' : '') : '--'}</td>
+        <td class="px-2 m4 whitespace-nowrap hidden sm:table-cell">${esc(t.ln || '')}</td>
+      </tr>`;
+    }).join('');
+
+    MINETEXT = [`我的團　${me}（${abbr}）　資料時間 ${META.stamp}`,
+      `${show.length} 團／${sum(show, x => x.pax)} 人　未收訂 ${unpaid.length} 團　14天內開票 ${soonTi.length} 團`, '',
+      ...show.map(x => `${fmtDt(x.t.dt, true)} ${x.t.c} ${x.t.p || ''}${x.t.tt ? ' ' + x.t.tt : ''} ${x.t.dy}天　${x.pax}人　${x.paid ? '已收訂' : '卡位'}　開票${x.ti ? x.ti.slice(5) : '--'}`)].join('\n');
+
+    body.innerHTML =
+      `<div class="flex flex-wrap gap-2 mb-3 text-xs">
+         ${chip('團數', show.length)} ${chip('總人數', sum(show, x => x.pax))}
+         ${chip('未收訂', unpaid.length + ' 團／' + sum(unpaid, x => x.pax) + ' 人', unpaid.length ? 'text-amber-400' : 'm2')}
+         ${chip('14天內開票', soonTi.length, soonTi.length ? 'text-amber-400' : 'm2')}
+         <label class="chip surface2 m2 cursor-pointer"><input type="checkbox" id="mine-past" class="mr-1" ${MINEPAST ? 'checked' : ''}>含已出發${pastN ? '（' + pastN + '）' : ''}</label>
+       </div>` +
+      (show.length ? `<div class="overflow-x-auto"><table class="w-full text-xs">
+         <thead class="m3"><tr class="text-left">
+           <th class="py-1">出發日</th><th class="px-2">團號</th><th class="px-2">產品</th>
+           <th class="px-2 text-right">我的人數</th><th class="px-2">收訂</th><th class="px-2 text-right">餘位</th>
+           <th class="px-2">開票日</th><th class="px-2 hidden sm:table-cell">動態</th></tr></thead>
+         <tbody>${rows}</tbody></table></div>`
+        : '<div class="m3 py-8 text-center">目前沒有掛在你名下的團</div>');
+    $('mine-past').onchange = e => { MINEPAST = e.target.checked; $('mine-btn').onclick(); };
+    $('mine-copy').classList.remove('hidden');
+  } catch (e) { body.innerHTML = '<div class="m3">讀取失敗：' + esc(e.message) + '</div>'; }
+};
 
 // ── 行程缺件檢查（使用者 2026-07-30）──
 //    把「配不到行程」從沉默變成一張清單，產品部照著補檔，配對率才會往上走。
