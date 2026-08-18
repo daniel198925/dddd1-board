@@ -156,6 +156,7 @@
       <div class="flex-1"></div>
       <span id="user-name" class="text-sm m1 mobile-hide"></span>
       <button id="theme-btn" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition" title="深色／淺色切換"><i id="theme-icon" class="fa-solid fa-moon"></i></button>
+      <button id="gap-btn" class="text-xs m2 hover:text-amber-400 border bd rounded-lg px-3 py-1.5 transition" title="檢查哪些團沒有配到行程（給產品部補檔用）"><i class="fa-solid fa-triangle-exclamation mr-1"></i><span class="mobile-hide">行程缺件</span></button>
       <button id="agent-btn" class="text-xs m2 hover:price border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-id-card mr-1"></i><span class="mobile-hide">業務設定</span></button>
       <a id="contract-list-btn" href="#" target="_blank" rel="noopener" class="text-xs m2 hover:text-emerald-400 border bd rounded-lg px-3 py-1.5 transition" title="合約清單"><i class="fa-solid fa-file-signature mr-1"></i><span class="mobile-hide">合約</span></a>
       <a href="./" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-house mr-1"></i><span class="mobile-hide">回公佈欄</span></a>
@@ -275,6 +276,20 @@
 </div>
 
 <div id="toast" class="bg-blue-600 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-xl"></div>
+
+<!-- 行程缺件報表：哪些團配不到行程，給產品部補檔（使用者 2026-07-30）-->
+<div id="gap-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+  <div class="surface border bd rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b bd2 shrink-0">
+      <span class="font-bold"><i class="fa-solid fa-triangle-exclamation text-amber-400 mr-2"></i>行程缺件檢查</span>
+      <div class="flex items-center gap-2">
+        <button id="gap-copy" class="hidden text-xs border bd2 m2 hover:price rounded-lg px-3 py-1.5 transition"><i class="fa-regular fa-copy mr-1"></i>複製清單</button>
+        <button id="gap-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+    <div id="gap-body" class="p-5 text-sm overflow-y-auto flex-1"></div>
+  </div>
+</div>
 
 <!-- 滑鼠指到團號列時跟著游標的小提示：出發日全年份＋星期（團號裡只有 MMDD 看不出年份/星期）-->
 <div id="hovertip" class="hidden fixed z-[70] pointer-events-none surface border bd rounded-lg shadow-xl px-2.5 py-1 text-xs font-bold whitespace-nowrap"></div>
@@ -1183,7 +1198,9 @@ function bestMatchIds(folder, t) {
   if (best >= 18) for (const s of scored) if (s.sc === best && s.dh && !s.alBad) ids.add(s.id);
   // 同分太多＝系統其實分不出來（例：團型空白時，精彩/豪華/超值/樹冰…全部同分）。
   //   標一堆星等於沒篩選還誤導業務，不如不標，讓業務自己挑。（使用者 2026-07-21）
-  if (ids.size > 3) return new Set();
+  //   以前是「同分太多就一個都不標」，等於業務完全沒線索。改成照樣標出來但打上 tie 記號，
+  //   畫面會提示「有 N 份同分、請自行確認」，比沉默好（使用者 2026-07-30）
+  if (ids.size > 3) ids.tie = true;
   return ids;
 }
 function inFilePeriod(nm, dt) {
@@ -1309,9 +1326,10 @@ function renderFiles() {
   $('files-collapse').classList.toggle('hidden', related);
 
   const fmtTime = ms => { if (!ms) return ''; const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-  const fileRow = (f, pad, hl) =>
+  // hl＝這份是系統挑出來的；tie＝同分太多分不出來（標 ○ 而不是 ⭐，提醒業務自己確認）
+  const fileRow = (f, pad, hl, tie) =>
     `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2 ${hl ? 'file-hl' : ''}" ${hl ? 'data-hl="1"' : ''} style="padding-left:${pad}rem">
-      <button class="file-pick ${hl ? 'text-amber-300 font-bold' : 'text-blue-400'} hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${hl ? '⭐ ' : ''}${esc(f.n.replace(/\.(pdf|docx?)$/i,''))}</button>
+      <button class="file-pick ${hl ? 'text-amber-300 font-bold' : 'text-blue-400'} hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${hl ? (tie ? '○ ' : '⭐ ') : ''}${esc(f.n.replace(/\.(pdf|docx?)$/i,''))}</button>
       <span class="shrink-0 flex items-center gap-2">
         ${fKind(f) === 'w' ? '<span class="text-[.6rem] font-bold text-blue-300 border border-blue-400/40 rounded px-1" title="這份只有 Word 檔">W</span>' : ''}
         <span class="m4 text-xs">${fmtTime(f.t)}</span>
@@ -1323,7 +1341,7 @@ function renderFiles() {
   const node = (n, depth, forceOpen, bestIds) => {
     if (n.files === undefined) return '';
     const kids = (n.children || []).filter(c => !isNoiseFolder(c.name)).map(c => node(c, depth + 1, forceOpen, bestIds)).join('') +
-      itinFiles(n.files).filter(f => !q || f.n.toLowerCase().includes(q)).map(f => fileRow(f, depth * 1.25 + 1, bestIds && bestIds.has(f.id))).join('');
+      itinFiles(n.files).filter(f => !q || f.n.toLowerCase().includes(q)).map(f => fileRow(f, depth * 1.25 + 1, bestIds && bestIds.has(f.id), bestIds && bestIds.tie)).join('');
     if (q && !kids) return '';
     const open = forceOpen || expandAll || q || depth === 0;
     return `<details ${open ? 'open' : ''} style="padding-left:${depth ? 1.25 : 0}rem">
@@ -1340,8 +1358,14 @@ function renderFiles() {
     } else {
       // 國旅/郵輪(special)沒有可配對標星的檔 → 只展開最外層、子資料夾摺疊，業務自己挑（使用者 2026-07-24）
       const bestIds = t.sp ? new Set() : bestMatchIds(folder, t);
+      // 配對結果一律講清楚，不要沉默——業務才知道是「系統挑好了」還是「要自己挑」（使用者 2026-07-30）
+      const hint =
+        t.sp        ? '，請自行挑選'
+      : bestIds.tie ? `<br><span class="text-amber-300">⚠ 有 ${bestIds.size} 份行程分數相同，系統分不出來 → 標 ○ 的都可能符合，請自行確認</span>`
+      : bestIds.size ? '，⭐ 是系統判斷跟這團最相符的'
+      : `<br><span class="text-amber-300">⚠ 這團沒有自動配到行程（常見原因：檔名沒寫團型或天數、行程還沒上傳）→ 請自行挑選</span>`;
       $('files-tree').innerHTML =
-        `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${t.sp ? '，請自行挑選' : (bestIds.size ? '，⭐ 是系統判斷跟這團最相符的' : '')}</div>` +
+        `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${hint}</div>` +
         node(folder, 0, !t.sp, bestIds);
     }
   } else {
@@ -1542,6 +1566,88 @@ function scrollToRegion() {
 }
 $('f-region').onchange = scrollToRegion;
 $('f-region-clear').onclick = e => { e.stopPropagation(); $('f-region').value = ''; scrollToRegion(); };
+
+// ── 行程缺件檢查（使用者 2026-07-30）──
+//    把「配不到行程」從沉默變成一張清單，產品部照著補檔，配對率才會往上走。
+//    刻意用「按了才算」：要把全部 19 條線的團load下來（約 3MB），不能在登入時做。
+//    ⚠ 用的是畫面上同一套 bestMatchIds／findLineFolder，不另外複製一份評分邏輯（避免兩邊走鐘）
+let GAPTEXT = '';
+$('gap-close').onclick = () => $('gap-modal').classList.add('hidden');
+$('gap-modal').onclick = e => { if (e.target === $('gap-modal')) $('gap-modal').classList.add('hidden'); };
+$('gap-copy').onclick = () => { copyText(() => GAPTEXT).then(() => toast('清單已複製')); };
+$('gap-btn').onclick = async () => {
+  $('gap-modal').classList.remove('hidden');
+  $('gap-copy').classList.add('hidden');
+  const body = $('gap-body');
+  body.innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>檢查中…（要讀全部動態，約需十幾秒）</div>';
+  try {
+    if (!FILETREE) {
+      const snap = await getDoc(doc(db, 'dt_files', 'tree'));
+      if (!snap.exists()) { body.innerHTML = '<div class="m3">行程清單尚未開通，無法檢查</div>'; return; }
+      FILETREE = JSON.parse(snap.data().tree);
+    }
+    // 全部線的團（已載過的用快取，不重抓）
+    const all = [];
+    for (const f of META.files) {
+      if (!ROWCACHE[f.f]) {
+        const s = await getDoc(doc(db, 'dt_tours', f.f));
+        ROWCACHE[f.f] = s.exists() ? JSON.parse(s.data().rows) : [];
+      }
+      all.push(...ROWCACHE[f.f]);
+    }
+    // 逐團配對：沒配到＝缺件；同分太多＝分不出來（另外列，性質不同）
+    const gap = new Map(), tie = new Map();   // 依「產品｜團型｜天數｜航空」歸類，不然幾百個團號看不完
+    let okN = 0, spN = 0;
+    for (const t of all) {
+      if (t.sp) { spN++; continue; }          // 國旅/郵輪本來就不配對
+      const folder = findLineFolder(t.ln);
+      const ids = folder ? bestMatchIds(folder, t) : new Set();
+      if (ids.size && !ids.tie) { okN++; continue; }
+      const bucket = ids.tie ? tie : gap;
+      const key = `${t.ln} ${t.p || '—'} ${t.tt || '—'} ${t.dy || '?'} ${t.an || '—'}`;
+      const b = bucket.get(key) || { ln: t.ln, p: t.p || '—', tt: t.tt || '—', dy: t.dy, an: t.an || '—', n: 0, codes: [] };
+      b.n++; if (b.codes.length < 3) b.codes.push(t.c);
+      bucket.set(key, b);
+    }
+    const gapN = [...gap.values()].reduce((a, b) => a + b.n, 0);
+    const tieN = [...tie.values()].reduce((a, b) => a + b.n, 0);
+    const total = okN + gapN + tieN;
+
+    // 依線分組，缺最多的線排前面
+    const byLine = m => { const o = {}; for (const b of m.values()) (o[b.ln] ??= []).push(b);
+      for (const k in o) o[k].sort((x, y) => y.n - x.n); return o; };
+    const sect = (title, o, mark) => Object.entries(o).sort((a, b) =>
+        b[1].reduce((s, x) => s + x.n, 0) - a[1].reduce((s, x) => s + x.n, 0))
+      .map(([ln, list]) => `<div class="mt-3"><div class="font-bold price">${esc(ln)}　<span class="m3 font-normal text-xs">${list.reduce((s, x) => s + x.n, 0)} 團</span></div>` +
+        list.map(b => `<div class="flex gap-2 py-0.5 border-b bd2 text-xs">
+            <span class="flex-1">${esc(b.p)}${b.tt !== '—' ? '　' + esc(b.tt) : ''}　${b.dy}天　${esc(b.an)}</span>
+            <span class="m3 shrink-0">${b.n} 團</span>
+            <span class="m4 shrink-0 hidden sm:inline">${esc(b.codes.join(' '))}</span>
+          </div>`).join('') + '</div>').join('') || `<div class="m3 text-xs mt-2">（沒有${mark}）</div>`;
+
+    // 純文字版（複製給產品部）
+    const lines = [`行程缺件檢查　資料時間 ${META.stamp}`,
+      `可配對 ${total} 團：配到 ${okN}（${(okN / total * 100).toFixed(1)}%）／缺件 ${gapN}／分不出來 ${tieN}　（國旅郵輪 ${spN} 團不列入）`, ''];
+    const push = (title, o) => { lines.push('■ ' + title);
+      for (const [ln, list] of Object.entries(o)) { lines.push(`【${ln}】`);
+        for (const b of list) lines.push(`  ${b.p}${b.tt !== '—' ? ' ' + b.tt : ''} ${b.dy}天 ${b.an}　${b.n}團　${b.codes.join(' ')}`); }
+      lines.push(''); };
+    const gO = byLine(gap), tO = byLine(tie);
+    push('完全沒有配到行程（要補檔或改檔名）', gO);
+    push('有多份同分、系統分不出來（檔名不夠明確）', tO);
+    GAPTEXT = lines.join('\n');
+
+    body.innerHTML =
+      `<div class="mb-3 text-xs m3">資料時間 ${esc(META.stamp)}　｜　可配對 <b class="m1">${total}</b> 團：
+        <span class="text-emerald-400">配到 ${okN}（${(okN / total * 100).toFixed(1)}%）</span>
+        <span class="text-amber-400">缺件 ${gapN}</span>
+        <span class="text-blue-300">分不出來 ${tieN}</span>
+        <br>（國旅／郵輪 ${spN} 團不需配對，未列入）</div>
+       <div class="font-bold mt-4 mb-1"><i class="fa-solid fa-circle-exclamation text-amber-400 mr-1"></i>完全沒有配到行程 — 要補檔或改檔名</div>${sect('', gO, '缺件')}
+       <div class="font-bold mt-6 mb-1"><i class="fa-regular fa-circle text-blue-300 mr-1"></i>有多份同分、系統分不出來 — 檔名不夠明確</div>${sect('', tO, '這類')}`;
+    $('gap-copy').classList.remove('hidden');
+  } catch (e) { body.innerHTML = '<div class="m3">檢查失敗：' + esc(e.message) + '</div>'; }
+};
 
 // ── 星期篩選：七個小格子可複選，另有平日／週末／清除三個快捷 ──
 function renderWd() {
