@@ -359,7 +359,7 @@ let FILEPICK_GK = null;       // null＝正在挑共同行程；否則＝正在�
 const effFile = gk => CHOSENFILES[gk] || SHAREDFILE;   // 這一組實際用的行程
 let VISIBLE = [];             // 目前畫面上看得到的團行 index（Shift 框選用）
 const ITIN_BASE = 'https://discoveredtrip.com';   // 中轉頁
-const CONTRACT_BASE = 'https://findit-contract.vercel.app';   // 線上合約系統（吃 ?tour=團號&price=團費）
+const CONTRACT_BASE = 'https://contract.discoveredtrip.com';   // 線上合約系統（吃 ?tour=團號&price=團費）。用自家網域不用 vercel.app：後者會被 Vercel 防機器人擋（2026-08-19）
 
 const $ = id => document.getElementById(id);
 
