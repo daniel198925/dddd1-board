@@ -289,7 +289,9 @@
 <div id="mine-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
   <div class="surface border bd rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-5 py-4 border-b bd2 shrink-0">
-      <span class="font-bold"><i class="fa-solid fa-user-check text-emerald-400 mr-2"></i>我的團<span id="mine-who" class="m3 font-normal text-sm ml-2"></span></span>
+      <span class="font-bold flex items-center flex-wrap gap-2"><span><i class="fa-solid fa-user-check text-emerald-400 mr-2"></i>我的團</span><span id="mine-who" class="m3 font-normal text-sm"></span>
+        <!-- 主管才出現：可切換看任一位業務或全組 -->
+        <select id="mine-pick" class="hidden input-style text-xs py-1 font-normal"></select></span>
       <div class="flex items-center gap-2">
         <button id="mine-copy" class="hidden text-xs border bd2 m2 hover:price rounded-lg px-3 py-1.5 transition"><i class="fa-regular fa-copy mr-1"></i>複製</button>
         <button id="mine-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
@@ -1609,10 +1611,11 @@ function tiISO(ti, dt) {
   const y = +dt.slice(0, 4), cand = `${y}-${p(+m[1])}-${p(+m[2])}`;
   return cand <= dt ? cand : `${y - 1}-${p(+m[1])}-${p(+m[2])}`;
 }
-let MINETEXT = '', MINEPAST = false;
+let MINETEXT = '', MINEPAST = false, MINEPICK = '';   // MINEPICK：主管選了誰（''＝自己、'*'＝全組）
 $('mine-close').onclick = () => $('mine-modal').classList.add('hidden');
 $('mine-modal').onclick = e => { if (e.target === $('mine-modal')) $('mine-modal').classList.add('hidden'); };
 $('mine-copy').onclick = () => { copyText(() => MINETEXT).then(() => toast('已複製')); };
+$('mine-pick').onchange = e => { MINEPICK = e.target.value; $('mine-btn').onclick(); };
 $('mine-btn').onclick = async () => {
   $('mine-modal').classList.remove('hidden');
   $('mine-copy').classList.add('hidden');
@@ -1620,9 +1623,28 @@ $('mine-btn').onclick = async () => {
   const me = (ME && (ME.nickname || ME.account)) || '';
   // 全名 → 漢書簡稱
   const team = (META && META.team) || {};
-  const abbr = Object.keys(team).find(k => team[k] === me);
-  $('mine-who').textContent = me ? `（${me}${abbr ? '／' + abbr : ''}）` : '';
-  if (!abbr) {
+  const myAbbr = Object.keys(team).find(k => team[k] === me);
+  // 主管（d1-team.mjs 的 MANAGERS，或帳號 role=admin）可以切換看任一位／全組（使用者 2026-07-30）
+  const managers = new Set((META && META.managers) || []);
+  const isMgr = (myAbbr && managers.has(myAbbr)) || (ME && ME.role === 'admin');
+  const pick = $('mine-pick');
+  pick.classList.toggle('hidden', !isMgr);
+  if (isMgr && !pick.options.length) {
+    const sales = Object.keys(team).filter(k => !managers.has(k)).sort((a, b) => team[a].localeCompare(team[b], 'zh-Hant'));
+    pick.innerHTML = `<option value="">— 我自己 —</option><option value="*">★ 全組（${sales.length} 位）</option>` +
+      sales.map(k => `<option value="${esc(k)}">${esc(team[k])}（${esc(k)}）</option>`).join('');
+    // 主管自己通常沒收客，預設直接開「全組」比較有用（使用者是主管，第一次打開看到 0 團）
+    if (myAbbr && managers.has(myAbbr) && !MINEPICK) MINEPICK = '*';
+    pick.value = MINEPICK;
+  }
+  // 這次要看誰：'*'＝全組（Set 裝所有業務簡稱）、某簡稱＝那一位、''＝自己
+  const target = isMgr && MINEPICK === '*' ? new Set(Object.keys(team).filter(k => !managers.has(k)))
+               : isMgr && MINEPICK        ? new Set([MINEPICK])
+               : myAbbr                   ? new Set([myAbbr]) : null;
+  const allMode = target && target.size > 1;
+  const who = allMode ? `全組 ${target.size} 位` : target ? `${team[[...target][0]]}／${[...target][0]}` : me;
+  $('mine-who').textContent = `（${who}）`;
+  if (!target) {
     body.innerHTML = `<div class="m3 py-8 text-center">找不到「${esc(me)}」對應的漢書業務代號。<br>
       <span class="text-xs">此功能目前只支援 D1 組業務；名單在 <b>d1-team.mjs</b>，有新人要加進去。</span></div>`;
     return;
@@ -1641,8 +1663,8 @@ $('mine-btn').onclick = async () => {
     const mine = [];
     for (const t of all) {
       for (const b of t.bs || []) {
-        if (b[0] !== abbr) continue;
-        mine.push({ t, pax: b[1] || 0, paid: !!b[2], shared: b[3] || 0, ti: tiISO(t.ti, t.dt) });
+        if (!target.has(b[0])) continue;
+        mine.push({ t, who: b[0], pax: b[1] || 0, paid: !!b[2], shared: b[3] || 0, ti: tiISO(t.ti, t.dt) });
       }
     }
     mine.sort((a, b) => (a.t.dt || '').localeCompare(b.t.dt || ''));
@@ -1661,6 +1683,7 @@ $('mine-btn').onclick = async () => {
       const seat = t.sp || typeof t.r !== 'number' ? '--' : t.r <= 0 ? '<span class="text-slate-500">已滿</span>'
         : t.r <= 3 ? `<span class="text-amber-400 font-bold">餘${t.r}</span>` : `餘${t.r}`;
       return `<tr class="border-t bd2">
+        ${allMode ? `<td class="py-1 pr-2 whitespace-nowrap font-bold">${esc(team[x.who] || x.who)}</td>` : ''}
         <td class="py-1 whitespace-nowrap">${fmtDt(t.dt, true)}</td>
         <td class="px-2 whitespace-nowrap"><span class="code">${esc(t.c || '')}</span></td>
         <td class="px-2">${esc(t.p || '')}${t.tt ? ' ' + esc(t.tt) : ''} ${t.dy || ''}天</td>
@@ -1672,25 +1695,36 @@ $('mine-btn').onclick = async () => {
       </tr>`;
     }).join('');
 
-    MINETEXT = [`我的團　${me}（${abbr}）　資料時間 ${META.stamp}`,
+    // 全組模式：先給每人小計，再列明細（依業務分組、各自照出發日）
+    const perSales = allMode ? [...target].map(k => ({ k, name: team[k], list: show.filter(x => x.who === k) }))
+      .filter(p => p.list.length).sort((a, b) => b.list.length - a.list.length) : null;
+    MINETEXT = [`我的團　${who}　資料時間 ${META.stamp}`,
       `${show.length} 團／${sum(show, x => x.pax)} 人　未收訂 ${unpaid.length} 團　14天內開票 ${soonTi.length} 團`, '',
-      ...show.map(x => `${fmtDt(x.t.dt, true)} ${x.t.c} ${x.t.p || ''}${x.t.tt ? ' ' + x.t.tt : ''} ${x.t.dy}天　${x.pax}人　${x.paid ? '已收訂' : '卡位'}　開票${x.ti ? x.ti.slice(5) : '--'}`)].join('\n');
+      ...(allMode
+        ? perSales.flatMap(p => [`【${p.name}（${p.k}）】${p.list.length} 團／${sum(p.list, x => x.pax)} 人　未收訂 ${p.list.filter(x => !x.paid).length}`,
+            ...p.list.map(x => `  ${fmtDt(x.t.dt, true)} ${x.t.c} ${x.t.p || ''}${x.t.tt ? ' ' + x.t.tt : ''} ${x.t.dy}天　${x.pax}人　${x.paid ? '已收訂' : '卡位'}　開票${x.ti ? x.ti.slice(5) : '--'}`), ''])
+        : show.map(x => `${fmtDt(x.t.dt, true)} ${x.t.c} ${x.t.p || ''}${x.t.tt ? ' ' + x.t.tt : ''} ${x.t.dy}天　${x.pax}人　${x.paid ? '已收訂' : '卡位'}　開票${x.ti ? x.ti.slice(5) : '--'}`))
+    ].join('\n');
+    // 全組模式的每人小計列（點名字可切到那一位）
+    const salesBar = allMode ? `<div class="flex flex-wrap gap-1.5 mb-3">${perSales.map(p =>
+      `<button class="mine-jump chip surface2 m2 hover:price transition" data-k="${esc(p.k)}" title="只看${esc(p.name)}">${esc(p.name)} <b>${p.list.length}</b>團 ${sum(p.list, x => x.pax)}人${p.list.some(x => !x.paid) ? ` <span class="text-amber-400">未收${p.list.filter(x => !x.paid).length}</span>` : ''}</button>`).join('')}</div>` : '';
 
     body.innerHTML =
       `<div class="flex flex-wrap gap-2 mb-3 text-xs">
-         ${chip('團數', show.length)} ${chip('總人數', sum(show, x => x.pax))}
+         ${chip('團數', allMode ? new Set(show.map(x => x.t.c)).size : show.length)} ${chip('總人數', sum(show, x => x.pax))}
          ${chip('未收訂', unpaid.length + ' 團／' + sum(unpaid, x => x.pax) + ' 人', unpaid.length ? 'text-amber-400' : 'm2')}
          ${chip('14天內開票', soonTi.length, soonTi.length ? 'text-amber-400' : 'm2')}
          <label class="chip surface2 m2 cursor-pointer"><input type="checkbox" id="mine-past" class="mr-1" ${MINEPAST ? 'checked' : ''}>含已出發${pastN ? '（' + pastN + '）' : ''}</label>
-       </div>` +
+       </div>` + salesBar +
       (show.length ? `<div class="overflow-x-auto"><table class="w-full text-xs">
          <thead class="m3"><tr class="text-left">
-           <th class="py-1">出發日</th><th class="px-2">團號</th><th class="px-2">產品</th>
-           <th class="px-2 text-right">我的人數</th><th class="px-2">收訂</th><th class="px-2 text-right">餘位</th>
+           ${allMode ? '<th class="py-1 pr-2">業務</th>' : ''}<th class="py-1">出發日</th><th class="px-2">團號</th><th class="px-2">產品</th>
+           <th class="px-2 text-right">${allMode ? '人數' : '我的人數'}</th><th class="px-2">收訂</th><th class="px-2 text-right">餘位</th>
            <th class="px-2">開票日</th><th class="px-2 hidden sm:table-cell">動態</th></tr></thead>
          <tbody>${rows}</tbody></table></div>`
-        : '<div class="m3 py-8 text-center">目前沒有掛在你名下的團</div>');
+        : `<div class="m3 py-8 text-center">${allMode ? '目前沒有任何團' : '目前沒有掛在' + (MINEPICK ? '這位業務' : '你') + '名下的團'}</div>`);
     $('mine-past').onchange = e => { MINEPAST = e.target.checked; $('mine-btn').onclick(); };
+    body.querySelectorAll('.mine-jump').forEach(b => b.onclick = () => { MINEPICK = b.dataset.k; pick.value = MINEPICK; $('mine-btn').onclick(); });
     $('mine-copy').classList.remove('hidden');
   } catch (e) { body.innerHTML = '<div class="m3">讀取失敗：' + esc(e.message) + '</div>'; }
 };
