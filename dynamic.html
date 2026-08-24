@@ -1625,8 +1625,8 @@ function renderCtCell(td) {
   const code = td.dataset.c;
   const mk = CTMANUAL && CTMANUAL[code];
   if (mk) {                                            // 手動標記優先顯示（業務說完成就別再嚇他）
-    td.innerHTML = `<span class="text-emerald-400" title="由 ${esc(mk.by || '')} 於 ${esc((mk.at || '').slice(0, 10))} 手動標記（備忘，不影響合約系統）">📁 手動✓</span>
-      <button class="mine-unmk m4 hover:text-red-400 ml-1" data-c="${esc(code)}" title="取消手動標記">✕</button>`;
+    td.innerHTML = `<span class="text-emerald-400 font-bold" title="由 ${esc(mk.by || '')} 於 ${esc((mk.at || '').slice(0, 10))} 手動標記（備忘，不影響合約系統）">📁 手動✓</span>
+      <button class="mine-unmk m3 hover:text-red-400 ml-1 border bd2 rounded px-1 text-xs" data-c="${esc(code)}" title="取消手動標記">✕</button>`;
     return;
   }
   const list = CTCACHE[code] || [];
@@ -1635,12 +1635,12 @@ function renderCtCell(td) {
   if (filed.length)  parts.push(`<span class="text-emerald-400">📁${filed.length > 1 ? '×' + filed.length : ' 已歸檔'}</span>`);
   if (signed.length) parts.push(`<span class="text-sky-400">✍${signed.length > 1 ? '×' + signed.length : ' 已簽'}</span>`);
   if (pend.length)   parts.push(`<span class="text-amber-400 font-bold">📝${pend.length > 1 ? '×' + pend.length : ' 未簽'}</span>`);
-  if (!list.length)  parts.push('<span class="m4">未建</span>');
+  if (!list.length)  parts.push('<span class="m3">未建</span>');
   const tip = list.length ? list.map(x => `${x.n || '—'}／${x.px}人／${x.st === 'signed' ? (x.ar ? '已歸檔' : '已簽待歸檔') : '未簽署'}`).join('、')
                           : '合約系統裡沒有這團的合約';
   // 還沒全數歸檔 → 給「手動標記」按鈕（點了確認就標 ✓，之後不用反覆檢查）
   const allFiled = list.length && filed.length === list.length;
-  const mkBtn = allFiled ? '' : ` <button class="mine-mk m4 hover:text-emerald-400 ml-1" data-c="${esc(code)}" title="手動標記歸檔完成（備忘）">☑</button>`;
+  const mkBtn = allFiled ? '' : ` <button class="mine-mk m2 hover:text-emerald-400 hover:border-emerald-400 ml-1 border bd2 rounded px-1.5 py-0.5 text-xs whitespace-nowrap" data-c="${esc(code)}" title="手動標記歸檔完成（備忘，全組共見）">☑ 標記</button>`;
   td.innerHTML = `<span title="${esc(tip)}">${parts.join(' ')}</span>${mkBtn}`;
 }
 
@@ -1803,7 +1803,7 @@ $('mine-btn').onclick = async () => {
          ${chip('14天內開票', soonTi.length, soonTi.length ? 'text-amber-400' : 'm2')}
          <label class="chip surface2 m2 cursor-pointer"><input type="checkbox" id="mine-past" class="mr-1" ${MINEPAST ? 'checked' : ''}>含已出發${pastN ? '（' + pastN + '）' : ''}</label>
        </div>
-       <div class="text-[.68rem] m4 mb-3">合約欄：<span class="text-emerald-400">📁 已歸檔</span>（簽了、NAS 歸檔完成）　<span class="text-sky-400">✍ 已簽</span>（還沒歸檔）　<span class="text-amber-400">📝 未簽</span>（建了約客人未簽）　未建＝系統無合約　☑＝手動標記歸檔（備忘）</div>` + salesBar +
+       <div class="text-xs m2 mb-3 leading-6">合約欄：<span class="text-emerald-400 font-bold">📁 已歸檔</span><span class="m3">（簽了、NAS 歸檔完成）</span>　<span class="text-sky-400 font-bold">✍ 已簽</span><span class="m3">（還沒歸檔）</span>　<span class="text-amber-400 font-bold">📝 未簽</span><span class="m3">（建了約客人未簽）</span>　<span class="m2">未建＝系統無合約</span>　<span class="border bd2 rounded px-1.5 py-0.5 m2">☑ 標記</span><span class="m3">＝手動標記歸檔（備忘）</span></div>` + salesBar +
       (show.length ? `<div class="overflow-x-auto"><table class="w-full text-xs">
          <thead class="m3"><tr class="text-left">
            ${allMode ? '<th class="py-1 pr-2">業務</th>' : ''}<th class="py-1">出發日</th><th class="px-2">團號</th><th class="px-2">產品</th>
