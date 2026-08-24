@@ -359,7 +359,7 @@ let FILEPICK_GK = null;       // null＝正在挑共同行程；否則＝正在�
 const effFile = gk => CHOSENFILES[gk] || SHAREDFILE;   // 這一組實際用的行程
 let VISIBLE = [];             // 目前畫面上看得到的團行 index（Shift 框選用）
 const ITIN_BASE = 'https://discoveredtrip.com';   // 中轉頁
-const CONTRACT_BASE = 'https://contract.discoveredtrip.com';   // 線上合約系統（吃 ?tour=團號&price=團費）。用自家網域不用 vercel.app：後者會被 Vercel 防機器人擋（2026-08-19）
+const CONTRACT_BASE = 'https://findit-contract.vercel.app';   // 線上合約系統（吃 ?tour=團號&price=團費）
 
 const $ = id => document.getElementById(id);
 
@@ -1519,13 +1519,17 @@ $('convert-btn').onclick = async () => {
 
   // 按「實際用的行程檔案」分桶：同一份行程的團全部放進一條連結（常態＝一條）。
   //   只有某些組單獨換了行程（早班/午班）才會有第二條。（使用者 2026-07-21：同行程別拆多條）
-  const byFile = new Map();   // fileId → { file, codes: [] }
+  const byFile = new Map();   // fileId → { file, codes: [], pv: [] }
   const noFile = [];
   for (const r of rows) {
     const f = effFile(groupKey(r));
     if (!f) { noFile.push(r); continue; }
-    if (!byFile.has(f.id)) byFile.set(f.id, { file: f, codes: [] });
+    if (!byFile.has(f.id)) byFile.set(f.id, { file: f, codes: [], pv: [] });
     byFile.get(f.id).codes.push(r.c);
+    // 業務切了團型 → 客人頁的價格要跟著切換後的價（使用者 2026-07-30 回報：切尊爵，客人頁還是顯示原團型價）。
+    //   客人頁的班期價來自 NAS travel_bot 那條線，不知道動態系統的團型切換，所以把覆蓋價帶在網址上。
+    const pv = priceOfRow(r);
+    if (pv.tt !== r.tt && pv.price != null) byFile.get(f.id).pv.push(`${r.c}:${pv.price}`);
   }
   if (noFile.length) {           // 有團還沒有行程 → 先挑共同行程
     toast('請先選擇行程'); FILEPICK_GK = null; openFiles(); return;
@@ -1539,7 +1543,7 @@ $('convert-btn').onclick = async () => {
     await copyText(async () => {
       const idToken = await auth.currentUser.getIdToken();
       const links = {};
-      for (const { file, codes } of byFile.values()) {
+      for (const { file, codes, pv } of byFile.values()) {
         let longUrl = `${ITIN_BASE}/?id=${file.id}&n=${encodeURIComponent(AGENT.name)}`;
         if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
         if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
@@ -1547,6 +1551,7 @@ $('convert-btn').onclick = async () => {
         if (AGENT.lg)    longUrl += `&lg=${encodeURIComponent(AGENT.lg)}`;
         if (AGENT.lg && AGENT.lgpw) longUrl += `&lgpw=${encodeURIComponent(AGENT.lgpw)}`;   // 有社群才帶密碼
         longUrl += `&codes=${encodeURIComponent(codes.join(','))}`;   // 這份行程涵蓋的所有團號
+        if (pv.length) longUrl += `&pv=${encodeURIComponent(pv.join(','))}`;   // 切團型後的覆蓋價（團號:價格）
         if (!dshow.r) longUrl += `&remain=0`;   // 客人頁餘位顯示跟「剩餘名額」欄一致
         const res = await fetch(`${ITIN_BASE}/api/shorten`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
