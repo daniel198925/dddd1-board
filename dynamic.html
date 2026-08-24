@@ -1617,6 +1617,40 @@ function tiISO(ti, dt) {
   return cand <= dt ? cand : `${y - 1}-${p(+m[1])}-${p(+m[2])}`;
 }
 let MINETEXT = '', MINEPAST = false, MINEPICK = '';   // MINEPICK：主管選了誰（''＝自己、'*'＝全組）
+let CTCACHE = {};                                      // 團號→合約狀態（查過的存著，切人只補缺的）
+
+// 「合約」欄：已收訂的團去合約系統查有沒有建約/簽署/歸檔（archive.intranetPath 有值＝NAS 歸檔完成）
+async function fillContractCells(body) {
+  const cells = [...body.querySelectorAll('.mine-ct')].filter(td => td.dataset.c && td.querySelector('.fa-spinner'));
+  if (!cells.length) return;
+  const codes = [...new Set(cells.map(td => td.dataset.c))];
+  try {
+    const missing = codes.filter(c => !(c in CTCACHE));
+    if (missing.length) {
+      const idToken = await auth.currentUser.getIdToken();
+      const r = await fetch(`${CONTRACT_BASE}/api/tour-contract-status`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, codes: missing }),
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const byCode = (await r.json()).byCode || {};
+      for (const c of missing) CTCACHE[c] = byCode[c] || [];   // 沒合約的也記空陣列，免得每次都重問
+    }
+    for (const td of cells) {
+      const list = CTCACHE[td.dataset.c] || [];
+      if (!list.length) { td.innerHTML = '<span class="m4" title="合約系統裡沒有這團的合約">未建</span>'; continue; }
+      const filed = list.filter(x => x.ar), signed = list.filter(x => x.st === 'signed' && !x.ar), pend = list.filter(x => x.st !== 'signed');
+      const parts = [];
+      if (filed.length)  parts.push(`<span class="text-emerald-400">📁${filed.length > 1 ? '×' + filed.length : ' 已歸檔'}</span>`);
+      if (signed.length) parts.push(`<span class="text-sky-400">✍${signed.length > 1 ? '×' + signed.length : ' 已簽'}</span>`);
+      if (pend.length)   parts.push(`<span class="text-amber-400 font-bold">📝${pend.length > 1 ? '×' + pend.length : ' 未簽'}</span>`);
+      const tip = list.map(x => `${x.n || '—'}／${x.px}人／${x.st === 'signed' ? (x.ar ? '已歸檔' : '已簽待歸檔') : '未簽署'}`).join('、');
+      td.innerHTML = `<span title="${esc(tip)}">${parts.join(' ')}</span>`;
+    }
+  } catch (e) {
+    cells.forEach(td => td.innerHTML = `<span class="m4" title="合約狀態讀取失敗：${esc(e.message)}">？</span>`);
+  }
+}
 $('mine-close').onclick = () => $('mine-modal').classList.add('hidden');
 $('mine-modal').onclick = e => { if (e.target === $('mine-modal')) $('mine-modal').classList.add('hidden'); };
 $('mine-copy').onclick = () => { copyText(() => MINETEXT).then(() => toast('已複製')); };
@@ -1696,6 +1730,7 @@ $('mine-btn').onclick = async () => {
         <td class="px-2 whitespace-nowrap">${x.paid ? '<span class="text-emerald-400">已收訂</span>' : '<span class="text-amber-400 font-bold">卡位</span>'}</td>
         <td class="px-2 text-right whitespace-nowrap">${seat}</td>
         <td class="px-2 whitespace-nowrap ${tiCls}">${x.ti ? x.ti.slice(5).replace('-', '/') + (late ? '(過)' : '') : '--'}</td>
+        <td class="px-2 whitespace-nowrap mine-ct" data-c="${esc(t.c || '')}">${x.paid ? '<span class="m4"><i class="fa-solid fa-spinner fa-spin"></i></span>' : '<span class="m4">--</span>'}</td>
         <td class="px-2 m4 whitespace-nowrap hidden sm:table-cell">${esc(t.ln || '')}</td>
       </tr>`;
     }).join('');
@@ -1725,11 +1760,12 @@ $('mine-btn').onclick = async () => {
          <thead class="m3"><tr class="text-left">
            ${allMode ? '<th class="py-1 pr-2">業務</th>' : ''}<th class="py-1">出發日</th><th class="px-2">團號</th><th class="px-2">產品</th>
            <th class="px-2 text-right">${allMode ? '人數' : '我的人數'}</th><th class="px-2">收訂</th><th class="px-2 text-right">餘位</th>
-           <th class="px-2">開票日</th><th class="px-2 hidden sm:table-cell">動態</th></tr></thead>
+           <th class="px-2">開票日</th><th class="px-2" title="📁已歸檔　✍已簽待歸檔　📝未簽">合約</th><th class="px-2 hidden sm:table-cell">動態</th></tr></thead>
          <tbody>${rows}</tbody></table></div>`
         : `<div class="m3 py-8 text-center">${allMode ? '目前沒有任何團' : '目前沒有掛在' + (MINEPICK ? '這位業務' : '你') + '名下的團'}</div>`);
     $('mine-past').onchange = e => { MINEPAST = e.target.checked; $('mine-btn').onclick(); };
     body.querySelectorAll('.mine-jump').forEach(b => b.onclick = () => { MINEPICK = b.dataset.k; pick.value = MINEPICK; $('mine-btn').onclick(); });
+    fillContractCells(body);                     // 「合約」欄非同步補上，不擋表格顯示
     $('mine-copy').classList.remove('hidden');
   } catch (e) { body.innerHTML = '<div class="m3">讀取失敗：' + esc(e.message) + '</div>'; }
 };
