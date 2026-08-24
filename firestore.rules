@@ -142,5 +142,11 @@ service cloud.firestore {
     match /dt_agent/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId && !isRecorder();
     }
+
+    // dt_manual：「我的團」的手動標記（手動歸檔備忘等），組內都可讀寫、紀錄員不行
+    // 只是備忘標記，不影響合約系統的真實歸檔狀態
+    match /dt_manual/{docId} {
+      allow read, write: if isSignedIn() && !isRecorder();
+    }
   }
 }

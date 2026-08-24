@@ -321,7 +321,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCeUModpZrGLQifjDXhIOfIAYdK538wgik",
@@ -1618,13 +1618,42 @@ function tiISO(ti, dt) {
 }
 let MINETEXT = '', MINEPAST = false, MINEPICK = '';   // MINEPICK：主管選了誰（''＝自己、'*'＝全組）
 let CTCACHE = {};                                      // 團號→合約狀態（查過的存著，切人只補缺的）
+let CTMANUAL = null;                                   // 手動歸檔標記（dt_manual/archive 單一文件：{團號:{by,at}}）
 
-// 「合約」欄：已收訂的團去合約系統查有沒有建約/簽署/歸檔（archive.intranetPath 有值＝NAS 歸檔完成）
+// 畫一格「合約」欄：合約系統狀態 ＋ 手動標記（✓＝業務自己標「處理完了」的備忘）
+function renderCtCell(td) {
+  const code = td.dataset.c;
+  const mk = CTMANUAL && CTMANUAL[code];
+  if (mk) {                                            // 手動標記優先顯示（業務說完成就別再嚇他）
+    td.innerHTML = `<span class="text-emerald-400" title="由 ${esc(mk.by || '')} 於 ${esc((mk.at || '').slice(0, 10))} 手動標記（備忘，不影響合約系統）">📁 手動✓</span>
+      <button class="mine-unmk m4 hover:text-red-400 ml-1" data-c="${esc(code)}" title="取消手動標記">✕</button>`;
+    return;
+  }
+  const list = CTCACHE[code] || [];
+  const filed = list.filter(x => x.ar), signed = list.filter(x => x.st === 'signed' && !x.ar), pend = list.filter(x => x.st !== 'signed');
+  const parts = [];
+  if (filed.length)  parts.push(`<span class="text-emerald-400">📁${filed.length > 1 ? '×' + filed.length : ' 已歸檔'}</span>`);
+  if (signed.length) parts.push(`<span class="text-sky-400">✍${signed.length > 1 ? '×' + signed.length : ' 已簽'}</span>`);
+  if (pend.length)   parts.push(`<span class="text-amber-400 font-bold">📝${pend.length > 1 ? '×' + pend.length : ' 未簽'}</span>`);
+  if (!list.length)  parts.push('<span class="m4">未建</span>');
+  const tip = list.length ? list.map(x => `${x.n || '—'}／${x.px}人／${x.st === 'signed' ? (x.ar ? '已歸檔' : '已簽待歸檔') : '未簽署'}`).join('、')
+                          : '合約系統裡沒有這團的合約';
+  // 還沒全數歸檔 → 給「手動標記」按鈕（點了確認就標 ✓，之後不用反覆檢查）
+  const allFiled = list.length && filed.length === list.length;
+  const mkBtn = allFiled ? '' : ` <button class="mine-mk m4 hover:text-emerald-400 ml-1" data-c="${esc(code)}" title="手動標記歸檔完成（備忘）">☑</button>`;
+  td.innerHTML = `<span title="${esc(tip)}">${parts.join(' ')}</span>${mkBtn}`;
+}
+
+// 「合約」欄：已收訂的團去合約系統查建約/簽署/歸檔（archive.intranetPath 有值＝NAS 歸檔完成）
 async function fillContractCells(body) {
   const cells = [...body.querySelectorAll('.mine-ct')].filter(td => td.dataset.c && td.querySelector('.fa-spinner'));
   if (!cells.length) return;
   const codes = [...new Set(cells.map(td => td.dataset.c))];
   try {
+    if (!CTMANUAL) {                                   // 手動標記整份一次載入（單一文件）
+      try { const s = await getDoc(doc(db, 'dt_manual', 'archive')); CTMANUAL = s.exists() ? s.data() : {}; }
+      catch (_) { CTMANUAL = {}; }                     // 讀不到（規則未部署等）只是少了標記，不影響合約狀態顯示
+    }
     const missing = codes.filter(c => !(c in CTCACHE));
     if (missing.length) {
       const idToken = await auth.currentUser.getIdToken();
@@ -1636,20 +1665,38 @@ async function fillContractCells(body) {
       const byCode = (await r.json()).byCode || {};
       for (const c of missing) CTCACHE[c] = byCode[c] || [];   // 沒合約的也記空陣列，免得每次都重問
     }
-    for (const td of cells) {
-      const list = CTCACHE[td.dataset.c] || [];
-      if (!list.length) { td.innerHTML = '<span class="m4" title="合約系統裡沒有這團的合約">未建</span>'; continue; }
-      const filed = list.filter(x => x.ar), signed = list.filter(x => x.st === 'signed' && !x.ar), pend = list.filter(x => x.st !== 'signed');
-      const parts = [];
-      if (filed.length)  parts.push(`<span class="text-emerald-400">📁${filed.length > 1 ? '×' + filed.length : ' 已歸檔'}</span>`);
-      if (signed.length) parts.push(`<span class="text-sky-400">✍${signed.length > 1 ? '×' + signed.length : ' 已簽'}</span>`);
-      if (pend.length)   parts.push(`<span class="text-amber-400 font-bold">📝${pend.length > 1 ? '×' + pend.length : ' 未簽'}</span>`);
-      const tip = list.map(x => `${x.n || '—'}／${x.px}人／${x.st === 'signed' ? (x.ar ? '已歸檔' : '已簽待歸檔') : '未簽署'}`).join('、');
-      td.innerHTML = `<span title="${esc(tip)}">${parts.join(' ')}</span>`;
-    }
+    cells.forEach(renderCtCell);
+    wireManualButtons(body);
   } catch (e) {
     cells.forEach(td => td.innerHTML = `<span class="m4" title="合約狀態讀取失敗：${esc(e.message)}">？</span>`);
   }
+}
+
+// 手動標記／取消（存 ddd1-v3 的 dt_manual/archive，整組共見；純備忘，不動合約系統）
+function wireManualButtons(body) {
+  body.querySelectorAll('.mine-mk').forEach(b => b.onclick = async () => {
+    const code = b.dataset.c;
+    if (!confirm(`是否將 ${code} 手動標記為「歸檔完成」？\n\n（備忘用：合約欄會顯示 📁手動✓，全組都看得到；不影響合約系統的真實狀態）`)) return;
+    const mk = { by: (ME && (ME.nickname || ME.account)) || '', at: new Date().toISOString() };
+    try {
+      await setDoc(doc(db, 'dt_manual', 'archive'), { [code]: mk }, { merge: true });
+      CTMANUAL[code] = mk;
+      const td = body.querySelector(`.mine-ct[data-c="${CSS.escape(code)}"]`);
+      if (td) { renderCtCell(td); wireManualButtons(body); }
+      toast('已標記手動歸檔');
+    } catch (e) { toast('標記失敗：' + e.message); }
+  });
+  body.querySelectorAll('.mine-unmk').forEach(b => b.onclick = async () => {
+    const code = b.dataset.c;
+    if (!confirm(`取消 ${code} 的手動歸檔標記？`)) return;
+    try {
+      await updateDoc(doc(db, 'dt_manual', 'archive'), { [code]: deleteField() });
+      delete CTMANUAL[code];
+      const td = body.querySelector(`.mine-ct[data-c="${CSS.escape(code)}"]`);
+      if (td) { renderCtCell(td); wireManualButtons(body); }
+      toast('已取消標記');
+    } catch (e) { toast('取消失敗：' + e.message); }
+  });
 }
 $('mine-close').onclick = () => $('mine-modal').classList.add('hidden');
 $('mine-modal').onclick = e => { if (e.target === $('mine-modal')) $('mine-modal').classList.add('hidden'); };
@@ -1755,7 +1802,8 @@ $('mine-btn').onclick = async () => {
          ${chip('未收訂', unpaid.length + ' 團／' + sum(unpaid, x => x.pax) + ' 人', unpaid.length ? 'text-amber-400' : 'm2')}
          ${chip('14天內開票', soonTi.length, soonTi.length ? 'text-amber-400' : 'm2')}
          <label class="chip surface2 m2 cursor-pointer"><input type="checkbox" id="mine-past" class="mr-1" ${MINEPAST ? 'checked' : ''}>含已出發${pastN ? '（' + pastN + '）' : ''}</label>
-       </div>` + salesBar +
+       </div>
+       <div class="text-[.68rem] m4 mb-3">合約欄：<span class="text-emerald-400">📁 已歸檔</span>（簽了、NAS 歸檔完成）　<span class="text-sky-400">✍ 已簽</span>（還沒歸檔）　<span class="text-amber-400">📝 未簽</span>（建了約客人未簽）　未建＝系統無合約　☑＝手動標記歸檔（備忘）</div>` + salesBar +
       (show.length ? `<div class="overflow-x-auto"><table class="w-full text-xs">
          <thead class="m3"><tr class="text-left">
            ${allMode ? '<th class="py-1 pr-2">業務</th>' : ''}<th class="py-1">出發日</th><th class="px-2">團號</th><th class="px-2">產品</th>
