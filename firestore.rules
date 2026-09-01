@@ -143,6 +143,12 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && request.auth.uid == userId && !isRecorder();
     }
 
+    // dt_follow：追蹤團清單（餘位/價格變動 LINE 通知用），只能讀寫自己的
+    // 警報比對由 follow-alert.mjs 用 Admin SDK 讀全部（不受規則限制）
+    match /dt_follow/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId && !isRecorder();
+    }
+
     // dt_manual：「我的團」的手動標記（手動歸檔備忘等），組內都可讀寫、紀錄員不行
     // 只是備忘標記，不影響合約系統的真實歸檔狀態
     match /dt_manual/{docId} {

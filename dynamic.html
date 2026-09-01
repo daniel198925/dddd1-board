@@ -162,6 +162,8 @@
       <div class="flex-1"></div>
       <span id="user-name" class="text-sm m1 mobile-hide"></span>
       <button id="theme-btn" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition" title="深色／淺色切換"><i id="theme-icon" class="fa-solid fa-moon"></i></button>
+      <button id="finder-btn" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition" title="跨線找團：日期＋天數＋預算一次掃全部線"><i class="fa-solid fa-magnifying-glass-location mr-1"></i><span class="mobile-hide">找團</span></button>
+      <button id="follow-list-btn" class="text-xs m2 hover:text-amber-400 border bd rounded-lg px-3 py-1.5 transition relative" title="追蹤中的團：餘位/價格有變動會 LINE 通知"><i class="fa-regular fa-bell mr-1"></i><span class="mobile-hide">追蹤</span><span id="follow-badge" class="hidden absolute -top-1.5 -right-1.5 bg-amber-500 text-black text-[.6rem] font-black rounded-full min-w-[1.1rem] h-[1.1rem] leading-[1.1rem] text-center px-0.5"></span></button>
       <button id="mine-btn" class="text-xs m2 hover:text-emerald-400 border bd rounded-lg px-3 py-1.5 transition" title="我名下的團：收訂進度、待開票"><i class="fa-solid fa-user-check mr-1"></i><span class="mobile-hide">我的團</span></button>
       <button id="gap-btn" class="text-xs m2 hover:text-amber-400 border bd rounded-lg px-3 py-1.5 transition" title="檢查哪些團沒有配到行程（給產品部補檔用）"><i class="fa-solid fa-triangle-exclamation mr-1"></i><span class="mobile-hide">行程缺件</span></button>
       <button id="agent-btn" class="text-xs m2 hover:price border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-id-card mr-1"></i><span class="mobile-hide">業務設定</span></button>
@@ -218,6 +220,7 @@
   <div id="detail-head" class="flex items-center justify-between px-2 py-2 border-b bd2 relative cursor-move select-none" title="拖曳可移動位置">
     <span class="font-bold text-xs truncate"><i class="fa-solid fa-grip-vertical m4 mr-1"></i>選取<span id="detail-count" class="m3 font-normal"></span></span>
     <div class="flex items-center gap-0.5 shrink-0">
+      <button id="follow-btn" class="text-xs m2 hover:text-amber-400 w-6 h-6" title="追蹤選取的團（餘位/價格變動會 LINE 通知）"><i class="fa-regular fa-bell"></i></button>
       <button id="dcol-btn" class="text-xs m2 hover:text-blue-400 w-6 h-6" title="顯示欄位"><i class="fa-solid fa-gear"></i></button>
       <button id="detail-close" class="m2 hover:text-red-400 w-6 h-6"><i class="fa-solid fa-xmark"></i></button>
     </div>
@@ -315,6 +318,53 @@
   </div>
 </div>
 
+<!-- 找團：跨線搜尋（日期＋天數＋預算一次掃全部線，客人開口 10 秒出答案）-->
+<div id="finder-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+  <div class="surface border bd rounded-2xl w-full max-w-5xl h-[88vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b bd2 shrink-0">
+      <span class="font-bold"><i class="fa-solid fa-magnifying-glass-location text-blue-400 mr-2"></i>找團<span class="m3 font-normal text-xs ml-2 mobile-hide">一次掃全部線，只列還沒出發的團</span></span>
+      <button id="finder-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="px-5 py-3 border-b bd2 space-y-2 shrink-0 text-sm">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="relative flex items-center">
+          <input id="fd-date" class="input-style w-[185px] cursor-pointer" placeholder="出發日範圍（選填）" readonly>
+          <button id="fd-date-clear" class="hidden absolute right-2 m3 hover:text-red-400 text-xs w-5 h-5"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <span class="m3 text-xs">天數</span>
+        <input id="fd-dmin" type="number" min="1" max="30" class="input-style w-16" placeholder="最少">
+        <span class="m4">~</span>
+        <input id="fd-dmax" type="number" min="1" max="30" class="input-style w-16" placeholder="最多">
+        <span class="m3 text-xs ml-1">預算</span>
+        <input id="fd-budget" type="number" min="0" step="1000" class="input-style w-28" placeholder="上限（元）">
+        <label class="chip surface2 m2 cursor-pointer select-none"><input type="checkbox" id="fd-avail" class="mr-1 accent-blue-500" checked>只看有位</label>
+        <label class="chip surface2 m2 cursor-pointer select-none"><input type="checkbox" id="fd-promo" class="mr-1 accent-pink-500">只看促銷</label>
+      </div>
+      <div id="fd-lines" class="flex flex-wrap gap-1.5"></div>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="fd-q" class="input-style flex-1 min-w-[160px]" placeholder="🔍 關鍵字（產品／團型／航空／團號）">
+        <div class="flex rounded-lg overflow-hidden border bd text-xs font-bold">
+          <button id="fd-sort-dt" class="px-3 py-1.5">出發日排序</button>
+          <button id="fd-sort-pr" class="px-3 py-1.5">價格排序</button>
+        </div>
+        <span id="fd-count" class="chip surface2 m2"></span>
+      </div>
+    </div>
+    <div id="fd-body" class="flex-1 overflow-y-auto px-5 py-3 text-sm"></div>
+  </div>
+</div>
+
+<!-- 追蹤清單：追蹤中的團與目前狀態，可取消／跳到那一團 -->
+<div id="follow-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+  <div class="surface border bd rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-4 border-b bd2 shrink-0">
+      <span class="font-bold"><i class="fa-regular fa-bell text-amber-400 mr-2"></i>追蹤中的團<span id="follow-who" class="m3 font-normal text-sm"></span></span>
+      <button id="follow-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="follow-body" class="p-5 text-sm overflow-y-auto flex-1"></div>
+  </div>
+</div>
+
 <!-- 滑鼠指到團號列時跟著游標的小提示：出發日全年份＋星期（團號裡只有 MMDD 看不出年份/星期）-->
 <div id="hovertip" class="hidden fixed z-[70] pointer-events-none surface border bd rounded-lg shadow-xl px-2.5 py-1 text-xs font-bold whitespace-nowrap"></div>
 
@@ -355,6 +405,7 @@ let AG_CARDS = [], AG_ACTIVE = 0;   // 多張名片＋目前選中第幾張（dt
 //   連結數量 = 用到幾份「不同的」行程，不是幾組。
 let SHAREDFILE = null;
 let CHOSENFILES = {};
+let FOLLOWS = {};             // 追蹤中的團（dt_follow/{uid}.follows：key=團號|產品）
 let FILEPICK_GK = null;       // null＝正在挑共同行程；否則＝正在幫某一組單獨挑
 const effFile = gk => CHOSENFILES[gk] || SHAREDFILE;   // 這一組實際用的行程
 let VISIBLE = [];             // 目前畫面上看得到的團行 index（Shift 框選用）
@@ -428,6 +479,7 @@ onAuthStateChanged(auth, async user => {
     const pUser  = getDoc(doc(db, 'users', user.uid));
     const pAgent = getDoc(doc(db, 'dt_agent', user.uid)).catch(() => null);
     const pMeta  = getDoc(doc(db, 'dt_tours', '_meta')).catch(() => null);   // recorder 被規則擋下會失敗，下面本來就會登出
+    const pFollow = getDoc(doc(db, 'dt_follow', user.uid)).catch(() => null);   // 追蹤清單（沒有就是空）
 
     const snap = await pUser;
     if (!snap.exists()) { $('login-msg').innerText = '權限錯誤：找不到使用者紀錄'; return signOut(auth); }
@@ -446,6 +498,9 @@ onAuthStateChanged(auth, async user => {
       AG_ACTIVE = 0;
     } else { AG_CARDS = []; AG_ACTIVE = 0; }
     AGENT = AG_CARDS[AG_ACTIVE] || {};
+    const fw = await pFollow;
+    FOLLOWS = (fw && fw.exists() && fw.data().follows) || {};
+    updateFollowBadge();
     await boot(await pMeta);
   } catch (err) {
     $('login-msg').innerText = '讀取失敗：' + err.message; signOut(auth);
@@ -872,6 +927,7 @@ function showDetail() {
   cbtn.style.opacity = one ? '' : '.4';
   cbtn.style.cursor = one ? '' : 'not-allowed';
   cbtn.title = one ? '建立合約（帶團號＋團費開合約系統）' : '合約一次一團，請只選一筆';
+  updateFollowBtn();
   showCard();
 }
 $('detail-close').onclick = () => { hideCard(); SELLINES = []; ANCHOR = -1; SELBASE = []; SHAREDFILE = null; CHOSENFILES = {}; $('dcol-menu').classList.add('hidden'); render(); };
@@ -1900,6 +1956,247 @@ $('gap-btn').onclick = async () => {
   } catch (e) { body.innerHTML = '<div class="m3">檢查失敗：' + esc(e.message) + '</div>'; }
 };
 
+// ── 全線資料載入（找團／追蹤清單共用；已載過的檔用快取，換版時 refreshIfStale 會清）──
+async function loadAllRows() {
+  const all = [];
+  for (const f of META.files) {
+    if (!ROWCACHE[f.f]) {
+      const s = await getDoc(doc(db, 'dt_tours', f.f));
+      ROWCACHE[f.f] = s.exists() ? JSON.parse(s.data().rows) : [];
+    }
+    for (const r of ROWCACHE[f.f]) all.push({ f: f.f, r });
+  }
+  return all;
+}
+
+// ── 從找團／追蹤清單跳到那一團：切檔、選取、捲過去 ──
+//    會清掉主畫面的篩選（促銷/有位/日期/星期/搜尋），免得目標團被篩選條件擋住看不到
+async function jumpToTour(fno, row) {
+  $('finder-modal').classList.add('hidden');
+  $('follow-modal').classList.add('hidden');
+  $('f-search').value = '';
+  ['f-promo', 'f-avail'].forEach(id => { $(id).classList.remove('on'); localStorage.setItem('d1dt_' + id, '0'); });
+  fpDate.clear(); DATERANGE = ['', '']; $('f-date-clear').classList.add('hidden');
+  WDSEL.clear(); renderWd();
+  if ($('f-line').value !== fno) { $('f-line').value = fno; await loadFile(); }
+  let idx = LINES.findIndex(l => l.row && l.row.c === row.c && l.row.rw === row.rw);
+  if (idx < 0) idx = LINES.findIndex(l => l.row && l.row.c === row.c && (l.row.p || '') === (row.p || ''));
+  if (idx < 0) { render(); toast('在動態裡找不到這一團（資料可能剛更新）'); return; }
+  SELLINES = [idx]; ANCHOR = idx; SELBASE = [idx];
+  render(); showDetail();
+  requestAnimationFrame(() => {
+    const el = $('raw-view').querySelector(`.hl-tour[data-i="${idx}"]`);
+    if (el) el.scrollIntoView({ block: 'center' });
+  });
+}
+
+// ══ 找團：跨線搜尋 ══
+//    客人的邏輯是「12月中、5天內、預算3萬、想去日韓」，不是「先選哪條線」。
+//    這裡一次掃全部線（首次載入約 600KB，之後走快取），依日期/天數/預算/線別/關鍵字過濾。
+let FD_ALL = null;                 // 打開視窗時載入的全線資料
+let FD_STAMP = '';                 // 載入當時的資料時間戳（換版就重載）
+let FDLINES = new Set();           // 勾選的線（空＝全部）
+let FDSORT = 'dt';                 // dt=出發日排序｜pr=價格排序
+let FDRANGE = ['', ''];
+const fpFd = flatpickr('#fd-date', {
+  mode: 'range', dateFormat: 'Y-m-d', locale: 'zh_tw',
+  onChange(sel) {
+    FDRANGE = sel.length === 2 ? [ymd(sel[0]), ymd(sel[1])]
+            : sel.length === 1 ? [ymd(sel[0]), ymd(sel[0])] : ['', ''];
+    $('fd-date-clear').classList.toggle('hidden', !sel.length);
+    finderRender();
+  },
+});
+$('fd-date-clear').onclick = e => {
+  e.stopPropagation(); fpFd.clear(); FDRANGE = ['', ''];
+  $('fd-date-clear').classList.add('hidden'); finderRender();
+};
+function buildFdLines() {
+  // 只列真的有團可選的線（國旅/郵輪 n=0 沒得搜，不放）
+  const files = [...META.files].filter(f => f.n > 0).sort((a, b) => a.f.localeCompare(b.f));
+  $('fd-lines').innerHTML =
+    `<button class="fd-line chip border transition ${FDLINES.size ? 'bd m3' : 'bg-blue-600 border-blue-600 text-white'}" data-f="">全部線</button>` +
+    files.map(f => `<button class="fd-line chip border transition ${FDLINES.has(f.f) ? 'bg-blue-600 border-blue-600 text-white' : 'bd m2'}" data-f="${esc(f.f)}">${esc(f.line)}</button>`).join('');
+  $('fd-lines').querySelectorAll('.fd-line').forEach(b => b.onclick = () => {
+    const v = b.dataset.f;
+    if (!v) FDLINES.clear();
+    else FDLINES.has(v) ? FDLINES.delete(v) : FDLINES.add(v);
+    buildFdLines(); finderRender();
+  });
+}
+function finderRender() {
+  if (!FD_ALL) return;
+  const today = ymd(new Date());
+  const [from, to] = FDRANGE;
+  const dmin = +$('fd-dmin').value || 0, dmax = +$('fd-dmax').value || 0;
+  const budget = +$('fd-budget').value || 0;
+  const availOn = $('fd-avail').checked, promoOn = $('fd-promo').checked;
+  const q = $('fd-q').value.trim().toUpperCase();
+  $('fd-sort-dt').className = 'px-3 py-1.5 ' + (FDSORT === 'dt' ? 'bg-blue-600 text-white' : 'm2');
+  $('fd-sort-pr').className = 'px-3 py-1.5 ' + (FDSORT === 'pr' ? 'bg-blue-600 text-white' : 'm2');
+
+  const list = FD_ALL.filter(({ f, r }) => {
+    if (r.sp) return false;                          // 國旅/郵輪沒有標準餘位，不進找團
+    if (!r.dt || r.dt < today) return false;         // 只列還沒出發的
+    if (FDLINES.size && !FDLINES.has(f)) return false;
+    if (from && r.dt < from) return false;
+    if (to && r.dt > to) return false;
+    if (dmin && !(r.dy >= dmin)) return false;
+    if (dmax && !(r.dy && r.dy <= dmax)) return false;
+    if (budget && !(r.pr && r.pr <= budget)) return false;
+    if (availOn && !(r.r > 0)) return false;
+    if (promoOn && !r.pm) return false;
+    if (q) {
+      const hay = [r.c, r.p, r.tt, r.ln, r.an, r.ds].filter(Boolean).join(' ').toUpperCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  list.sort((a, b) => FDSORT === 'pr'
+    ? (a.r.pr ?? 9e9) - (b.r.pr ?? 9e9) || (a.r.dt || '').localeCompare(b.r.dt || '')
+    : (a.r.dt || '').localeCompare(b.r.dt || '') || (a.r.pr ?? 9e9) - (b.r.pr ?? 9e9));
+
+  const CAP = 400;
+  const show = list.slice(0, CAP);
+  $('fd-count').textContent = `${list.length} 團${list.length > CAP ? `（只列前 ${CAP}，請再縮小條件）` : ''}`;
+  const seatOf = r => typeof r.r !== 'number' ? '--'
+    : r.r <= 0 ? '<span class="text-slate-500">已滿</span>'
+    : r.r <= 3 ? `<span class="text-amber-400 font-bold">餘${r.r}</span>` : `餘${r.r}`;
+  $('fd-body').innerHTML = show.length
+    ? `<div class="overflow-x-auto"><table class="w-full text-xs">
+        <thead class="m3"><tr class="text-left">
+          <th class="py-1">出發日</th><th class="px-2">線別</th><th class="px-2">產品</th>
+          <th class="px-2 text-right">天數</th><th class="px-2">航空</th>
+          <th class="px-2 text-right">團費</th><th class="px-2 text-right">餘位</th></tr></thead>
+        <tbody>${show.map(({ f, r }, i) => `<tr class="fd-row border-t bd2 cursor-pointer hover:bg-[var(--hover)]" data-i="${i}">
+          <td class="py-1.5 whitespace-nowrap">${fmtDt(r.dt, true)}</td>
+          <td class="px-2 whitespace-nowrap m2">${esc(r.ln || '')}</td>
+          <td class="px-2">${r.pm ? '<span class="promo font-bold">促</span> ' : ''}${esc(r.p || '')}${r.tt ? ' ' + esc(r.tt) : ''}${r.gw && r.gw !== '直飛' ? `<span class="m4">｜${esc(r.gw)}</span>` : ''}${r.dp && r.dp !== '台北' ? `<span class="m4">｜${esc(r.dp)}出發</span>` : ''}</td>
+          <td class="px-2 text-right whitespace-nowrap">${r.dy ? r.dy + '天' : '--'}</td>
+          <td class="px-2 whitespace-nowrap m2">${esc(r.an || '--')}${r.fl ? `（${esc(r.fl)}）` : ''}</td>
+          <td class="px-2 text-right whitespace-nowrap price font-bold">${fmt$(r.pr)}</td>
+          <td class="px-2 text-right whitespace-nowrap">${seatOf(r)}</td>
+        </tr>`).join('')}</tbody></table></div>
+       <div class="m4 text-xs mt-3">點任一列＝跳到那一團（會切到該線並自動選取）</div>`
+    : '<div class="m3 py-10 text-center">沒有符合條件的團，放寬一點條件試試</div>';
+  $('fd-body').querySelectorAll('.fd-row').forEach(tr => tr.onclick = () => {
+    const { f, r } = show[+tr.dataset.i];
+    jumpToTour(f, r);
+  });
+}
+$('finder-btn').onclick = async () => {
+  if (!META) return;
+  $('finder-modal').classList.remove('hidden');
+  buildFdLines();
+  if (!FD_ALL || FD_STAMP !== META.stamp) {
+    $('fd-body').innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>載入全部線的資料中…（第一次約十秒，之後很快）</div>';
+    try { FD_ALL = await loadAllRows(); FD_STAMP = META.stamp; }
+    catch (e) { $('fd-body').innerHTML = '<div class="m3">讀取失敗：' + esc(e.message) + '</div>'; return; }
+  }
+  finderRender();
+};
+$('finder-close').onclick = () => $('finder-modal').classList.add('hidden');
+$('finder-modal').onclick = e => { if (e.target === $('finder-modal')) $('finder-modal').classList.add('hidden'); };
+['fd-dmin', 'fd-dmax', 'fd-budget', 'fd-q'].forEach(id => $(id).oninput = finderRender);
+['fd-avail', 'fd-promo'].forEach(id => $(id).onchange = finderRender);
+$('fd-sort-dt').onclick = () => { FDSORT = 'dt'; finderRender(); };
+$('fd-sort-pr').onclick = () => { FDSORT = 'pr'; finderRender(); };
+
+// ══ 追蹤團（餘位/價格變動 → 每小時同步後 LINE 通知，由 follow-alert.mjs 比對發送）══
+const followKey = r => r.c + '|' + (r.p || '');
+function updateFollowBadge() {
+  const n = Object.keys(FOLLOWS).length;
+  $('follow-badge').textContent = n;
+  $('follow-badge').classList.toggle('hidden', !n);
+}
+async function saveFollows() {
+  const me = (ME && (ME.nickname || ME.account)) || '';
+  const team = (META && META.team) || {};
+  const abbr = Object.keys(team).find(k => team[k] === me) || '';
+  // 不用 merge：整份覆蓋才能把取消追蹤的 key 真正刪掉
+  await setDoc(doc(db, 'dt_follow', UID), { name: me, abbr, follows: FOLLOWS, updatedAt: new Date().toISOString() });
+}
+function updateFollowBtn() {
+  const rows = selRows();
+  const all = rows.length > 0 && rows.every(r => FOLLOWS[followKey(r)]);
+  const ic = $('follow-btn').querySelector('i');
+  ic.className = all ? 'fa-solid fa-bell text-amber-400' : 'fa-regular fa-bell';
+  $('follow-btn').title = all ? '取消追蹤選取的團' : '追蹤選取的團（餘位/價格變動會 LINE 通知）';
+}
+$('follow-btn').onclick = async () => {
+  const rows = selRows();
+  if (!rows.length) return;
+  const allOn = rows.every(r => FOLLOWS[followKey(r)]);
+  if (allOn) {
+    rows.forEach(r => delete FOLLOWS[followKey(r)]);
+  } else {
+    for (const r of rows) {
+      FOLLOWS[followKey(r)] = {
+        c: r.c, p: r.p || '', tt: r.tt || '', ln: r.ln || '',
+        dt: r.dt || '', pr: r.pr ?? null, r: r.r ?? null,
+        at: new Date().toISOString(),
+      };
+    }
+  }
+  try {
+    await saveFollows();
+    updateFollowBadge(); updateFollowBtn();
+    toast(allOn ? `已取消追蹤 ${rows.length} 團` : `已追蹤 ${rows.length} 團，餘位/價格有變動會 LINE 通知`);
+  } catch (e) { toast('儲存失敗：' + e.message); }
+};
+$('follow-close').onclick = () => $('follow-modal').classList.add('hidden');
+$('follow-modal').onclick = e => { if (e.target === $('follow-modal')) $('follow-modal').classList.add('hidden'); };
+$('follow-list-btn').onclick = async () => {
+  $('follow-modal').classList.remove('hidden');
+  const body = $('follow-body');
+  const keys = Object.keys(FOLLOWS);
+  $('follow-who').textContent = keys.length ? `（${keys.length} 團）` : '';
+  if (!keys.length) {
+    body.innerHTML = '<div class="m3 py-10 text-center">還沒有追蹤任何團<br><span class="text-xs">選取團之後，點選取卡右上角的 <i class="fa-regular fa-bell"></i> 鈴鐺即可追蹤；<br>餘位變少、滿團後空出位子、價格變動時會 LINE 通知你</span></div>';
+    return;
+  }
+  body.innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>比對目前動態中…</div>';
+  try {
+    const all = await loadAllRows();
+    const cur = new Map();
+    for (const x of all) { const k = followKey(x.r); if (!cur.has(k)) cur.set(k, x); }
+    const items = keys.map(k => ({ k, fw: FOLLOWS[k], now: cur.get(k) || null }))
+      .sort((a, b) => (a.fw.dt || '').localeCompare(b.fw.dt || ''));
+    body.innerHTML = `<div class="text-xs m3 mb-3">追蹤的團在每小時同步後自動比對：餘位剩 3 以內、滿團後空出位子、價格變動都會 LINE 通知（沒綁 LINE 的發到群組）。出發後自動取消追蹤。</div>
+      <div class="overflow-x-auto"><table class="w-full text-xs">
+      <thead class="m3"><tr class="text-left"><th class="py-1">出發日</th><th class="px-2">產品</th><th class="px-2">團號</th>
+        <th class="px-2 text-right">團費</th><th class="px-2 text-right">餘位</th><th class="px-2"></th></tr></thead>
+      <tbody>${items.map((x, i) => {
+        const r = x.now && x.now.r;
+        const prCh = r && x.fw.pr != null && r.pr !== x.fw.pr;
+        const rmCh = r && x.fw.r != null && r.r !== x.fw.r;
+        const seat = !r ? '<span class="m4">--</span>'
+          : typeof r.r !== 'number' ? '--'
+          : r.r <= 0 ? '<span class="text-slate-500">已滿</span>'
+          : r.r <= 3 ? `<span class="text-amber-400 font-bold">餘${r.r}</span>` : `餘${r.r}`;
+        return `<tr class="border-t bd2">
+          <td class="py-1.5 whitespace-nowrap">${x.fw.dt ? fmtDt(x.fw.dt, true) : '--'}</td>
+          <td class="px-2">${esc(x.fw.p)}${x.fw.tt ? ' ' + esc(x.fw.tt) : ''}<span class="m4">｜${esc(x.fw.ln)}</span>${x.now ? '' : '<br><span class="text-amber-400 text-[.65rem]">⚠ 已不在動態上（可能已結帳或改團號）</span>'}</td>
+          <td class="px-2 whitespace-nowrap"><span class="code">${esc(x.fw.c)}</span></td>
+          <td class="px-2 text-right whitespace-nowrap ${prCh ? 'text-amber-400 font-bold' : 'price'}">${r ? fmt$(r.pr) : '--'}${prCh ? `<br><span class="m4 text-[.65rem] font-normal">追蹤時 ${fmt$(x.fw.pr)}</span>` : ''}</td>
+          <td class="px-2 text-right whitespace-nowrap ${rmCh ? 'font-bold' : ''}">${seat}${rmCh ? `<br><span class="m4 text-[.65rem] font-normal">追蹤時 ${x.fw.r <= 0 ? '滿' : '餘' + x.fw.r}</span>` : ''}</td>
+          <td class="px-2 whitespace-nowrap text-right">
+            ${x.now ? `<button class="fw-go text-blue-400 hover:underline mr-2" data-i="${i}">前往</button>` : ''}
+            <button class="fw-del m3 hover:text-red-400" data-k="${esc(x.k)}">取消</button></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
+    body.querySelectorAll('.fw-go').forEach(b => b.onclick = () => {
+      const x = items[+b.dataset.i];
+      if (x.now) jumpToTour(x.now.f, x.now.r);
+    });
+    body.querySelectorAll('.fw-del').forEach(b => b.onclick = async () => {
+      delete FOLLOWS[b.dataset.k];
+      try { await saveFollows(); updateFollowBadge(); updateFollowBtn(); $('follow-list-btn').onclick(); }
+      catch (e) { toast('儲存失敗：' + e.message); }
+    });
+  } catch (e) { body.innerHTML = '<div class="m3">讀取失敗：' + esc(e.message) + '</div>'; }
+};
+
 // ── 星期篩選：七個小格子可複選，另有平日／週末／清除三個快捷 ──
 function renderWd() {
   $('f-wd-chips').innerHTML = '';
@@ -1940,6 +2237,8 @@ $('f-search').oninput = render;
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (!$('files-modal').classList.contains('hidden')) $('files-modal').classList.add('hidden');
+  else if (!$('finder-modal').classList.contains('hidden')) $('finder-modal').classList.add('hidden');
+  else if (!$('follow-modal').classList.contains('hidden')) $('follow-modal').classList.add('hidden');
   else if (!$('agent-modal').classList.contains('hidden')) $('agent-modal').classList.add('hidden');
   else if (!$('detail-card').classList.contains('hidden')) $('detail-close').onclick();
 });
