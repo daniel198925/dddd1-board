@@ -369,6 +369,9 @@
   </div>
 </div>
 
+<!-- 回頂端快捷鈕：捲下去才出現。放左下——右下被選取卡佔走了 -->
+<button id="to-top" class="hidden fixed left-3 bottom-3 z-40 w-11 h-11 rounded-full surface border bd shadow-xl m1 hover:text-blue-400 transition" title="回到最上面"><i class="fa-solid fa-arrow-up"></i></button>
+
 <!-- 滑鼠指到團號列時跟著游標的小提示：出發日全年份＋星期（團號裡只有 MMDD 看不出年份/星期）-->
 <div id="hovertip" class="hidden fixed z-[70] pointer-events-none surface border bd rounded-lg shadow-xl px-2.5 py-1 text-xs font-bold whitespace-nowrap"></div>
 
@@ -765,18 +768,17 @@ const selRows = () => SELLINES.map(i => LINES[i]?.row).filter(Boolean);
   view.addEventListener('scroll',     () => { tip.classList.add('hidden'); lastI = -1; });
 })();
 
-// ── 手機：往下捲自動收起頂欄，往上捲就回來（使用者 2026-09-01：banner 遮掉大半畫面）──
-//    .away 的樣式只寫在手機的 media query 裡，桌機就算被加了 class 也沒影響
+// ── 手機：往下捲自動收起頂欄（使用者 2026-09-01：banner 遮掉大半畫面）──
+//    只有「回到接近頂端」才展開——原本往上捲就展開，手指停一下就彈出來很干擾（使用者改版要求）。
+//    要回頂端用左下角的 ↑ 快捷鈕。.away 樣式只寫在手機 media query，桌機不受影響。
 (() => {
-  const hdr = $('main-hdr'), view = $('raw-view');
-  let last = 0;
+  const hdr = $('main-hdr'), view = $('raw-view'), top = $('to-top');
   view.addEventListener('scroll', () => {
     const y = view.scrollTop;
-    if (y < 60) hdr.classList.remove('away');            // 接近頂端一律展開
-    else if (y > last + 8) hdr.classList.add('away');    // 往下捲 → 收
-    else if (y < last - 8) hdr.classList.remove('away'); // 往上捲 → 開（小於 8px 的抖動不理）
-    last = y;
+    hdr.classList.toggle('away', y >= 60);       // 離開頂端就收、回到頂端才開
+    top.classList.toggle('hidden', y < 300);     // 捲下去一段才出現 ↑
   }, { passive: true });
+  top.onclick = () => view.scrollTo({ top: 0, behavior: 'smooth' });
 })();
 
 // ── 明細卡欄位設定（照舊系統：預設只顯示團費/航空/出發日/天數，其他用「顯示欄位」勾）──
