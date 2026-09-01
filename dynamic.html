@@ -764,50 +764,54 @@ const selRows = () => SELLINES.map(i => LINES[i]?.row).filter(Boolean);
   view.addEventListener('scroll',     () => { tip.classList.add('hidden'); lastI = -1; });
 })();
 
-// ── 手機：往下捲自動收起頂欄（使用者 2026-09-01：banner 遮掉大半畫面）──
-//    只有「回到接近頂端」才展開；要回頂端用左下角的 ↑ 快捷鈕。
-//    動畫用 transform 位移（GPU），不能用 max-height——那會每一格都重排下面幾千行的
-//    漢書表，手機上一頓一頓的（使用者 2026-09-01 回報不順）。做法（FLIP）：
-//    收＝頂欄和表格一起往上滑一個頂欄高度 → 滑完那一格才真正把頂欄抽離版面（只重排一次，
-//    表格頂端位置剛好接上，看不出跳動；多出來的高度長在畫面外的底部）。展開反向。
+// ── 手機：頂欄跟著手指收合（使用者 2026-09-01：要像瀏覽器網址列那樣「滑多少收多少」）──
+//    往下滑：頂欄和表格一起往上位移「你滑了多少」——完全跟手，滑得快收得快。
+//    收滿的那一瞬間才真正把頂欄抽離版面（一次重排，表格頂端剛好無縫接上）。
+//    停在半路：120ms 沒動就自動靠攏（收一半以上→收滿，不到一半→彈回）。
+//    收滿之後往上滑「不會」跑出來（使用者前次要求）——回到頂端（<40px）或按 ↑ 才展開。
+//    一律用 transform 位移（GPU 不重排），max-height 那種每格重排幾千行的做法會卡（前次教訓）。
 (() => {
   const hdr = $('main-hdr'), view = $('raw-view'), top = $('to-top');
   const mq = matchMedia('(max-width: 639px)');
-  let hidden = false, animating = false;
-  const slide = (el, ms) => { el.style.transition = ms ? `transform ${ms}ms ease` : ''; };
-  function setAway(away) {
-    if (away === hidden || animating) return;
-    hidden = away; animating = true;
-    if (away) {
-      const H = hdr.offsetHeight;
-      slide(hdr, 220); slide(view, 220);
-      hdr.style.transform = view.style.transform = `translateY(-${H}px)`;
-      setTimeout(() => {
-        hdr.style.display = 'none';
-        slide(hdr, 0); slide(view, 0);
-        hdr.style.transform = view.style.transform = '';
-        animating = false;
-      }, 230);
-    } else {
-      hdr.style.display = '';
-      const H = hdr.offsetHeight;                     // 抽回版面後量真實高度
-      hdr.style.transform = view.style.transform = `translateY(-${H}px)`;
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        slide(hdr, 220); slide(view, 220);
-        hdr.style.transform = view.style.transform = 'translateY(0)';
-        setTimeout(() => { slide(hdr, 0); slide(view, 0); hdr.style.transform = view.style.transform = ''; animating = false; }, 230);
-      }));
-    }
+  let lastY = 0, off = 0, H = 0, hidden = false, animating = false, snapTimer = 0;
+  const setT = v => { hdr.style.transform = view.style.transform = v ? `translateY(-${v}px)` : ''; };
+  const trans = ms => { hdr.style.transition = view.style.transition = ms ? `transform ${ms}ms ease` : ''; };
+  function collapseNow() {                     // off 已到 H：抽離版面，頂端無縫接上
+    hidden = true; off = 0; trans(0); hdr.style.display = 'none'; setT(0);
+  }
+  function openAnimated() {                    // 回到頂端：整塊滑回來
+    if (animating) return; animating = true; hidden = false;
+    hdr.style.display = '';
+    H = hdr.offsetHeight; off = 0;
+    setT(H);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      trans(200); setT(0);
+      setTimeout(() => { trans(0); animating = false; }, 210);
+    }));
+  }
+  function snap() {                            // 手指停了：靠攏到最近的一邊
+    if (hidden || animating || !off) return;
+    trans(150);
+    if (off > H / 2) { setT(H); setTimeout(collapseNow, 160); }
+    else { off = 0; setT(0); setTimeout(() => trans(0), 160); }
   }
   view.addEventListener('scroll', () => {
-    top.classList.toggle('hidden', view.scrollTop < 300);   // 捲下去一段才出現 ↑
-    if (!mq.matches) return;                                // 桌機頂欄固定不收
     const y = view.scrollTop;
-    if (!hidden && y >= 100) setAway(true);                 // 收與開的門檻分開（100/40），
-    else if (hidden && y < 40) setAway(false);              // 卡在臨界點附近才不會來回開合
+    top.classList.toggle('hidden', y < 300);   // 捲下去一段才出現 ↑
+    if (!mq.matches) { lastY = y; return; }    // 桌機頂欄固定不收
+    const d = y - lastY; lastY = y;
+    if (animating) return;
+    if (hidden) { if (y < 40) openAnimated(); return; }
+    if (y < 40) { if (off) { off = 0; trans(0); setT(0); } return; }   // 頂端附近一律全開
+    if (!off && d <= 0) return;                // 全開時往上捲：維持不動
+    if (!off) H = hdr.offsetHeight;            // 這次收合開始：量目前頂欄高度
+    off = Math.max(0, Math.min(H, off + d));   // 跟著滑動量走（往回滑會跟著吐回來）
+    trans(0); setT(off);
+    if (off >= H) { collapseNow(); return; }
+    clearTimeout(snapTimer); snapTimer = setTimeout(snap, 120);
   }, { passive: true });
-  // 轉直橫或縮放視窗時，若正處於收起狀態而已不是手機寬度 → 把頂欄還原
-  mq.addEventListener?.('change', e => { if (!e.matches && hidden) { hdr.style.display = ''; hidden = false; } });
+  // 轉橫向/放大視窗變回桌機寬度時，把收起的頂欄還原
+  mq.addEventListener?.('change', e => { if (!e.matches) { hdr.style.display = ''; setT(0); trans(0); hidden = false; off = 0; } });
   top.onclick = () => view.scrollTo({ top: 0, behavior: 'smooth' });
 })();
 
