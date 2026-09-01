@@ -104,6 +104,10 @@
     #detail-actions { grid-template-columns: repeat(4, 1fr); }
     .hl { padding:.15rem .5rem; }           /* 行距拉開，手指好點 */
     .mobile-hide { display:none !important; }
+    /* 手機：往下捲時整個頂欄收起來（畫面幾乎全給漢書表），往上捲或回到頂端就回來。
+       overflow:hidden 只放在 .away——平常不能設，會把「星期」等浮出面板剪掉 */
+    #main-hdr { transition: max-height .25s ease, padding .25s ease, opacity .2s ease; max-height: 420px; }
+    #main-hdr.away { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; overflow: hidden; border-bottom-width: 0; }
   }
   /* 手指拖曳時不要讓瀏覽器把它當成捲動 */
   #detail-head { touch-action: none; }
@@ -155,7 +159,7 @@
 
 <!-- ══ 主畫面 ══ -->
 <div id="main-page" class="hidden h-screen flex flex-col">
-  <header class="app-bg border-b bd2 px-4 py-3 shrink-0">
+  <header id="main-hdr" class="app-bg border-b bd2 px-4 py-3 shrink-0">
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-lg font-black whitespace-nowrap"><i class="fa-solid fa-bolt text-blue-500 mr-1"></i>D1 動態查詢</h1>
       <span id="stamp-badge" class="chip surface2 m1"><i class="fa-regular fa-clock mr-1"></i>載入中…</span>
@@ -759,6 +763,20 @@ const selRows = () => SELLINES.map(i => LINES[i]?.row).filter(Boolean);
   });
   view.addEventListener('mouseleave', () => { tip.classList.add('hidden'); lastI = -1; });
   view.addEventListener('scroll',     () => { tip.classList.add('hidden'); lastI = -1; });
+})();
+
+// ── 手機：往下捲自動收起頂欄，往上捲就回來（使用者 2026-09-01：banner 遮掉大半畫面）──
+//    .away 的樣式只寫在手機的 media query 裡，桌機就算被加了 class 也沒影響
+(() => {
+  const hdr = $('main-hdr'), view = $('raw-view');
+  let last = 0;
+  view.addEventListener('scroll', () => {
+    const y = view.scrollTop;
+    if (y < 60) hdr.classList.remove('away');            // 接近頂端一律展開
+    else if (y > last + 8) hdr.classList.add('away');    // 往下捲 → 收
+    else if (y < last - 8) hdr.classList.remove('away'); // 往上捲 → 開（小於 8px 的抖動不理）
+    last = y;
+  }, { passive: true });
 })();
 
 // ── 明細卡欄位設定（照舊系統：預設只顯示團費/航空/出發日/天數，其他用「顯示欄位」勾）──
