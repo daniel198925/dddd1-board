@@ -2246,6 +2246,7 @@ $('follow-btn').onclick = async () => {
       FOLLOWS[followKey(r)] = {
         c: r.c, p: r.p || '', tt: r.tt || '', ln: r.ln || '',
         dt: r.dt || '', pr: r.pr ?? null, r: r.r ?? null,
+        thr: 3,   // 餘位通知門檻（預設 3；可到追蹤清單改，2026-09-04 會診定案）
         at: new Date().toISOString(),
       };
     }
@@ -2253,7 +2254,7 @@ $('follow-btn').onclick = async () => {
   try {
     await saveFollows();
     updateFollowBadge(); updateFollowBtn();
-    toast(allOn ? `已取消追蹤 ${rows.length} 團` : `已追蹤 ${rows.length} 團，餘位/價格有變動會 LINE 通知`);
+    toast(allOn ? `已取消追蹤 ${rows.length} 團` : `已追蹤 ${rows.length} 團（預設餘位≤3時 LINE 通知，門檻可到「追蹤」清單調整）`);
   } catch (e) { toast('儲存失敗：' + e.message); }
 };
 $('follow-close').onclick = () => $('follow-modal').classList.add('hidden');
@@ -2274,10 +2275,10 @@ $('follow-list-btn').onclick = async () => {
     for (const x of all) { const k = followKey(x.r); if (!cur.has(k)) cur.set(k, x); }
     const items = keys.map(k => ({ k, fw: FOLLOWS[k], now: cur.get(k) || null }))
       .sort((a, b) => (a.fw.dt || '').localeCompare(b.fw.dt || ''));
-    body.innerHTML = `<div class="text-xs m3 mb-3">追蹤的團在每小時同步後自動比對：餘位剩 3 以內、滿團後空出位子、價格變動都會 LINE 通知（沒綁 LINE 的發到群組）。出發後自動取消追蹤。</div>
+    body.innerHTML = `<div class="text-xs m3 mb-3">⏱ <b>約每小時檢查一次、非即時</b>。餘位掉到你設的門檻內、滿團後空出位子、價格變動都會 LINE 通知（沒綁 LINE 的發到群組）。出發後自動取消追蹤。<br>門檻可每團自訂：大單客人要 8 位，就設「餘位 ≤ 10 通知」提早收網。</div>
       <div class="overflow-x-auto"><table class="w-full text-xs">
       <thead class="m3"><tr class="text-left"><th class="py-1">出發日</th><th class="px-2">產品</th><th class="px-2">團號</th>
-        <th class="px-2 text-right">團費</th><th class="px-2 text-right">餘位</th><th class="px-2"></th></tr></thead>
+        <th class="px-2 text-right">團費</th><th class="px-2 text-right">餘位</th><th class="px-2 whitespace-nowrap">餘位≤多少通知</th><th class="px-2"></th></tr></thead>
       <tbody>${items.map((x, i) => {
         const r = x.now && x.now.r;
         const prCh = r && x.fw.pr != null && r.pr !== x.fw.pr;
@@ -2292,6 +2293,7 @@ $('follow-list-btn').onclick = async () => {
           <td class="px-2 whitespace-nowrap"><span class="code">${esc(x.fw.c)}</span></td>
           <td class="px-2 text-right whitespace-nowrap ${prCh ? 'text-amber-400 font-bold' : 'price'}">${r ? fmt$(r.pr) : '--'}${prCh ? `<br><span class="m4 text-[.65rem] font-normal">追蹤時 ${fmt$(x.fw.pr)}</span>` : ''}</td>
           <td class="px-2 text-right whitespace-nowrap ${rmCh ? 'font-bold' : ''}">${seat}${rmCh ? `<br><span class="m4 text-[.65rem] font-normal">追蹤時 ${x.fw.r <= 0 ? '滿' : '餘' + x.fw.r}</span>` : ''}</td>
+          <td class="px-2 whitespace-nowrap">≤ <input type="number" min="1" max="99" value="${Math.max(1, Number(x.fw.thr) || 3)}" data-k="${esc(x.k)}" class="fw-thr input-style w-12 text-center py-0.5"> 位</td>
           <td class="px-2 whitespace-nowrap text-right">
             ${x.now ? `<button class="fw-go text-blue-400 hover:underline mr-2" data-i="${i}">前往</button>` : ''}
             <button class="fw-del m3 hover:text-red-400" data-k="${esc(x.k)}">取消</button></td>
@@ -2304,6 +2306,15 @@ $('follow-list-btn').onclick = async () => {
     body.querySelectorAll('.fw-del').forEach(b => b.onclick = async () => {
       delete FOLLOWS[b.dataset.k];
       try { await saveFollows(); updateFollowBadge(); updateFollowBtn(); $('follow-list-btn').onclick(); }
+      catch (e) { toast('儲存失敗：' + e.message); }
+    });
+    // 每團的餘位通知門檻：改了直接存。改完若餘位已在門檻內，後端下一輪會補一則「門檻調整確認通知」
+    body.querySelectorAll('.fw-thr').forEach(inp => inp.onchange = async () => {
+      const v = Math.max(1, Math.min(99, parseInt(inp.value) || 3));
+      inp.value = v;
+      if (!FOLLOWS[inp.dataset.k]) return;
+      FOLLOWS[inp.dataset.k].thr = v;
+      try { await saveFollows(); toast(`門檻已改為 餘位 ≤ ${v} 通知（下次整點同步生效）`); }
       catch (e) { toast('儲存失敗：' + e.message); }
     });
   } catch (e) { body.innerHTML = '<div class="m3">讀取失敗：' + esc(e.message) + '</div>'; }
