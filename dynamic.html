@@ -611,11 +611,14 @@ async function loadFile() {
   });
 
   // 地區選單：分區標題行＋縮排的子路線（照原文順序，自動生成零維護）
-  const subName = t => (t.match(/■\s*([一-鿿Ａ-Ｚａ-ｚ０-９\s　]{1,10})[：:]/) || [])[1]?.replace(/[\s　]/g, '') || '';
+  // 子路線名：抓 ■ 到冒號之間的字再清空白（Codex 審查：字元集含半形英數、長度放寬到 20，
+  //   「■ 九州A區：」這種混半形的名字才不會漏）
+  const subName = t => ((t.match(/■\s*([^：:]{1,20})[：:]/) || [])[1] || '')
+    .replace(/[\s　]/g, '').replace(/[■▆▂▄*＊"]/g, '');
   const opts = [];
   for (const l of LINES) {
     if (l.isSec && l.text.replace(/[■▆▂▄*＊\s　"]/g, '')) opts.push({ i: l.i, label: l.text.replace(/[■▆▂▄*＊\s　"]/g, ''), sub: false });
-    else if (l.isSub && subName(l.text)) opts.push({ i: l.i, label: subName(l.text), sub: true });
+    else if (l.isSub) { const n = subName(l.text); if (n) opts.push({ i: l.i, label: n, sub: true }); }
   }
   $('f-region').innerHTML = '<option value="">全部地區</option>' + opts.map(o =>
     `<option value="${o.i}">${o.sub ? '　└ ' : ''}${esc(o.label)}</option>`).join('');
@@ -951,12 +954,15 @@ function groupBlock(g, multi) {
 //    提示「這班飛機還能賣桂林/貴州…」，點了跳到那一列。各目的地餘位是各自的配額（實測數字不同），
 //    所以顯示「桂林 餘39」語義正確。跳轉用列編號（data-i）不用名字找，名字重複也不會跳錯。
 function sameFlightBlock(rows) {
-  const byCode = new Map(rows.map(r => [r.c, r]));
+  // 同團號可能被選了不只一列（張家界+貴州都選）→ 記「每個團號已選的所有產品」，
+  //   已選到的目的地不要再列進「亦可賣」（Codex 審查 2026-09-04 抓到 Map 只留最後一筆的洞）
+  const selByCode = new Map();
+  for (const r of rows) { if (!selByCode.has(r.c)) selByCode.set(r.c, new Set()); selByCode.get(r.c).add(r.p || ''); }
   const out = [], seen = new Set();
   for (const l of LINES) {
     const r = l.row; if (!r) continue;
-    const sel = byCode.get(r.c); if (!sel) continue;
-    if ((r.p || '') === (sel.p || '')) continue;          // 同產品＝同一列或延續行，不列
+    const sel = selByCode.get(r.c); if (!sel) continue;
+    if (sel.has(r.p || '')) continue;                     // 已選到的產品（含同列延續行）不列
     const k = r.c + '|' + (r.p || ''); if (seen.has(k)) continue; seen.add(k);
     out.push({ i: l.i, p: r.p, rm: r.r });
   }
@@ -971,7 +977,11 @@ function jumpToLine(i) {
   if (!el) return toast('那一列目前被篩選條件藏住了');
   const top = box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3;
   box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+  // 連點兩次同一列：先清舊動畫和舊 timer，強制 reflow 再閃，第二次才閃得完整
+  el.classList.remove('flash'); void el.offsetWidth;
+  clearTimeout(el._flashT);
+  el.classList.add('flash');
+  el._flashT = setTimeout(() => el.classList.remove('flash'), 1400);
 }
 
 function showDetail() {
@@ -1708,7 +1718,7 @@ $('convert-btn').onclick = async () => {
         if (pv.length) longUrl += `&pv=${encodeURIComponent(pv.join(','))}`;   // 切團型後的覆蓋價（團號:價格）
         // 產品名帶去客人頁當標題（「桂林 出發日期」）——一機多用的同團號在客人端只有一筆資料，
         //   可能是另一個目的地的；帶名字至少讓客人頁講清楚賣的是哪裡（2026-09-04 會診定案，僅顯示用）
-        const pset = [...prods].filter(Boolean);
+        const pset = [...new Set([...prods].map(p => String(p || '').trim()).filter(Boolean))];   // 去空白再判唯一（Codex 審查）
         if (pset.length === 1) longUrl += `&dest=${encodeURIComponent(pset[0])}`;
         if (!dshow.r) longUrl += `&remain=0`;   // 客人頁餘位顯示跟「剩餘名額」欄一致
         const res = await fetch(`${ITIN_BASE}/api/shorten`, {
