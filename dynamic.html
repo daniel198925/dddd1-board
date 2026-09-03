@@ -89,7 +89,7 @@
   .hl-tour.sel.seat-full { opacity:1; }                                 /* 選到了就別再半透明，看不清楚 */
   /* 地區跳位後閃一下，讓眼睛知道停在哪一區 */
   @keyframes secflash { 0%,100% { filter:none; } 30%,70% { filter:brightness(1.9); } }
-  .hl-sec.flash { animation: secflash 1.4s ease-in-out; }
+  .hl.flash { animation: secflash 1.4s ease-in-out; }   /* 分區標題、團列、子區塊列都可閃 */
   .hl-tour .code { color:var(--code-fg); background:var(--code-bg); border-radius:.2rem; }
   .hl-tour.sel .code { color:var(--sel-fg); background:var(--sel-code-bg); }
   .hl-tour .promo { color:var(--promo); }
@@ -604,13 +604,21 @@ async function loadFile() {
     const text = t0.replace(/\r$/, '').trimEnd();
     const row = rowByRaw.get(text) || null;
     const isSec = secRe.test(text) && !headerRe.test(text) && !/★/.test(text);
-    return { i, text, row, isSec };
+    // 一機多用的子區塊標題（「■ 桂 林：八天 定* 備註…」＝分區與表頭合寫一行）：
+    //   有 備註/人數 所以不算 isSec，另外標成 isSub，跳位選單裡當縮排的子選項（2026-09-04 會診定案）
+    const isSub = !isSec && !row && /^[\s"]*■(?![■*＊])/.test(text) && headerRe.test(text) && /人數/.test(text);
+    return { i, text, row, isSec, isSub };
   });
 
-  // 地區選單：分區標題行
-  const secs = LINES.filter(l => l.isSec && l.text.replace(/[■▆▂▄*＊\s　"]/g, ''));
-  $('f-region').innerHTML = '<option value="">全部地區</option>' + secs.map(l =>
-    `<option value="${l.i}">${esc(l.text.replace(/[■▆▂▄*＊\s　"]/g, ''))}</option>`).join('');
+  // 地區選單：分區標題行＋縮排的子路線（照原文順序，自動生成零維護）
+  const subName = t => (t.match(/■\s*([一-鿿Ａ-Ｚａ-ｚ０-９\s　]{1,10})[：:]/) || [])[1]?.replace(/[\s　]/g, '') || '';
+  const opts = [];
+  for (const l of LINES) {
+    if (l.isSec && l.text.replace(/[■▆▂▄*＊\s　"]/g, '')) opts.push({ i: l.i, label: l.text.replace(/[■▆▂▄*＊\s　"]/g, ''), sub: false });
+    else if (l.isSub && subName(l.text)) opts.push({ i: l.i, label: subName(l.text), sub: true });
+  }
+  $('f-region').innerHTML = '<option value="">全部地區</option>' + opts.map(o =>
+    `<option value="${o.i}">${o.sub ? '　└ ' : ''}${esc(o.label)}</option>`).join('');
   $('f-region-clear').classList.add('hidden');   // 換檔＝地區重來（選單重建，值已回全部地區）
 
   SELLINES = []; ANCHOR = -1; SELBASE = []; SHAREDFILE = null; CHOSENFILES = {};   // 換檔＝全新報價，行程重來
@@ -701,7 +709,8 @@ function render() {
       //   ① 這一區還有團 ② 有中文（純裝飾線 ▆▆▆／====／■(50+47)■ 丟掉）
       //   ③ ⚠ 不是團號列——解析失敗的團 l.row 會是空的，不擋的話「被篩掉的團」會從這裡漏回畫面
       if (filtering && (!secHasRow.has(secOf.get(l.i)) || !/[一-鿿]/.test(l.text) || CODE_LINE.test(l.text))) continue;
-      out.push(`<div class="hl m2">${esc(l.text) || ' '}</div>`);
+      // 子區塊標題行帶 data-i：地區選單的縮排子選項要能跳到這裡
+      out.push(`<div class="hl m2"${l.isSub ? ` data-i="${l.i}"` : ''}>${esc(l.text) || ' '}</div>`);
     }
   }
   $('raw-view').innerHTML = out.join('') || '<div class="m3 p-6">沒有符合條件的團</div>';
@@ -937,6 +946,34 @@ function groupBlock(g, multi) {
   return parts.join('');
 }
 
+// ── 一機多用：同班機（同團號）在其他目的地子區塊的列（2026-09-04 會診定案）──
+//    漢書把同一班機的機位分列在各目的地子區塊，各記各的報名餘位。業務選了張家界那列時，
+//    提示「這班飛機還能賣桂林/貴州…」，點了跳到那一列。各目的地餘位是各自的配額（實測數字不同），
+//    所以顯示「桂林 餘39」語義正確。跳轉用列編號（data-i）不用名字找，名字重複也不會跳錯。
+function sameFlightBlock(rows) {
+  const byCode = new Map(rows.map(r => [r.c, r]));
+  const out = [], seen = new Set();
+  for (const l of LINES) {
+    const r = l.row; if (!r) continue;
+    const sel = byCode.get(r.c); if (!sel) continue;
+    if ((r.p || '') === (sel.p || '')) continue;          // 同產品＝同一列或延續行，不列
+    const k = r.c + '|' + (r.p || ''); if (seen.has(k)) continue; seen.add(k);
+    out.push({ i: l.i, p: r.p, rm: r.r });
+  }
+  if (!out.length) return '';
+  const chip = o => `<button class="sf-jump chip surface2 m2 hover:price transition text-[.65rem]" data-i="${o.i}">${esc(o.p || '?')}${typeof o.rm === 'number' ? (o.rm > 0 ? '　餘' + o.rm : '　已滿') : ''}</button>`;
+  return `<div class="pt-1.5 mt-1 border-t bd2"><div class="text-[.65rem] m3 mb-1"><i class="fa-solid fa-plane-up mr-1"></i>同班機亦可賣（點了跳過去）</div><div class="flex flex-wrap gap-1">${out.map(chip).join('')}</div></div>`;
+}
+// 跳到某一列並閃一下（被篩選藏住就提示）
+function jumpToLine(i) {
+  const box = $('raw-view');
+  const el = box.querySelector(`[data-i="${i}"]`);
+  if (!el) return toast('那一列目前被篩選條件藏住了');
+  const top = box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3;
+  box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+}
+
 function showDetail() {
   const rows = selRows();
   if (!rows.length) { hideCard(); return; }
@@ -952,12 +989,18 @@ function showDetail() {
   $('detail-count').textContent = `（共 ${rows.length} 筆${groups.length < rows.length ? '／' + groups.length + ' 種' : ''}）`;
   const multi = groups.length > 1;
   $('detail-body').innerHTML =
-    groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g, multi)}</div>`).join('<div class="border-t-2 bd mb-3"></div>');
+    groups.map(g => `<div class="mb-3 pb-1">${groupBlock(g, multi)}</div>`).join('<div class="border-t-2 bd mb-3"></div>') +
+    sameFlightBlock(rows);
   updateSharedFile();
   // 團型下拉：選了就記住並重畫（只影響畫面，不會動到漢書資料）
   $('detail-body').querySelectorAll('.tt-pick').forEach(sel => {
     sel.onchange = () => { TTPICK[sel.dataset.gk] = sel.value; showDetail(); };
     sel.onpointerdown = e => e.stopPropagation();
+  });
+  // 同班機其他目的地：點了跳到那一列
+  $('detail-body').querySelectorAll('.sf-jump').forEach(btn => {
+    btn.onpointerdown = e => e.stopPropagation();
+    btn.onclick = e => { e.stopPropagation(); jumpToLine(+btn.dataset.i); };
   });
   // 各組的行程檔案：選 / 移除
   $('detail-body').querySelectorAll('.gfile-pick').forEach(btn => {
@@ -1634,8 +1677,9 @@ $('convert-btn').onclick = async () => {
   for (const r of rows) {
     const f = effFile(groupKey(r));
     if (!f) { noFile.push(r); continue; }
-    if (!byFile.has(f.id)) byFile.set(f.id, { file: f, codes: [], pv: [] });
+    if (!byFile.has(f.id)) byFile.set(f.id, { file: f, codes: [], pv: [], prods: new Set() });
     byFile.get(f.id).codes.push(r.c);
+    byFile.get(f.id).prods.add(r.p || '');
     // 業務切了團型 → 客人頁的價格要跟著切換後的價（使用者 2026-07-30 回報：切尊爵，客人頁還是顯示原團型價）。
     //   客人頁的班期價來自 NAS travel_bot 那條線，不知道動態系統的團型切換，所以把覆蓋價帶在網址上。
     const pv = priceOfRow(r);
@@ -1653,7 +1697,7 @@ $('convert-btn').onclick = async () => {
     await copyText(async () => {
       const idToken = await auth.currentUser.getIdToken();
       const links = {};
-      for (const { file, codes, pv } of byFile.values()) {
+      for (const { file, codes, pv, prods } of byFile.values()) {
         let longUrl = `${ITIN_BASE}/?id=${file.id}&n=${encodeURIComponent(AGENT.name)}`;
         if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
         if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
@@ -1662,6 +1706,10 @@ $('convert-btn').onclick = async () => {
         if (AGENT.lg && AGENT.lgpw) longUrl += `&lgpw=${encodeURIComponent(AGENT.lgpw)}`;   // 有社群才帶密碼
         longUrl += `&codes=${encodeURIComponent(codes.join(','))}`;   // 這份行程涵蓋的所有團號
         if (pv.length) longUrl += `&pv=${encodeURIComponent(pv.join(','))}`;   // 切團型後的覆蓋價（團號:價格）
+        // 產品名帶去客人頁當標題（「桂林 出發日期」）——一機多用的同團號在客人端只有一筆資料，
+        //   可能是另一個目的地的；帶名字至少讓客人頁講清楚賣的是哪裡（2026-09-04 會診定案，僅顯示用）
+        const pset = [...prods].filter(Boolean);
+        if (pset.length === 1) longUrl += `&dest=${encodeURIComponent(pset[0])}`;
         if (!dshow.r) longUrl += `&remain=0`;   // 客人頁餘位顯示跟「剩餘名額」欄一致
         const res = await fetch(`${ITIN_BASE}/api/shorten`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1702,7 +1750,7 @@ function scrollToRegion() {
   $('f-region-clear').classList.toggle('hidden', v === '');
   const box = $('raw-view');
   if (v === '') return box.scrollTo({ top: 0, behavior: 'smooth' });
-  const el = box.querySelector(`.hl-sec[data-i="${v}"]`);
+  const el = box.querySelector(`[data-i="${v}"]`);   // 分區標題或子區塊標題（縮排子選項）都找得到
   // 篩選（促銷/有位/日期/搜尋）可能把整區收起來 → 這區現在畫面上不存在
   if (!el) return toast('這個地區目前被篩選條件擋掉了');
   // 用 rect 差值算捲動距離，不靠 offsetTop（raw-view 沒設 position，offsetParent 會跑掉）
