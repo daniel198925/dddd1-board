@@ -109,6 +109,9 @@
   #detail-head { touch-action: none; }
 
   /* 快速篩選按鈕：關閉＝一般外框，開啟＝亮起來 */
+  /* 門檻輸入框：拿掉數字調節箭頭，兩位數才放得下（使用者 2026-09-05：只看得到個位數） */
+  .fw-thr::-webkit-outer-spin-button, .fw-thr::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .fw-thr { -moz-appearance: textfield; appearance: textfield; }
   .filter-btn { cursor: pointer; font-weight: 700; }
   .filter-btn.on { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
   [data-theme="light"] .filter-btn.on { background: #2563eb; border-color: #2563eb; color: #fff; }
@@ -2301,7 +2304,7 @@ $('follow-list-btn').onclick = async () => {
           <td class="px-2 whitespace-nowrap"><span class="code">${esc(x.fw.c)}</span></td>
           <td class="px-2 text-right whitespace-nowrap ${prCh ? 'text-amber-400 font-bold' : 'price'}">${r ? fmt$(r.pr) : '--'}${prCh ? `<br><span class="m4 text-[.65rem] font-normal">追蹤時 ${fmt$(x.fw.pr)}</span>` : ''}</td>
           <td class="px-2 text-right whitespace-nowrap ${rmCh ? 'font-bold' : ''}">${seat}${rmCh ? `<br><span class="m4 text-[.65rem] font-normal">追蹤時 ${x.fw.r <= 0 ? '滿' : '餘' + x.fw.r}</span>` : ''}</td>
-          <td class="px-2 whitespace-nowrap">≤ <input type="number" min="1" max="99" value="${Math.max(1, Number(x.fw.thr) || 3)}" data-k="${esc(x.k)}" class="fw-thr input-style w-12 text-center py-0.5"> 位</td>
+          <td class="px-2 whitespace-nowrap">≤ <input type="number" min="1" max="99" inputmode="numeric" value="${Math.max(1, Number(x.fw.thr) || 3)}" data-k="${esc(x.k)}" class="fw-thr input-style w-16 text-center py-0.5"> 位</td>
           <td class="px-2 whitespace-nowrap text-right">
             ${x.now ? `<button class="fw-go text-blue-400 hover:underline mr-2" data-i="${i}">前往</button>` : ''}
             <button class="fw-del m3 hover:text-red-400" data-k="${esc(x.k)}">取消</button></td>
