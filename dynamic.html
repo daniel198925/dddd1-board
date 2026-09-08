@@ -105,6 +105,17 @@
     .hl { padding:.15rem .5rem; }           /* 行距拉開，手指好點 */
     .mobile-hide { display:none !important; }
   }
+  /* ── 手機頂欄收合 v2（2026-09-08 三方會診共識）──
+     頂欄「浮」在捲動區上方（absolute），捲動區用 padding-top 補位。
+     這樣 JS 收合時只動頂欄這一小塊，完全不碰正在被 iOS 合成器捲動的 raw-view——
+     v1 就是 transform 動到捲動容器本身才會頓。
+     斷點用 639px 跟 JS 的 matchMedia 一致（原本 CSS 640/JS 639 差 1px 會兩邊認知不同）。 */
+  @media (max-width: 639px) {
+    #main-page { position: relative; height: 100dvh; }  /* 舊 Safari 不認 dvh 會自動退回 h-screen 的 100vh */
+    #main-hdr  { position: absolute; top: 0; left: 0; right: 0; z-index: 40; will-change: transform; }
+    #raw-view  { padding-top: calc(var(--hdr-h, 0px) + .5rem); }  /* 蓋過 py-2，幫浮起的頂欄補位 */
+  }
+
   /* 手指拖曳時不要讓瀏覽器把它當成捲動 */
   #detail-head { touch-action: none; }
 
@@ -780,57 +791,76 @@ const selRows = () => SELLINES.map(i => LINES[i]?.row).filter(Boolean);
   view.addEventListener('scroll',     () => { tip.classList.add('hidden'); lastI = -1; });
 })();
 
-// ── 手機：頂欄跟著手指收合（使用者 2026-09-01：要像瀏覽器網址列那樣「滑多少收多少」）──
-//    往下滑：頂欄和表格一起往上位移「你滑了多少」——完全跟手，滑得快收得快。
-//    收滿的那一瞬間才真正把頂欄抽離版面（一次重排，表格頂端剛好無縫接上）。
-//    停在半路：120ms 沒動就自動靠攏（收一半以上→收滿，不到一半→彈回）。
-//    收滿之後往上滑「不會」跑出來（使用者前次要求）——回到頂端（<40px）或按 ↑ 才展開。
-//    一律用 transform 位移（GPU 不重排），max-height 那種每格重排幾千行的做法會卡（前次教訓）。
+// ── 手機：頂欄收合 v2（2026-09-08 三方會診共識，取代 v1）──
+//    v1 的病根：transform 動到「正在被 iOS 合成器捲動的 raw-view」＋收滿時 display:none 整頁重排，
+//    參數怎麼調都頓。v2：頂欄浮在捲動區上方（CSS absolute＋padding-top 補位），
+//    JS 從頭到尾只動頂欄——scroll 事件只記數字，rAF 每幀套一次位移（會診共識：不用 lerp，
+//    lerp 手停了頭還在漂）；收滿＝位移出畫面＋visibility hidden（零重排）。
+//    規則照舊：往下滑跟手收、回頂端(<40px)展開、收滿後上滑不彈出。
+//    靠攏用 scrollend（新 Safari）＋計時器保底；snap 期間鎖住，捲動事件不打斷動畫（v1 的具體 bug）。
 (() => {
-  const hdr = $('main-hdr'), view = $('raw-view'), top = $('to-top');
+  const hdr = $('main-hdr'), page = $('main-page'), view = $('raw-view'), top = $('to-top');
   const mq = matchMedia('(max-width: 639px)');
-  let lastY = 0, off = 0, H = 0, hidden = false, animating = false, snapTimer = 0;
-  const setT = v => { hdr.style.transform = view.style.transform = v ? `translateY(-${v}px)` : ''; };
-  const trans = ms => { hdr.style.transition = view.style.transition = ms ? `transform ${ms}ms ease` : ''; };
-  function collapseNow() {                     // off 已到 H：抽離版面，頂端無縫接上
-    hidden = true; off = 0; trans(0); hdr.style.display = 'none'; setT(0);
+  let H = 0, off = 0, target = 0, lastY = 0, hidden = false, snapping = false, raf = 0, endTimer = 0;
+
+  // 頂欄實際高度 → CSS 變數（篩選列換行、轉橫向都會自動跟上，不寫死 120px）
+  const setH = () => { H = hdr.offsetHeight; page.style.setProperty('--hdr-h', H + 'px'); };
+  new ResizeObserver(() => { if (mq.matches) setH(); }).observe(hdr);
+
+  const apply = () => {                        // 一幀最多套一次（rAF 合併）
+    raf = 0;
+    if (off === target) return;
+    off = target;
+    hdr.style.transform = off ? `translateY(${-off}px)` : '';
+    hidden = off >= H;
+    hdr.style.visibility = hidden ? 'hidden' : '';
+  };
+  const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
+
+  function snapTo(v) {                         // 停下來了：150ms 靠攏到最近的一邊
+    if (snapping || off === v) return;
+    snapping = true; target = v;
+    hdr.style.transition = 'transform 150ms ease';
+    hdr.style.transform = v ? `translateY(${-v}px)` : '';
+    setTimeout(() => {
+      hdr.style.transition = ''; off = v; hidden = v >= H;
+      hdr.style.visibility = hidden ? 'hidden' : ''; snapping = false;
+    }, 160);
   }
-  function openAnimated() {                    // 回到頂端：整塊滑回來
-    if (animating) return; animating = true; hidden = false;
-    hdr.style.display = '';
-    H = hdr.offsetHeight; off = 0;
-    setT(H);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      trans(200); setT(0);
-      setTimeout(() => { trans(0); animating = false; }, 210);
-    }));
-  }
-  function snap() {                            // 手指停了：靠攏到最近的一邊
-    if (hidden || animating || !off) return;
-    trans(150);
-    if (off > H / 2) { setT(H); setTimeout(collapseNow, 160); }
-    else { off = 0; setT(0); setTimeout(() => trans(0), 160); }
-  }
+  const settle = () => { if (mq.matches && !snapping && off > 0 && off < H) snapTo(off > H / 2 ? H : 0); };
+
   view.addEventListener('scroll', () => {
     const y = view.scrollTop;
     top.classList.toggle('hidden', y < 300);   // 捲下去一段才出現 ↑
     if (!mq.matches) { lastY = y; return; }    // 桌機頂欄固定不收
+    // iOS 橡皮筋防護：頂端負值／底部超界的假位移一律忽略（會診共識）
+    const max = view.scrollHeight - view.clientHeight;
+    if (y < 0 || y > max) { lastY = Math.max(0, Math.min(max, y)); return; }
     const d = y - lastY; lastY = y;
-    if (animating) return;
-    if (hidden) { if (y < 40) openAnimated(); return; }
-    if (y < 40) { if (off) { off = 0; trans(0); setT(0); } return; }   // 頂端附近一律全開
+    if (snapping) return;                      // 靠攏動畫中不打斷（v1 沒鎖，是頓的來源之一）
+    if (y < 40) {                              // 頂端附近一律全開
+      if (off || hidden) { target = 0; hidden = false; hdr.style.visibility = ''; schedule(); }
+      return;
+    }
+    if (hidden) return;                        // 收滿後上滑不彈出（回頂端才開，使用者規則）
     if (!off && d <= 0) return;                // 全開時往上捲：維持不動
-    if (!off) H = hdr.offsetHeight;            // 這次收合開始：量目前頂欄高度
-    off = Math.max(0, Math.min(H, off + d));   // 跟著滑動量走（往回滑會跟著吐回來）
-    trans(0); setT(off);
-    if (off >= H) { collapseNow(); return; }
-    clearTimeout(snapTimer); snapTimer = setTimeout(snap, 120);
+    if (!H) setH();
+    target = Math.max(0, Math.min(H, target + d));   // 滑多少收多少（跟手）
+    schedule();
+    clearTimeout(endTimer); endTimer = setTimeout(settle, 160);   // scrollend 不支援時的保底
   }, { passive: true });
-  // 轉橫向/放大視窗變回桌機寬度時，把收起的頂欄還原
-  mq.addEventListener?.('change', e => { if (!e.matches) { hdr.style.display = ''; setT(0); trans(0); hidden = false; off = 0; } });
+  if ('onscrollend' in view) view.addEventListener('scrollend', settle);
+
+  // 手機↔桌機切換：全部復原
+  mq.addEventListener?.('change', () => {
+    clearTimeout(endTimer);
+    hdr.style.transform = ''; hdr.style.transition = ''; hdr.style.visibility = '';
+    off = target = 0; hidden = false; snapping = false;
+    if (mq.matches) setH(); else page.style.removeProperty('--hdr-h');
+  });
+  if (mq.matches) setH();
   top.onclick = () => view.scrollTo({ top: 0, behavior: 'smooth' });
 })();
-
 // ── 明細卡欄位設定（照舊系統：預設只顯示團費/航空/出發日/天數，其他用「顯示欄位」勾）──
 // 只留這四個（使用者 2026-07-19：其他欄位用不到）
 const DFIELDS = [
