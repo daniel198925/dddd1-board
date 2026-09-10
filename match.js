@@ -35,18 +35,22 @@ function findLineFolder(tree, lineName) {
   const alias = LINE_FOLDER_ALIAS[lineName];             // 郵輪：可能是巢狀子夾，遞迴找
   if (alias) { const f = findFolderDeep(tree, alias); if (f) return f; }
   const ln = lineName.replace(/\s/g, '');
-  const hit = (tree.children || []).find(c => clean(c.name) === ln)
-    || (tree.children || []).find(c => clean(c.name).includes(ln))
-    || (tree.children || []).find(c => c.name.includes(lineName));
-  if (hit) return hit;
-  // 過渡（2026-09-10 漢書大搬檔）：新線「大陸C」的產品（哈爾濱/北京/內蒙/西安/九寨溝/西藏/絲路/南北疆）
-  //   是從大陸A、大陸B 分出來的，雲端還沒有 04.大陸C 資料夾（產品部整理中）。
-  //   在那之前用「大陸A＋大陸B 合併」當虛擬資料夾搜；等正式資料夾建好，上面的精確比對會先中，這段自動退役。
+  const exact = (tree.children || []).find(c => clean(c.name) === ln);
+  if (exact) return exact;
+  // 過渡（2026-09-10 漢書大搬檔）：新線「大陸C」還沒有正式雲端資料夾（產品部整理中），
+  //   先用「大陸A＋大陸B 合併」當虛擬資料夾搜（產品本來就從那兩夾分出來）。
+  //   ⚠ 大陸C 只認「精確」資料夾名（上面的 exact）——「04.大陸C(更新中)」這種半成品
+  //     若被下面的模糊比對搶走，330 團會配到還沒放行程的空夾（會診抓出的隱患）。
+  //   ⚠ A、B 兩夾要都在才合併；缺一邊寧可回報找不到，也不悄悄只搜半邊。
+  //   等正式「04.大陸C」建好，exact 先中，這段自動退役。
   if (ln === '大陸C') {
     const kids = (tree.children || []).filter(c => /大陸[AB]$/.test(clean(c.name)));
-    if (kids.length) return { name: '大陸A＋大陸B（大陸C 資料夾建好前暫用）', children: kids, files: [] };
+    if (kids.length === 2) return { name: '大陸A＋大陸B（大陸C 資料夾建好前暫用）', children: kids, files: [] };
+    return null;
   }
-  return null;
+  return (tree.children || []).find(c => clean(c.name).includes(ln))
+    || (tree.children || []).find(c => c.name.includes(lineName))
+    || null;
 }
 // 掃這個資料夾下所有 PDF，回傳「最相符」那幾個的 id（分數夠高才標，避免亂標）
 // 雜項過濾（讓畫面像舊系統一樣清爽，只留正式行程）——保守：只藏最明確的
