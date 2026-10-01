@@ -89,6 +89,10 @@ const nz = s => (s || '').replace(/＋/g, '+').replace(/／/g, '/').replace(/　
 const half = s => (s || '').replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).trim();
 // 團型名正規化：去掉「無購物」的 Ｎ 尾標（漢書寫「精彩Ｎ／超值Ｎ」，檔名只寫「精彩／超值」＋另寫 NS無購物）。
 //   不去掉的話，精彩Ｎ 對不上檔名「精彩」，同區塊四個團型全同分→我的「同分過多不標」保險害它一個都不標
+// 產品名正規化：漢書子表頭常帶「＝航空／＝天數」尾巴（大阪＝AK、首爾＝7C、東京＝九、北海道＝八），
+//   檔名與資料夾不會寫這段 → 不去掉的話產品詞永遠對不到，只剩「檔名含大區詞」的檔能過目的地關卡
+//   （2026-10-01 抽查：大阪＝AK 京阪團的正解「京阪合掌村五日」檔名沒寫大阪被擋，反而星到「大阪櫻花五日」）
+const pNorm = s => nz(s || '').replace(/[＝=].*$/, '').trim();
 const ttNorm = s => nz(s || '').replace(/[ＮN]$/, '');
 function bestMatchIds(folder, t) {
   // 帶著「所在資料夾路徑」一起評分——時段（午/早/晚）常寫在資料夾名（酷航(午晚)），不在檔名
@@ -98,7 +102,7 @@ function bestMatchIds(folder, t) {
     for (const c of n.children || []) if (!isNoiseFolder(c.name)) walk(c, path + '/' + c.name);
   };
   walk(folder, folder.name);
-  const pw = t.p ? nz(t.p) : '', cw = t.ds ? nz(t.ds) : '';
+  const pw = pNorm(t.p), cw = t.ds ? nz(t.ds) : '';
   let best = -1;
   const scored = all.map(x => {
     const fnN = nz(x.f.n), pathN = nz(x.path);
@@ -227,7 +231,7 @@ function scoreFile(t, f, path) {
   // 目的地／路線（最強訊號）：檔名或所在資料夾含這團目的地 → 大加分。
   //   產品線名（雪+墨、美西）比國家名（澳洲）精確 → 權重更高，才能跟隔壁同國團分清楚。
   //   否則「國家公園」「精彩」這種主題字會跨國亂配（美西 vs 紐西蘭都叫國家公園）
-  const pw = t.p ? nz(t.p) : '', cw = t.ds ? nz(t.ds) : '';
+  const pw = pNorm(t.p), cw = t.ds ? nz(t.ds) : '';
   if (pw && hay.includes(pw)) s += 14;
   else if (cw && hay.includes(cw)) s += 10;
   // 航班選項代號（北疆/南疆等一個團型多條航線）：漢書團號前綴 ２/大 ↔ 行程檔名開頭 (２)/(大)。
@@ -288,7 +292,7 @@ function scoreFile(t, f, path) {
   return s;
 }
 
-const MATCH = { nz, half, ttNorm, dayCN, inFilePeriod, isNoiseFolder, isNoiseFile, fKind, fBase, itinFiles,
+const MATCH = { nz, half, pNorm, ttNorm, dayCN, inFilePeriod, isNoiseFolder, isNoiseFile, fKind, fBase, itinFiles,
   TT_ALIAS, LINE_FOLDER_ALIAS, findFolderDeep, findLineFolder, AL_SHORT, AMBIG_AIRLINE, alCodeRe, airlineConflict, fileDeps, depConflict, scoreFile, bestMatchIds };
 Object.assign(g, MATCH);
 if (typeof module !== 'undefined' && module.exports) module.exports = MATCH;
