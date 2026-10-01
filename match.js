@@ -115,8 +115,11 @@ function bestMatchIds(folder, t) {
     //   產品詞(p)仍可用路徑過關（西葡的檔名只寫西班牙葡萄牙，靠「15.西葡」資料夾名才對得上）。
     const ph = !!(pw && (fnS.includes(pw) || pathS.includes(pw)));
     const dh = (!pw && !cw) ? true : !!(ph || (cw && fnS.includes(cw)));
-    const alBad = airlineConflict(t, fnN, pathN) || depConflict(t, fnN, pathN);   // 標了別家航空／別的出發地＝不能配（硬條件）
-    return { id: x.f.id, sc, dh, ph, dy: dayHit(t, x.f.n), ch: !!(cw && (fnS.includes(cw) || pathS.includes(cw))), alBad };
+    const per = periodInfo(x.f.n, t.dt);
+    const alBad = airlineConflict(t, fnN, pathN) || depConflict(t, fnN, pathN)   // 標了別家航空／別的出發地＝不能配（硬條件）
+      || (per && per.hard && !per.ok)                                            // 限定日／寫了年份的期間不含出發日＝不能配
+      || (isLCC(t) && /正航/.test(fnN + '/' + pathN));                           // 廉航團不配「正航」（一般航空）的行程
+    return { id: x.f.id, sc, dh, ph, dy: dayHit(t, x.f.n), ch: !!(cw && (fnS.includes(cw) || pathS.includes(cw))), pp: !!(pw && pathS.includes(pw)), zh: /正航/.test(fnN + '/' + pathN), alBad };
   });
   // 子路線（2026-10-01 實測：米蘭機位拉去「瑞士」的團被星到北義／義大利）：
   //   產品詞≠大區詞（瑞士≠米蘭）＝一個機位拉好幾條路線，每支行程檔都寫米蘭，大區詞分不出路線。
@@ -129,15 +132,28 @@ function bestMatchIds(folder, t) {
   //   每道篩選都要「篩完還有夠分(≥18)的檔」才採用，否則退回原狀——產品詞偶爾解析成較粗的字
   //   （峴＋河 團 p=越南、ds=峴港：只留「越南」夾會把真正的「峴港+北越7日」篩掉）
   const ok = s => s.dh && !s.alBad;
-  const narrow = keep => { if (scored.some(s => ok(s) && keep(s) && s.sc >= 18)) for (const s of scored) s.dh = s.dh && keep(s); };
-  if (sub) { narrow(s => s.ph); narrow(s => s.ph && s.dy); }
+  const narrow = keep => { if (!scored.some(s => ok(s) && keep(s) && s.sc >= 18)) return false; for (const s of scored) s.dh = s.dh && keep(s); return true; };
+  if (sub) {
+    if (narrow(s => s.ph)) {
+      narrow(s => s.ph && s.dy);
+      //   ④ 產品寫在資料夾名（16.瑞士15天）的，勝過只在檔名順帶提到（17.德瑞15天 的「德國、瑞士」）——放在天數之後，
+      //     免得行程放在別的資料夾（奧捷 10 日不在奧捷 15 天夾）時被篩掉（2026-10-01 抽查）
+      narrow(s => s.ph && s.dy && s.pp);
+    } else {
+      //   產品詞一個都對不到時退回大區，但天數也要對上，不然米蘭機位的郵輪團會被星到瑞士火車 15 日（2026-10-01 全量比對）
+      for (const s of scored) s.dh = s.dh && s.dy;
+    }
+  }
   for (const s of scored) if (s.sc > best && ok(s)) best = s.sc;   // 沒過目的地/航空關卡的不參與「最高分」，免得墊高門檻（Codex 審查 #1）
   const ids = new Set();
   // 分數夠高「且最佳檔真的對到目的地、航空也沒衝突」才標
   //   （擋掉靠團型/天數亂配：美西 vs 紐西蘭都叫國家公園；JX 星宇團被配到 AK 亞航八日）
   const tops = best >= 18 ? scored.filter(s => s.sc === best && ok(s)) : [];
-  const preferCh = sub && tops.some(s => s.ch) && tops.some(s => !s.ch);
-  for (const s of tops) if (!preferCh || s.ch) ids.add(s.id);
+  let pool = tops;
+  if (sub && pool.some(s => s.ch) && pool.some(s => !s.ch)) pool = pool.filter(s => s.ch);
+  //   一般航空團同分時：同一行程有「正航」版和廉航版，選正航版（只當決勝，不加分，免得雜項檔跨過門檻）
+  if (!isLCC(t) && pool.some(s => s.zh) && pool.some(s => !s.zh)) pool = pool.filter(s => s.zh);
+  for (const s of pool) ids.add(s.id);
   // 同分太多＝系統其實分不出來（例：團型空白時，精彩/豪華/超值/樹冰…全部同分）。
   //   標一堆星等於沒篩選還誤導業務，不如不標，讓業務自己挑。（使用者 2026-07-21）
   //   以前是「同分太多就一個都不標」，等於業務完全沒線索。改成照樣標出來但打上 tie 記號，
@@ -165,15 +181,66 @@ function depConflict(t, fnN, pathN) {
   const ds = fileDeps(fnN, pathN);
   return ds.length > 0 && !ds.includes(dp);
 }
-function inFilePeriod(nm, dt) {
+// ── 檔名的適用日期（2026-10-01 抽查：7 個人判錯的團有一半是檔名日期看不懂）──
+//   回傳 {ok, hard}：ok＝這團出發日在不在檔名寫的期間；hard＝寫得夠明確（限定日、寫了年份），不符就直接不配。
+//   沒年份的「1025起／~1031／11月起」是季節寫法，用「半年內」判斷才不會跨年判錯（1025起 對 隔年 1 月的團要算符合）。
+//   支援：限1112.15.19.23／限1013.21.1104.12／限過年0204.0206（限定日）
+//         2026.11~2027.03／2026.10.31前／2027.4月後（有年份）
+//         0701~1024／1025起／1024前／~1031（月日）、4-8月／11-3月／11月起（月份）
+const _validMD = x => { const m = Math.floor(x / 100), d = x % 100; return m >= 1 && m <= 12 && d >= 1 && d <= 31; };
+const _dayIdx = md => (Math.floor(md / 100) - 1) * 31 + (md % 100);          // 一年 372 格的近似序號，只拿來比前後
+const _within = (from, to) => ((to - from) % 372 + 372) % 372 < 186;          // from 之後半年內 ＝ to 算在期間裡
+function periodInfo(nm, dt) {
   if (!dt) return null;
-  const md = +dt.slice(5, 7) * 100 + +dt.slice(8, 10);
-  let m = nm.match(/(?<!\d)(\d{2})(\d{2})\s*[~～\-](\d{2})(\d{2})(?!\d)/);
-  if (m) { const s = +m[1] * 100 + +m[2], e = +m[3] * 100 + +m[4]; return s <= e ? (md >= s && md <= e) : (md >= s || md <= e); }
-  if ((m = nm.match(/(\d{2})(\d{2})\s*起/))) return md >= +m[1] * 100 + +m[2];
-  if ((m = nm.match(/(\d{2})(\d{2})\s*前/))) return md <= +m[1] * 100 + +m[2];
+  const n = half(nm);
+  const Y = +dt.slice(0, 4), md = +dt.slice(5, 7) * 100 + +dt.slice(8, 10), ymd = Y * 10000 + md;
+  let m;
+  // 1) 寫了年份：2026.11~2027.03、2026.10.31前、2027.4月後
+  if ((m = n.match(/(20\d{2})[.\/](\d{1,2})(?:[.\/](\d{1,2}))?\s*[~～\-至]\s*(20\d{2})[.\/](\d{1,2})(?:[.\/](\d{1,2}))?/)))
+    return { ok: ymd >= +m[1] * 10000 + +m[2] * 100 + +(m[3] || 1) && ymd <= +m[4] * 10000 + +m[5] * 100 + +(m[6] || 31), hard: true };
+  if ((m = n.match(/(20\d{2})[.\/](\d{1,2})(?:[.\/](\d{1,2}))?\s*月?\s*(以前|前|以後|後|起)/))) {
+    const v = +m[1] * 10000 + +m[2] * 100;
+    return { ok: /前/.test(m[4]) ? ymd <= v + +(m[3] || 31) : ymd >= v + +(m[3] || 1), hard: true };
+  }
+  // 2) 限定日：限1112.15.19.23（一兩碼＝同月的日）、限1025、1101.2.8.9.15、限過年0204.0206；
+  //    沒寫「限」但列了好幾個日期的也算（1029、1105.22）。「限1015-1231」是區間，交給下面
+  //    lim＝檔名有「限」：比一般期間更明確，對上時加分（限0121~0129 要贏過 11月起）
+  const lim = /限定?\s*[._]?\s*(?:過年)?\s*\d|\d{4}\s*(?:過年)?\s*限定/.test(n);   // 「冬季限定」是產品名不是限定日期
+  const TOK = '(?:\\s*[.、,]\\s*(?:\\d{4}|\\d{1,2})(?!\\d))';
+  if ((m = n.match(new RegExp('限定?\\s*(?:過年)?\\s*[._]?\\s*(\\d{4})(?!\\d)(' + TOK + '*)(?!\\s*[~～\\-]\\s*\\d)')))
+      || (m = n.match(new RegExp('(?<![\\d.])(\\d{4})(?!\\d)(' + TOK + '+)(?!\\s*[~～\\-]\\s*\\d)')))) {
+    if (_validMD(+m[1])) {
+      const list = [+m[1]]; let mon = Math.floor(+m[1] / 100);
+      for (const tok of (m[2].match(/\d+/g) || [])) {
+        const v = tok.length === 4 ? +tok : mon * 100 + +tok;
+        if (!_validMD(v)) { mon = -1; break; }
+        list.push(v); mon = Math.floor(v / 100);
+      }
+      if (mon !== -1) return { ok: list.includes(md), hard: true, lim: true };
+    }
+  }
+  // 3) 月日區間 0701~1024（可跨年）；寫了「限」的區間（限0121~0129、0203~0210過年限定）不符就不配
+  if ((m = n.match(/(?<!\d)(\d{2})(\d{2})\s*[~～\-](\d{2})(\d{2})(?!\d)/)) && _validMD(+(m[1] + m[2])) && _validMD(+(m[3] + m[4]))) {
+    const s = +m[1] * 100 + +m[2], e = +m[3] * 100 + +m[4];
+    return { ok: s <= e ? (md >= s && md <= e) : (md >= s || md <= e), hard: lim, lim };
+  }
+  // 4) 月份區間 4-8月、11-3月、限4月-10月
+  if ((m = n.match(/(?<!\d)(\d{1,2})\s*月?\s*[-~～]\s*(\d{1,2})\s*月/)) && +m[1] >= 1 && +m[1] <= 12 && +m[2] >= 1 && +m[2] <= 12) {
+    const s = +m[1], e = +m[2], mo = Math.floor(md / 100);
+    return { ok: s <= e ? (mo >= s && mo <= e) : (mo >= s || mo <= e), hard: false };
+  }
+  // 5) 起／前（季節寫法，半年內算）：1025起、11月起、1024前、~1031
+  if ((m = n.match(/(?<!\d)(\d{2})(\d{2})\s*(?:起|以後|後)/)) && _validMD(+(m[1] + m[2]))) return { ok: _within(_dayIdx(+(m[1] + m[2])), _dayIdx(md)), hard: false };
+  if ((m = n.match(/(?<!\d)(\d{1,2})\s*月\s*(?:起|以後|後)/)) && +m[1] >= 1 && +m[1] <= 12) return { ok: _within(_dayIdx(+m[1] * 100 + 1), _dayIdx(md)), hard: false };
+  if ((m = n.match(/(?<!\d)(\d{2})(\d{2})\s*(?:以前|前)/)) && _validMD(+(m[1] + m[2]))) return { ok: _within(_dayIdx(md), _dayIdx(+(m[1] + m[2]))), hard: false };
+  if ((m = n.match(/[~～]\s*(\d{2})(\d{2})(?!\d)/)) && _validMD(+(m[1] + m[2]))) return { ok: _within(_dayIdx(md), _dayIdx(+(m[1] + m[2]))), hard: false };
   return null;
 }
+function inFilePeriod(nm, dt) { const p = periodInfo(nm, dt); return p ? p.ok : null; }
+// 廉價航空：資料夾／檔名寫「正航」的是一般航空公司版本（2026-10-01 抽查：易斯達團被同時星到「釜山=正航」）
+//   7G 星悅、HB 大灣區、JX 星宇都不是廉航
+const LCC = new Set(['TR', 'IT', 'MM', 'AK', 'FD', 'D7', 'VZ', 'VJ', 'ZE', '7C', 'TW', 'BX', 'LJ', 'UO', 'GK', 'JQ', 'SL']);
+const isLCC = t => LCC.has(half(t.al || '').toUpperCase() || (t.c || '').slice(-8, -6));
 // 天數轉中文（首爾等線檔名寫「五日」不是「5日」）：5→五、10→十、12→十二、15→十五
 const _CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 function dayCN(n) { if (n <= 10) return _CN[n]; if (n < 20) return '十' + _CN[n - 10]; return _CN[Math.floor(n / 10)] + '十' + (n % 10 ? _CN[n % 10] : ''); }
@@ -238,8 +305,9 @@ function scoreFile(t, f, path) {
   //   業務就是照漢書代號命名檔案（(２)…北疆CZ(深圳轉)13天），對得上就是同一條航線，最精準。
   //   使用者 2026-07-21 指出：前面那個數字就是配上方第幾個航班。
   if (t.op) {
-    const om = nm.match(/^\s*[（(]([^)）]{1,3})[)）]/);
-    if (om) s += half(om[1]) === half(t.op) ? 16 : -12;   // 有標代號卻不是這條 → 壓下去
+    const om = nm.match(/^\s*[（(]([^)）]{1,3}|\s*[0-9０-９]{1,2}(?:\s*[、,，]\s*[0-9０-９]{1,2})+\s*)[)）]/);   // (２)／(--)／(1、2、3)
+    //   (1、2、3) 這種是「適用 1、2、3 號航班」→ 包含這團的代號就算對（2026-10-01 抽查：瑞士冬季檔被當成不符）
+    if (om) s += half(om[1]).split(/[、,，\s]+/).filter(Boolean).includes(half(t.op)) ? 16 : -12;   // 有標代號卻不是這條 → 壓下去
   }
   const myTT = ttNorm(t.tt);
   const al = TT_ALIAS[t.tt] || (myTT ? [myTT] : []);
@@ -266,11 +334,18 @@ function scoreFile(t, f, path) {
     const anyTime = /午晚|早午|\([早午晚夜]\)|（[早午晚夜]）/.test(hay);
     if (match) s += 6;
     else if (anyTime) s -= 10;   // 有明確時段卻不是這團的（午班配到早午）→ 壓下
-  } else if (/午晚/.test(hay)) {
+  } else if (/午晚|[（(]午早[)）]|(?:^|\/)[\d.\s]*午[=＝]/.test(hay)) {   // 2026-10-01 抽查補：釜山「4.午=釜山」資料夾、「(午早)」檔名
     // 團號前沒有「午」記號＝走漢書的預設班機，不是「午」那組。
     //   （東京 TR：預設 TR866 0645去/TR867 1230回＝早午；有「午」記號才是 TR874 1530去/TR875 2115回＝午晚）
     //   使用者 2026-07-21 指正：沒標記的團被配到午晚行程是錯的。
     s -= 10;
+  }
+  // 星期幾決定的班機時段（t.wf，2026-10-01 抽查）：河內 周7 出發＝(午午)、周4＝(----)、周3＝(午晚)
+  //   檔名開頭標同一組記號才對；破折號長短不一（(----)／(-----)）一律當「--」
+  if (t.wf) {
+    const lab = x => /^[-－]+$/.test(x) ? '--' : x;
+    const fm = nm.match(/[（(]((?:[早午晚夜]{2})|[-－]{3,})[)）]/);   // (--) 兩槓是航班選項代號，不是時段
+    if (fm) s += lab(half(fm[1])) === lab(half(t.wf)) ? 8 : -10;
   }
   // 天數：阿拉伯/中文 ×「日」或「天」，另認泰國常見的「6D4N」＝6天4夜（使用者 2026-07-21）
   if (dayHit(t, nm)) s += 8;
@@ -287,13 +362,13 @@ function scoreFile(t, f, path) {
   if ((anBare && hay.includes(anBare)) || (AL_SHORT[alCode] && hay.includes(AL_SHORT[alCode]))
       || (/^[A-Z0-9]{2}$/.test(alCode) && alCodeRe(alCode).test(hay))) s += 4;
   else if (airlineConflict(t, hay)) s -= 12;
-  const p = inFilePeriod(nm, t.dt);
-  if (p === true) s += 3; else if (p === false) s -= 6;         // 期間明確不符 → 壓下去
+  const p = periodInfo(nm, t.dt);
+  if (p && p.ok) s += p.lim ? 7 : 3; else if (p && !p.ok) s -= 6;   // 期間明確不符 → 壓下去；「限定」日期對上的最精準，多加分
   return s;
 }
 
 const MATCH = { nz, half, pNorm, ttNorm, dayCN, inFilePeriod, isNoiseFolder, isNoiseFile, fKind, fBase, itinFiles,
-  TT_ALIAS, LINE_FOLDER_ALIAS, findFolderDeep, findLineFolder, AL_SHORT, AMBIG_AIRLINE, alCodeRe, airlineConflict, fileDeps, depConflict, scoreFile, bestMatchIds };
+  TT_ALIAS, LINE_FOLDER_ALIAS, findFolderDeep, findLineFolder, AL_SHORT, AMBIG_AIRLINE, alCodeRe, periodInfo, isLCC, airlineConflict, fileDeps, depConflict, scoreFile, bestMatchIds };
 Object.assign(g, MATCH);
 if (typeof module !== 'undefined' && module.exports) module.exports = MATCH;
 })(typeof window !== 'undefined' ? window : globalThis);
