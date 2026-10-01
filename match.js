@@ -109,16 +109,31 @@ function bestMatchIds(folder, t) {
     // 目的地關卡（2026-09-05 補強，Codex 審查 #2＋實測黃山被星到山東檔）：
     //   大區詞(ds=江南/澳門…)只認「檔名」——子路線改版後整個資料夾路徑都含大區詞，靠路徑過關等於沒關。
     //   產品詞(p)仍可用路徑過關（西葡的檔名只寫西班牙葡萄牙，靠「15.西葡」資料夾名才對得上）。
-    const dh = (!pw && !cw) ? true
-      : !!((pw && (fnS.includes(pw) || pathS.includes(pw))) || (cw && fnS.includes(cw)));
+    const ph = !!(pw && (fnS.includes(pw) || pathS.includes(pw)));
+    const dh = (!pw && !cw) ? true : !!(ph || (cw && fnS.includes(cw)));
     const alBad = airlineConflict(t, fnN, pathN);                   // 標了別家航空＝不能配（硬條件）
-    if (sc > best && !alBad && dh) best = sc;   // 沒過目的地/航空關卡的不參與「最高分」，免得墊高門檻（Codex 審查 #1）
-    return { id: x.f.id, sc, dh, alBad };
+    return { id: x.f.id, sc, dh, ph, dy: dayHit(t, x.f.n), ch: !!(cw && (fnS.includes(cw) || pathS.includes(cw))), alBad };
   });
+  // 子路線（2026-10-01 實測：米蘭機位拉去「瑞士」的團被星到北義／義大利）：
+  //   產品詞≠大區詞（瑞士≠米蘭）＝一個機位拉好幾條路線，每支行程檔都寫米蘭，大區詞分不出路線。
+  //   ① 只要有檔案對得到產品詞，只靠大區詞過關的檔案就不算數
+  //   ② 產品對到的檔案裡有天數吻合的，就只看天數吻合的（瑞士 10 天團別配到德瑞 15 日）
+  //   ③ 最後同分時，產品＋大區都對（瑞士＋米蘭）勝過只對產品（德瑞＋慕尼黑）——只當決勝，不加分，免得雜項檔跨過門檻
+  //   ⚠ 只限子路線：產品＝大區的一般團（清邁/清邁）不套用。全域套天數會讓團型輸給天數（清邁超值５日→高爾夫六日），
+  //     漢書天數也常跟檔名差一兩天（2026-10-01 全量 5362 團比對實測）
+  const sub = !!(pw && cw && pw !== cw);
+  //   每道篩選都要「篩完還有夠分(≥18)的檔」才採用，否則退回原狀——產品詞偶爾解析成較粗的字
+  //   （峴＋河 團 p=越南、ds=峴港：只留「越南」夾會把真正的「峴港+北越7日」篩掉）
+  const ok = s => s.dh && !s.alBad;
+  const narrow = keep => { if (scored.some(s => ok(s) && keep(s) && s.sc >= 18)) for (const s of scored) s.dh = s.dh && keep(s); };
+  if (sub) { narrow(s => s.ph); narrow(s => s.ph && s.dy); }
+  for (const s of scored) if (s.sc > best && ok(s)) best = s.sc;   // 沒過目的地/航空關卡的不參與「最高分」，免得墊高門檻（Codex 審查 #1）
   const ids = new Set();
   // 分數夠高「且最佳檔真的對到目的地、航空也沒衝突」才標
   //   （擋掉靠團型/天數亂配：美西 vs 紐西蘭都叫國家公園；JX 星宇團被配到 AK 亞航八日）
-  if (best >= 18) for (const s of scored) if (s.sc === best && s.dh && !s.alBad) ids.add(s.id);
+  const tops = best >= 18 ? scored.filter(s => s.sc === best && ok(s)) : [];
+  const preferCh = sub && tops.some(s => s.ch) && tops.some(s => !s.ch);
+  for (const s of tops) if (!preferCh || s.ch) ids.add(s.id);
   // 同分太多＝系統其實分不出來（例：團型空白時，精彩/豪華/超值/樹冰…全部同分）。
   //   標一堆星等於沒篩選還誤導業務，不如不標，讓業務自己挑。（使用者 2026-07-21）
   //   以前是「同分太多就一個都不標」，等於業務完全沒線索。改成照樣標出來但打上 tie 記號，
@@ -176,6 +191,10 @@ function airlineConflict(t, fnN, pathN) {
   if (mine(pathN || '')) return false; // 檔名沒表態 → 看路徑
   return others(pathN || '');
 }
+function dayHit(t, nm) {
+  if (!t.dy) return false;
+  return new RegExp(`(?:^|\\D)(?:${t.dy}\\s*(?:日|天|D\\s*\\d+\\s*N)|${dayCN(t.dy)}(?:日|天))`).test(nm);
+}
 function scoreFile(t, f, path) {
   let s = 0; const nm = f.n;
   const hay = nz(nm + ' ' + (path || ''));   // 檔名＋所在資料夾（時段常在資料夾名）；全形正規化對得上「雪+墨」
@@ -224,10 +243,7 @@ function scoreFile(t, f, path) {
     s -= 10;
   }
   // 天數：阿拉伯/中文 ×「日」或「天」，另認泰國常見的「6D4N」＝6天4夜（使用者 2026-07-21）
-  if (t.dy) {
-    const cn = dayCN(t.dy);
-    if (new RegExp(`(?:^|\\D)(?:${t.dy}\\s*(?:日|天|D\\s*\\d+\\s*N)|${cn}(?:日|天))`).test(nm)) s += 8;
-  }
+  if (dayHit(t, nm)) s += 8;
   // 出發地：台北是預設（檔名多半不寫）；高雄/台中出發的檔案會明寫「高出」「高／」「亞航高出」
   const OTHER_DEP = /高雄|高出|高／|高\/|台中|中出/;
   if (t.dp && t.dp !== '台北') {
