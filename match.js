@@ -111,7 +111,7 @@ function bestMatchIds(folder, t) {
     //   產品詞(p)仍可用路徑過關（西葡的檔名只寫西班牙葡萄牙，靠「15.西葡」資料夾名才對得上）。
     const ph = !!(pw && (fnS.includes(pw) || pathS.includes(pw)));
     const dh = (!pw && !cw) ? true : !!(ph || (cw && fnS.includes(cw)));
-    const alBad = airlineConflict(t, fnN, pathN);                   // 標了別家航空＝不能配（硬條件）
+    const alBad = airlineConflict(t, fnN, pathN) || depConflict(t, fnN, pathN);   // 標了別家航空／別的出發地＝不能配（硬條件）
     return { id: x.f.id, sc, dh, ph, dy: dayHit(t, x.f.n), ch: !!(cw && (fnS.includes(cw) || pathS.includes(cw))), alBad };
   });
   // 子路線（2026-10-01 實測：米蘭機位拉去「瑞士」的團被星到北義／義大利）：
@@ -141,10 +141,30 @@ function bestMatchIds(folder, t) {
   if (ids.size > 3) ids.tie = true;
   return ids;
 }
+// ── 出發地（2026-10-01 健檢會診：原本只扣分，沒台北版時台北團照樣被星到高雄版；台中團看到高雄完全不扣）──
+//   改成跟航空一樣的硬條件：檔案明寫的出發地不含這團的 → 不能配。
+//   檔名優先；檔名沒寫才看資料夾（由深到淺第一個有標的）。檔案沒標出發地＝未知，照樣可配。
+//   資料夾寫法：1.台北／3.高雄／2.高澳／桂林／5-1.中／九寨溝／6.中=釜山／JX中澳-桂林／4.FD亞航(高雄出發)
+//   ⚠「高爾夫」「高松」「中越秘境」不是出發地 → 單字「高／中」後面一定要接 ／ / = ＝ 才算
+const DEP_FILE = { 台北: /台北出發|桃園出發|桃園進出/, 高雄: /高雄|高出|高[／/]/, 台中: /台中|中出|中澳/, 台南: /台南/ };
+const DEP_DIR = { 台北: /台北/, 高雄: /高雄|高澳|^高[／/=＝]/, 台中: /台中|中澳|^中[／/=＝]/, 台南: /台南/ };
+const depsIn = (s, rules) => Object.keys(rules).filter(c => rules[c].test(s));
+function fileDeps(fnN, pathN) {
+  const own = depsIn(fnN, DEP_FILE);
+  if (own.length) return own;
+  const segs = (pathN || '').split('/').reverse();
+  for (const sg of segs) { const d = depsIn(sg.replace(/^[\d.\-\s]+/, '').replace(/\s/g, ''), DEP_DIR); if (d.length) return d; }
+  return [];
+}
+function depConflict(t, fnN, pathN) {
+  const dp = t.dp || '台北';
+  const ds = fileDeps(fnN, pathN);
+  return ds.length > 0 && !ds.includes(dp);
+}
 function inFilePeriod(nm, dt) {
   if (!dt) return null;
   const md = +dt.slice(5, 7) * 100 + +dt.slice(8, 10);
-  let m = nm.match(/(\d{2})(\d{2})[~\-](\d{2})(\d{2})/);
+  let m = nm.match(/(?<!\d)(\d{2})(\d{2})\s*[~～\-](\d{2})(\d{2})(?!\d)/);
   if (m) { const s = +m[1] * 100 + +m[2], e = +m[3] * 100 + +m[4]; return s <= e ? (md >= s && md <= e) : (md >= s || md <= e); }
   if ((m = nm.match(/(\d{2})(\d{2})\s*起/))) return md >= +m[1] * 100 + +m[2];
   if ((m = nm.match(/(\d{2})(\d{2})\s*前/))) return md <= +m[1] * 100 + +m[2];
@@ -161,19 +181,25 @@ const AL_SHORT = {
   SQ: '新航', MH: '馬航', VN: '越航', VJ: '越捷', PR: '菲航', EK: '阿聯酋', QR: '卡達', TK: '土航',
   NX: '澳航', ZE: '易斯達', '7C': '濟州', TW: '德威', BX: '釜山',
   AK: '亞航', FD: '亞航', D7: '亞航',   // AirAsia 集團（AK馬亞航/FD泰亞航/D7），檔名多寫「亞航」
+  HB: '大灣區', GJ: '長龍', '3U': '川航', SC: '山東',   // 2026-10-01 健檢補：HB 張家界檔、GJ 九寨溝檔原本認不出
 };
 // 簡稱同時是「地名」的航空：濟州航空(7C)/釜山航空(BX) 的簡稱就是地名濟州/釜山，
 //   幾乎每個濟州/釜山行程檔都有這兩字，用文字比對會把整個韓國誤判成航空衝突（使用者 2026-07-23）。
 //   → 這種只用「代碼」(7C/BX) 比對，不用文字。
-const AMBIG_AIRLINE = new Set(['濟州', '釜山']);
+const AMBIG_AIRLINE = new Set(['濟州', '釜山', '山東']);   // 山東航空(SC)＝山東行程
 // 航空衝突：明確標了「別家」航空（不是這團的）→ 硬條件，直接不配（使用者 2026-07-22：JX 星宇團被配到 AK 亞航）
 //   2026-09-05 改分層（Codex 審查 #4）：檔名優先——檔名明寫別家，就算路徑（資料夾名）有自家也救不了；
 //   檔名沒表態才輪到路徑。不然「JX資料夾裡的華航CI檔」會因路徑有星宇而漏判。
+// 航空代碼：前面不能緊貼英數、後面不能緊貼英文字母（ITALY 不算 IT）。
+//   2026-10-01 健檢：原本要求前面是 ＝ = ( - 空白 ／ /，漏掉檔名開頭「CA烏鎮江南…」（34 支）、
+//   「(--)NX…」「(澳)NX…」的右括號、「九日遊CA」的中文字 → 別家航空的檔照樣被標星
+//   後面可以接數字（HO1101-1231、CZ0401、JX717 都是航空），不能接英文字母
+const alCodeRe = c => new RegExp('(?<![A-Za-z0-9])' + c + '(?![A-Za-z])');
 function airlineConflict(t, fnN, pathN) {
   // 航空代碼以解析欄位 t.al 為準，團號切位只當備援（Codex 審查 #3：團號格式一變就切錯）
   const alCode = (half(t.al || '').toUpperCase() || (t.c || '').slice(-8, -6));
   if (!/^[A-Z0-9]{2}$/.test(alCode)) return false;
-  const codeRe = c => new RegExp('[＝=(\\-\\s／/]' + c + '(?![A-Za-z0-9])');
+  const codeRe = alCodeRe;
   const anBare = t.an ? t.an.replace('航空', '') : '';
   const myShort = AL_SHORT[alCode];
   // 這團自己的航空有出現（全名/簡稱/代碼）？地名型簡稱只認代碼，不認文字
@@ -252,10 +278,10 @@ function scoreFile(t, f, path) {
   else s += 2;
   // 航空：對到 +4；別家航空 −12（而且 bestMatchIds 會直接不標星，硬條件）。
   //   航空常寫在資料夾名（曼谷＝CI／九州-JX星宇），所以比對 hay 不是 nm
-  const alCode = (half(t.al || '').toUpperCase() || t.c.slice(-8, -6));   // 航空以解析欄位為準，團號切位當備援（Codex 審查 #3）
+  const alCode = (half(t.al || '').toUpperCase() || (t.c || '').slice(-8, -6));   // 航空以解析欄位為準，團號切位當備援（Codex 審查 #3）
   const anBare = t.an ? t.an.replace('航空', '') : '';
   if ((anBare && hay.includes(anBare)) || (AL_SHORT[alCode] && hay.includes(AL_SHORT[alCode]))
-      || (/^[A-Z0-9]{2}$/.test(alCode) && new RegExp('[＝=(\\-\\s／/]' + alCode + '(?![A-Za-z0-9])').test(hay))) s += 4;
+      || (/^[A-Z0-9]{2}$/.test(alCode) && alCodeRe(alCode).test(hay))) s += 4;
   else if (airlineConflict(t, hay)) s -= 12;
   const p = inFilePeriod(nm, t.dt);
   if (p === true) s += 3; else if (p === false) s -= 6;         // 期間明確不符 → 壓下去
@@ -263,7 +289,7 @@ function scoreFile(t, f, path) {
 }
 
 const MATCH = { nz, half, ttNorm, dayCN, inFilePeriod, isNoiseFolder, isNoiseFile, fKind, fBase, itinFiles,
-  TT_ALIAS, LINE_FOLDER_ALIAS, findFolderDeep, findLineFolder, AL_SHORT, AMBIG_AIRLINE, airlineConflict, scoreFile, bestMatchIds };
+  TT_ALIAS, LINE_FOLDER_ALIAS, findFolderDeep, findLineFolder, AL_SHORT, AMBIG_AIRLINE, alCodeRe, airlineConflict, fileDeps, depConflict, scoreFile, bestMatchIds };
 Object.assign(g, MATCH);
 if (typeof module !== 'undefined' && module.exports) module.exports = MATCH;
 })(typeof window !== 'undefined' ? window : globalThis);
