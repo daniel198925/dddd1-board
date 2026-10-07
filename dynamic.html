@@ -220,6 +220,35 @@
   .tmore { padding:.4rem .75rem; font-size:.72rem; color:var(--m3); }
   .trow .mk { flex:none; font-size:.68rem; color:var(--m2); border:1px solid var(--bd); border-radius:5px; padding:0 .35rem; line-height:1.4rem; }
   .trow[data-mk]:hover .mk { color:#34d399; border-color:#34d399; }
+  /* D1 收單排行 */
+  .rank-head { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem 1rem; }
+  .rtabs { display:inline-flex; gap:2px; background:var(--surface2); border:1px solid var(--bd); border-radius:7px; padding:2px; margin-left:auto; }
+  .rtabs button { padding:.25rem .8rem; border-radius:5px; font-size:.8rem; color:var(--m1); }
+  .rtabs button:hover { background:var(--hover); }
+  .rtabs button.on { background:#2563eb; color:#fff; font-weight:700; }
+  .rank-total { font-size:.82rem; margin-top:.45rem; color:var(--m1); }
+  .rank-total b { font-size:1rem; color:var(--fg); font-family:'SarasaMonoCL-Regular',monospace; }
+  .rank-wrap { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:.65rem; margin-top:.5rem; align-items:start; }
+  .rank-list, .rank-detail { background:var(--surface); border:1px solid var(--bd); border-radius:8px; overflow:hidden; }
+  .rrow { display:grid; grid-template-columns:1.6rem 6.5rem minmax(0,1fr) 4.2rem; align-items:center; gap:.6rem; padding:.36rem .75rem; font-size:.8rem; border-bottom:1px solid var(--bd2); cursor:pointer; }
+  .rrow:last-child { border-bottom:0; }
+  .rrow:hover { background:var(--hover); }
+  .rrow.pick { background:var(--hover); }
+  .rrow.me { box-shadow:inset 3px 0 0 #3b82f6; }
+  .rrow .rk { color:var(--m3); font-family:'SarasaMonoCL-Regular',monospace; text-align:right; }
+  .rrow .rk.top { color:#fbbf24; font-weight:700; }
+  .rrow .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rrow .nm em { font-style:normal; font-size:.62rem; margin-left:.35rem; padding:0 .3rem; border-radius:4px; background:#2563eb; color:#fff; }
+  .rbar { height:6px; border-radius:99px; background:var(--bd2); overflow:hidden; }
+  .rbar i { display:block; height:100%; border-radius:99px; background:#3b82f6; }
+  .rn { text-align:right; font-family:'SarasaMonoCL-Regular',monospace; white-space:nowrap; }
+  .rn.neg { color:#f87171; } .rn.zero { color:var(--m4); }
+  .rd-head { padding:.55rem .75rem; border-bottom:1px solid var(--bd2); font-size:.82rem; }
+  .rd-row { display:grid; grid-template-columns:auto minmax(0,1fr) 3rem; gap:.6rem; align-items:center; padding:.36rem .75rem; font-size:.78rem; border-bottom:1px solid var(--bd2); }
+  .rd-row:last-child { border-bottom:0; }
+  .rd-row .c { font-family:'SarasaMonoCL-Regular',monospace; color:var(--code-fg); }
+  .rd-row .p { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  @media (max-width: 900px) { .rank-wrap { grid-template-columns:1fr; } .rtabs { margin-left:0; } }
   .line-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.65rem; margin-top:.55rem; }
   .gcol { background:var(--surface); border:1px solid var(--bd); border-radius:8px; padding:.45rem; }
   .gcol h3 { font-size:.7rem; color:var(--m3); margin:.15rem .3rem .3rem; letter-spacing:.08em; font-weight:500; }
@@ -801,11 +830,9 @@ function renderHome() {
   if (HOME && HOME.stamp !== META.stamp) HOME = null; // 資料換版 → 待辦重算
   const box = $('raw-view');
   const mobile = matchMedia('(max-width: 639px)').matches;
-  box.innerHTML = `<div class="home">${homeTodoHtml(mobile)}
-    <section><h2>選一條產品線<span class="sub">也可以用上方「動態」下拉選；不確定哪條線就用「找團」跨線搜</span></h2>
-    <div class="line-grid">${lineGroups().map(([g, fs]) => `<div class="gcol"><h3>${g}</h3>${fs.map(f =>
-      `<button class="gl" data-f="${esc(f.f)}">${esc(f.line || f.f)}<span class="ct">${f.n ? f.n + ' 團' : '看行程'}</span></button>`).join('')}</div>`).join('')}</div></section></div>`;
-  box.querySelectorAll('.gl').forEach(b => b.onclick = () => { $('f-line').value = b.dataset.f; loadFile(); });
+  // 產品線入口拿掉（使用者 2026-10-07：用上方下拉就好），改放 D1 收單排行
+  box.innerHTML = `<div class="home">${homeTodoHtml(mobile)}<section id="rank-sec"></section></div>`;
+  renderRank();
   box.querySelectorAll('.trow').forEach(el => el.onclick = () => {
     if (el.dataset.mk) return homeMarkCt(el.dataset.mk);
     const x = HOME_ROWS[+el.dataset.k]; if (x) jumpToTour(x.f, x.r);
@@ -919,6 +946,94 @@ async function homeMarkCt(code) {
     updateMineBadge(); renderHome();
     toast('已標記歸檔完成');
   } catch (e) { toast('標記失敗：' + e.message); }
+}
+
+// ══ D1 收單排行（首頁下半，2026-10-07）══
+//    資料＝估價平台 boss_daily/d{日期}（戰情室同一份：每晚結算「前一天」各團各代號的淨收，新收＋、退訂－）。
+//    只算 D1組 的格子＋META.team 裡的業務（主管不列）。昨天／本週／上週／上個月四個期間，讀過的日子記在記憶體。
+const BOSS_FS = 'https://firestore.googleapis.com/v1/projects/findit-quote/databases/(default)/documents/boss_daily/';
+const QUOTE_KEY = 'AIzaSyCWYyM2AtcIcHEePZQ0NuM1I85mElOncz4';   // 估價平台公開 Web Key（本來就在估價平台前端）
+const BDCACHE = {};
+async function bossDay(date) {
+  if (date in BDCACHE) return BDCACHE[date];
+  const r = await fetch(`${BOSS_FS}d${date}?key=${QUOTE_KEY}`);
+  if (r.status === 404) return BDCACHE[date] = null;          // 那天沒有結算檔（缺快照的量會併到隔天，總數不會少）
+  if (!r.ok) throw new Error('收單資料讀取失敗 ' + r.status);
+  const j = await r.json();
+  return BDCACHE[date] = JSON.parse(j.fields.data.stringValue);
+}
+const RANK_PERIODS = [['day', '昨天'], ['week', '本週'], ['lweek', '上週'], ['lmonth', '上個月']];
+const RANK = { period: 'week', pick: null, data: {} };
+function rankRange(p) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const add = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const mon = add(t, -((t.getDay() + 6) % 7)), yest = add(t, -1);
+  if (p === 'day') return [yest, yest];
+  if (p === 'week') return [mon, yest];                        // 今天的要等今晚結算；週一當天本週還沒資料
+  if (p === 'lweek') return [add(mon, -7), add(mon, -1)];
+  return [new Date(t.getFullYear(), t.getMonth() - 1, 1), new Date(t.getFullYear(), t.getMonth(), 0)];
+}
+async function rankCompute(from, to) {
+  const team = META.team || {}, mgr = new Set(META.managers || []);
+  const days = [];
+  for (let d = new Date(from + 'T00:00:00'); ymd(d) <= to; d.setDate(d.getDate() + 1)) days.push(ymd(d));
+  const docs = await Promise.all(days.map(bossDay));
+  const per = {};
+  for (const k of Object.keys(team)) if (!mgr.has(k)) per[k] = { k, name: team[k], n: 0, plus: 0, minus: 0, tours: {} };
+  let last = '';
+  docs.forEach((d, i) => {
+    if (!d) return;
+    last = days[i];
+    for (const [cell, rows] of Object.entries(d.detail || {})) {
+      if (!cell.startsWith('D1組|')) continue;
+      const ln = cell.split('|')[1];
+      for (const [c, , by, p] of rows) for (const [code, n] of by || []) {
+        const e = per[code]; if (!e || !n) continue;
+        e.n += n; if (n > 0) e.plus += n; else e.minus += n;
+        const t = (e.tours[c + '|' + (p || '')] ??= { c, p: p || '', ln, n: 0 });
+        t.n += n;
+      }
+    }
+  });
+  const rows = Object.values(per).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'zh-Hant'));
+  const sum = f => rows.reduce((s, r) => s + r[f], 0);
+  return { from, to, last, rows, total: sum('n'), plus: sum('plus'), minus: sum('minus') };
+}
+async function renderRank() {
+  const sec = $('rank-sec');
+  if (!sec || !META) return;
+  const p = RANK.period, [f, l] = rankRange(p);
+  const md = s => s.slice(5).replace('-', '/');
+  const tabs = `<div class="rtabs">${RANK_PERIODS.map(([k, n]) => `<button data-p="${k}" class="${k === p ? 'on' : ''}">${n}</button>`).join('')}</div>`;
+  const head = (range) => `<div class="rank-head"><h2>D1 收單排行<span class="sub">${range}・每晚結算前一天（跟戰情室同一份資料）・淨收＝新收－退訂</span></h2>${tabs}</div>`;
+  const wire = () => sec.querySelectorAll('.rtabs button').forEach(b => b.onclick = () => { RANK.period = b.dataset.p; renderRank(); });
+  if (f > l) { sec.innerHTML = head('') + '<div class="m3 text-sm mt-3">本週還沒有資料：每天晚上才結算前一天，週二起就看得到本週。</div>'; wire(); return; }
+  const range = `${md(ymd(f))}${+f === +l ? '' : '～' + md(ymd(l))}`;
+  let D = RANK.data[p];
+  if (!D) {
+    sec.innerHTML = head(range) + '<div class="m3 text-sm mt-3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>整理中…</div>'; wire();
+    try { D = RANK.data[p] = await rankCompute(ymd(f), ymd(l)); }
+    catch (e) { sec.innerHTML = head(range) + `<div class="text-red-400 text-sm mt-3">${esc(e.message)}</div>`; wire(); return; }
+    if (RANK.period !== p || !$('rank-sec')) return;          // 等的時候切了別的期間／離開首頁
+  }
+  const me = myAbbrOf();
+  const pick = D.rows.find(r => r.k === RANK.pick) || D.rows.find(r => r.k === me) || D.rows[0];
+  const max = Math.max(1, ...D.rows.map(r => r.n));
+  const sign = n => (n > 0 ? '+' : '') + n;
+  const list = D.rows.map((r, i) => `<div class="rrow${r.k === me ? ' me' : ''}${pick && r.k === pick.k ? ' pick' : ''}" data-k="${esc(r.k)}" title="點一下看 ${esc(r.name)} 收了哪些團">
+      <span class="rk${i < 3 && r.n > 0 ? ' top' : ''}">${i + 1}</span>
+      <span class="nm">${esc(r.name)}${r.k === me ? '<em>你</em>' : ''}</span>
+      <span class="rbar"><i style="width:${Math.max(0, r.n) / max * 100}%"></i></span>
+      <span class="rn${r.n < 0 ? ' neg' : r.n ? '' : ' zero'}">${sign(r.n)} 人</span></div>`).join('');
+  const tours = pick ? Object.values(pick.tours).filter(t => t.n).sort((a, b) => b.n - a.n) : [];
+  const detail = !pick ? '' : `<div class="rd-head"><b>${esc(pick.name)}</b>${pick.k === me ? '（你）' : ''}　淨收 <b class="${pick.n < 0 ? 'text-red-400' : ''}">${sign(pick.n)}</b> 人<span class="m3">（新收 +${pick.plus}${pick.minus ? '／退 ' + pick.minus : ''}）</span></div>` +
+    (tours.length ? tours.map(t => `<div class="rd-row"><span class="c">${esc(t.c)}</span><span class="p">${t.p ? esc(t.p) + `<span class="m4">｜${esc(t.ln)}</span>` : `<span class="m3">${esc(t.ln)}</span>`}</span><span class="rn${t.n < 0 ? ' neg' : ''}">${sign(t.n)}</span></div>`).join('')
+      : '<div class="m3 text-sm p-4">這段期間沒有收單</div>');
+  sec.innerHTML = head(range + (D.last && D.last < D.to ? `（資料到 ${md(D.last)}）` : '')) +
+    `<div class="rank-total">全組淨收 <b>${sign(D.total)}</b> 人<span class="m3">（新收 +${D.plus}${D.minus ? '／退 ' + D.minus : ''}）</span></div>
+     <div class="rank-wrap"><div class="rank-list">${list}</div><div class="rank-detail">${detail}</div></div>`;
+  wire();
+  sec.querySelectorAll('.rrow').forEach(el => el.onclick = () => { RANK.pick = el.dataset.k; renderRank(); });
 }
 
 // 回首頁：清掉目前選的線（選取一起清），回到「今天要處理＋產品線」
