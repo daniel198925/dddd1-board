@@ -220,35 +220,98 @@
   .tmore { padding:.4rem .75rem; font-size:.72rem; color:var(--m3); }
   .trow .mk { flex:none; font-size:.68rem; color:var(--m2); border:1px solid var(--bd); border-radius:5px; padding:0 .35rem; line-height:1.4rem; }
   .trow[data-mk]:hover .mk { color:#34d399; border-color:#34d399; }
-  /* D1 收單排行 */
-  .rank-head { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem 1rem; }
-  .rtabs { display:inline-flex; gap:2px; background:var(--surface2); border:1px solid var(--bd); border-radius:7px; padding:2px; margin-left:auto; }
-  .rtabs button { padding:.25rem .8rem; border-radius:5px; font-size:.8rem; color:var(--m1); }
-  .rtabs button:hover { background:var(--hover); }
-  .rtabs button.on { background:#2563eb; color:#fff; font-weight:700; }
-  .rank-total { font-size:.82rem; margin-top:.45rem; color:var(--m1); }
-  .rank-total b { font-size:1rem; color:var(--fg); font-family:'SarasaMonoCL-Regular',monospace; }
-  .rank-wrap { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:.65rem; margin-top:.5rem; align-items:start; }
-  .rank-list, .rank-detail { background:var(--surface); border:1px solid var(--bd); border-radius:8px; overflow:hidden; }
-  .rrow { display:grid; grid-template-columns:1.6rem 6.5rem minmax(0,1fr) 4.2rem; align-items:center; gap:.6rem; padding:.36rem .75rem; font-size:.8rem; border-bottom:1px solid var(--bd2); cursor:pointer; }
-  .rrow:last-child { border-bottom:0; }
+  /* D1 收單排行（2026-10-07 會診＋模擬圖定案）：左排行、右全組戰報 */
+  .rp { background:var(--surface); border:1px solid var(--bd); border-radius:10px; overflow:hidden; }
+  .rp-head { display:flex; align-items:center; gap:.75rem; padding:.9rem 1.25rem .6rem; flex-wrap:wrap; }
+  .rp-head h2 { margin:0; font-size:1.05rem; font-weight:700; letter-spacing:.02em; }
+  .rp-head .rng { font-size:.75rem; color:var(--m3); font-family:'SarasaMonoCL-Regular',monospace; }
+  .rp-head .rinfo { color:var(--m4); font-size:.75rem; cursor:help; }
+  .rp-msg { padding:1rem 1.25rem 1.4rem; font-size:.85rem; color:var(--m3); }
+  .rtabs { margin-left:auto; display:inline-flex; gap:2px; background:var(--surface2); border:1px solid var(--bd); border-radius:7px; padding:2px; }
+  .rtabs button { padding:.3rem .8rem; border-radius:5px; font-size:.78rem; color:var(--m2); }
+  .rtabs button:hover { color:var(--fg); }
+  .rtabs button.on { background:#3b82f6; color:#fff; font-weight:700; }
+  .rbody { display:grid; grid-template-columns:minmax(0,1fr) 340px; align-items:start; border-top:1px solid var(--bd2); }
+  .rlist { border-right:1px solid var(--bd2); }
+  .grp { padding:.3rem 0 .2rem; }
+  .grp-t { font-size:.68rem; color:var(--m4); letter-spacing:.14em; padding:.6rem 1.25rem .2rem; }
+  .rrow { position:relative; display:grid; grid-template-columns:2.4rem 10rem minmax(0,1fr) 4rem 1rem; align-items:center; gap:.85rem; padding:.55rem 1.25rem; cursor:pointer; }
   .rrow:hover { background:var(--hover); }
-  .rrow.pick { background:var(--hover); }
-  .rrow.me { box-shadow:inset 3px 0 0 #3b82f6; }
-  .rrow .rk { color:var(--m3); font-family:'SarasaMonoCL-Regular',monospace; text-align:right; }
-  .rrow .rk.top { color:#fbbf24; font-weight:700; }
-  .rrow .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .rrow .nm em { font-style:normal; font-size:.62rem; margin-left:.35rem; padding:0 .3rem; border-radius:4px; background:#2563eb; color:#fff; }
-  .rbar { height:6px; border-radius:99px; background:var(--bd2); overflow:hidden; }
-  .rbar i { display:block; height:100%; border-radius:99px; background:#3b82f6; }
-  .rn { text-align:right; font-family:'SarasaMonoCL-Regular',monospace; white-space:nowrap; }
-  .rn.neg { color:#f87171; } .rn.zero { color:var(--m4); }
-  .rd-head { padding:.55rem .75rem; border-bottom:1px solid var(--bd2); font-size:.82rem; }
-  .rd-row { display:grid; grid-template-columns:auto minmax(0,1fr) 3rem; gap:.6rem; align-items:center; padding:.36rem .75rem; font-size:.78rem; border-bottom:1px solid var(--bd2); }
-  .rd-row:last-child { border-bottom:0; }
-  .rd-row .c { font-family:'SarasaMonoCL-Regular',monospace; color:var(--code-fg); }
-  .rd-row .p { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  @media (max-width: 900px) { .rank-wrap { grid-template-columns:1fr; } .rtabs { margin-left:0; } }
+  .rrow.open { background:var(--hover); }
+  .rrow .rk { font-family:'SarasaMonoCL-Regular',monospace; color:var(--m3); font-size:.88rem; text-align:right; }
+  .rrow .who { min-width:0; }
+  .rrow .who b { font-size:.92rem; font-weight:600; }
+  .rrow .who small { display:block; margin-top:2px; font-size:.74rem; color:var(--m3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rrow .who small i { font-style:normal; font-family:'SarasaMonoCL-Regular',monospace; }
+  .rrow .you { display:inline-block; margin-left:.35rem; font-size:.65rem; font-weight:700; color:#bfdbfe; background:rgba(59,130,246,.22); border:1px solid rgba(59,130,246,.45); padding:0 .3rem; border-radius:4px; vertical-align:2px; }
+  [data-theme="light"] .rrow .you { color:#1d4ed8; background:#dbeafe; }
+  .rbar { height:3px; border-radius:2px; position:relative; }
+  .rbar i { position:absolute; left:0; top:0; bottom:0; border-radius:2px; background:rgba(96,165,250,.7); }
+  .rbar i.neg { background:rgba(248,113,113,.75); }
+  .rrow .num { font-family:'SarasaMonoCL-Regular',monospace; font-size:1.05rem; font-weight:700; text-align:right; }
+  .rrow .num.neg { color:#f87171; } .rrow .num.z { color:var(--m3); font-weight:400; }
+  .rrow .chev { color:var(--m4); font-size:.65rem; transition:transform .15s; }
+  .rrow.open .chev { transform:rotate(180deg); color:var(--m2); }
+  .rrow.me { background:rgba(59,130,246,.07); }
+  .rrow.me::before { content:''; position:absolute; left:0; top:.4rem; bottom:.4rem; width:3px; border-radius:0 2px 2px 0; background:#3b82f6; }
+  .lead .rrow { padding-top:.75rem; padding-bottom:.75rem; }
+  .lead .rrow .rk { color:#fbbf24; font-weight:700; font-size:.95rem; }
+  [data-theme="light"] .lead .rrow .rk { color:#b45309; }
+  .lead .rrow .who b { font-size:1rem; }
+  .lead .rrow .num { font-size:1.25rem; }
+  .lead .rrow.first .num { font-size:1.5rem; }
+  .lead .rrow.first { background:linear-gradient(90deg,rgba(251,191,36,.08),rgba(251,191,36,0) 60%); }
+  .lead .rrow.first::after { content:''; position:absolute; left:0; top:.5rem; bottom:.5rem; width:3px; border-radius:0 2px 2px 0; background:#fbbf24; }
+  .lead .rrow.first.me::before { display:none; }
+  .rsep { height:1px; background:var(--bd2); margin:.35rem 1.25rem; }
+  .rdet { background:var(--surface2); border-top:1px solid var(--bd2); border-bottom:1px solid var(--bd2); padding:.35rem 0 .5rem; }
+  .rdet .t { display:grid; grid-template-columns:2.4rem 7.5rem minmax(0,1fr) 4rem 1rem; gap:.85rem; align-items:center; padding:.35rem 1.25rem; font-size:.8rem; }
+  .rdet .t .c { font-family:'SarasaMonoCL-Regular',monospace; font-size:.75rem; color:var(--m2); }
+  .rdet .t .p { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rdet .t .p em { font-style:normal; color:var(--m3); font-size:.74rem; margin-left:.5rem; }
+  .rdet .t .n { font-family:'SarasaMonoCL-Regular',monospace; text-align:right; color:var(--m1); }
+  .rdet .t .n.neg { color:#f87171; }
+  .rdet .foot { padding:.25rem 1.25rem 0 4.9rem; font-size:.75rem; color:var(--m3); }
+  .rzero { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; padding:.75rem 1.25rem .85rem; border-top:1px solid var(--bd2); font-size:.8rem; color:var(--m3); cursor:pointer; }
+  .rzero b { color:var(--m2); font-weight:600; } .rzero .nm { color:var(--m2); }
+  .rzero .tg { margin-left:auto; font-size:.75rem; } .rzero.open .tg i { transform:rotate(180deg); }
+  .rside { padding:1.1rem 1.25rem; display:grid; gap:1.25rem; }
+  .rside h4 { margin:0 0 .5rem; font-size:.7rem; color:var(--m3); font-weight:500; letter-spacing:.06em; }
+  .rside .lbl { font-size:.74rem; color:var(--m3); letter-spacing:.06em; }
+  .rside .big { display:flex; align-items:baseline; gap:.35rem; margin-top:.1rem; }
+  .rside .big b { font-family:'SarasaMonoCL-Regular',monospace; font-size:2.4rem; font-weight:700; line-height:1; }
+  .rside .big span { color:var(--m2); font-size:.88rem; }
+  .rside .subl { margin-top:.5rem; display:flex; flex-wrap:wrap; gap:.4rem .9rem; font-size:.78rem; color:var(--m2); }
+  .rside .subl i { font-style:normal; font-family:'SarasaMonoCL-Regular',monospace; color:var(--m1); }
+  .rside .delta b { font-family:'SarasaMonoCL-Regular',monospace; }
+  .rside .delta.up b { color:#60a5fa; } .rside .delta.down b { color:var(--m1); }
+  .rside .kpis { display:flex; gap:1.9rem; margin-top:1rem; padding-top:.85rem; border-top:1px solid var(--bd2); }
+  .rside .kpi .v { font-family:'SarasaMonoCL-Regular',monospace; font-size:1.25rem; font-weight:700; }
+  .rside .kpi .v small { font-size:.8rem; color:var(--m3); font-weight:400; }
+  .rside .kpi .k { font-size:.7rem; color:var(--m3); margin-top:2px; }
+  .spark { display:flex; align-items:flex-end; gap:3px; height:64px; padding-bottom:16px; position:relative; }
+  .spark .b { flex:1; min-width:3px; max-width:16px; background:rgba(96,165,250,.55); border-radius:2px 2px 0 0; position:relative; }
+  .spark .b.neg { background:rgba(248,113,113,.6); }
+  .spark .b.zero { background:var(--bd); }
+  .spark .b.miss { background:transparent; border-bottom:2px dotted var(--m4); }
+  .spark .b:hover { background:#60a5fa; }
+  .spark .b em { display:none; position:absolute; bottom:calc(100% + 4px); left:50%; transform:translateX(-50%); font-style:normal; font-size:.68rem; white-space:nowrap; background:var(--bg); border:1px solid var(--bd); padding:2px 6px; border-radius:4px; color:var(--fg); z-index:3; }
+  .spark .b:hover em { display:block; }
+  .spark .ax { position:absolute; left:0; right:0; bottom:0; display:flex; justify-content:space-between; font-size:.65rem; color:var(--m4); font-family:'SarasaMonoCL-Regular',monospace; }
+  .rlines .ln { display:grid; grid-template-columns:4.5rem minmax(0,1fr) 2.5rem; gap:.6rem; align-items:center; font-size:.78rem; padding:.18rem 0; }
+  .rlines .ln span:first-child { color:var(--m1); }
+  .rlines .ln .lb { height:3px; border-radius:2px; background:var(--bd2); overflow:hidden; }
+  .rlines .ln .lb i { display:block; height:100%; background:rgba(96,165,250,.55); }
+  .rlines .ln b { font-family:'SarasaMonoCL-Regular',monospace; font-weight:400; text-align:right; color:var(--m1); }
+  .rlines .ln.more span:first-child { color:var(--m3); }
+  @media (max-width: 980px) { .rbody { grid-template-columns:1fr; } .rside { order:-1; border-bottom:1px solid var(--bd2); } .rlist { border-right:0; } }
+  @media (max-width: 640px) {
+    .rrow { grid-template-columns:1.8rem minmax(0,1fr) 3.6rem .8rem; gap:.6rem; padding:.55rem .85rem; }
+    .rrow .rbar { display:none; }
+    .rdet .t { grid-template-columns:0 6.5rem minmax(0,1fr) 3rem 0; padding:.35rem .85rem; }
+    .rp-head, .rside, .grp-t, .rzero { padding-left:.85rem; padding-right:.85rem; }
+    .rtabs { margin-left:0; }
+  }
   .line-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.65rem; margin-top:.55rem; }
   .gcol { background:var(--surface); border:1px solid var(--bd); border-radius:8px; padding:.45rem; }
   .gcol h3 { font-size:.7rem; color:var(--m3); margin:.15rem .3rem .3rem; letter-spacing:.08em; font-weight:500; }
@@ -948,9 +1011,11 @@ async function homeMarkCt(code) {
   } catch (e) { toast('標記失敗：' + e.message); }
 }
 
-// ══ D1 收單排行（首頁下半，2026-10-07）══
+// ══ D1 收單排行（首頁下半，2026-10-07；同日依會診＋模擬圖改版）══
 //    資料＝估價平台 boss_daily/d{日期}（戰情室同一份：每晚結算「前一天」各團各代號的淨收，新收＋、退訂－）。
-//    只算 D1組 的格子＋META.team 裡的業務（主管不列）。昨天／本週／上週／上個月四個期間，讀過的日子記在記憶體。
+//    只算 D1組 的格子＋META.team 裡的業務（主管不列）。昨天／本週／上週／上個月，讀過的日子記在記憶體。
+//    版面：左＝排行（前三名領先組、同分並列、沒收單的收成一行、點名字往下展開他的團）；
+//          右＝全組戰報（淨收大字、跟上一期「同期」比、有收單人數／團數、每天收單、收在哪些線）。
 const BOSS_FS = 'https://firestore.googleapis.com/v1/projects/findit-quote/databases/(default)/documents/boss_daily/';
 const QUOTE_KEY = 'AIzaSyCWYyM2AtcIcHEePZQ0NuM1I85mElOncz4';   // 估價平台公開 Web Key（本來就在估價平台前端）
 const BDCACHE = {};
@@ -963,15 +1028,19 @@ async function bossDay(date) {
   return BDCACHE[date] = JSON.parse(j.fields.data.stringValue);
 }
 const RANK_PERIODS = [['day', '昨天'], ['week', '本週'], ['lweek', '上週'], ['lmonth', '上個月']];
-const RANK = { period: 'week', pick: null, data: {} };
+const RANK = { period: 'day', open: undefined, zopen: false, data: {} };
+// 期間＋「上一期同期」：本週到週二就比上週一～二（不拿去比上週整週，會誤導）
 function rankRange(p) {
   const t = new Date(); t.setHours(0, 0, 0, 0);
   const add = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
   const mon = add(t, -((t.getDay() + 6) % 7)), yest = add(t, -1);
-  if (p === 'day') return [yest, yest];
-  if (p === 'week') return [mon, yest];                        // 今天的要等今晚結算；週一當天本週還沒資料
-  if (p === 'lweek') return [add(mon, -7), add(mon, -1)];
-  return [new Date(t.getFullYear(), t.getMonth() - 1, 1), new Date(t.getFullYear(), t.getMonth(), 0)];
+  if (p === 'day') return { cur: [yest, yest], prev: [add(yest, -1), add(yest, -1)], label: '比前一天' };
+  if (p === 'week') return { cur: [mon, yest], prev: [add(mon, -7), add(yest, -7)], label: '比上週同期' };
+  if (p === 'lweek') return { cur: [add(mon, -7), add(mon, -1)], prev: [add(mon, -14), add(mon, -8)], label: '比前一週' };
+  const pm = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+  return { cur: [pm, new Date(t.getFullYear(), t.getMonth(), 0)],
+           prev: [new Date(t.getFullYear(), t.getMonth() - 2, 1), new Date(t.getFullYear(), t.getMonth() - 1, 0)],
+           label: `比 ${new Date(t.getFullYear(), t.getMonth() - 2, 1).getMonth() + 1} 月` };
 }
 async function rankCompute(from, to) {
   const team = META.team || {}, mgr = new Set(META.managers || []);
@@ -980,60 +1049,99 @@ async function rankCompute(from, to) {
   const docs = await Promise.all(days.map(bossDay));
   const per = {};
   for (const k of Object.keys(team)) if (!mgr.has(k)) per[k] = { k, name: team[k], n: 0, plus: 0, minus: 0, tours: {} };
-  let last = '';
-  docs.forEach((d, i) => {
-    if (!d) return;
-    last = days[i];
-    for (const [cell, rows] of Object.entries(d.detail || {})) {
+  const daily = days.map(d => ({ d, n: 0, has: false }));
+  docs.forEach((doc, i) => {
+    if (!doc) return;
+    daily[i].has = true;
+    for (const [cell, rows] of Object.entries(doc.detail || {})) {
       if (!cell.startsWith('D1組|')) continue;
       const ln = cell.split('|')[1];
       for (const [c, , by, p] of rows) for (const [code, n] of by || []) {
         const e = per[code]; if (!e || !n) continue;
-        e.n += n; if (n > 0) e.plus += n; else e.minus += n;
+        e.n += n; if (n > 0) e.plus += n; else e.minus += n; daily[i].n += n;
         const t = (e.tours[c + '|' + (p || '')] ??= { c, p: p || '', ln, n: 0 });
         t.n += n;
       }
     }
   });
-  const rows = Object.values(per).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'zh-Hant'));
+  const rows = Object.values(per).map(r => ({ ...r, tours: Object.values(r.tours).filter(t => t.n).sort((a, b) => b.n - a.n) }));
   const sum = f => rows.reduce((s, r) => s + r[f], 0);
-  return { from, to, last, rows, total: sum('n'), plus: sum('plus'), minus: sum('minus') };
+  const last = [...daily].reverse().find(x => x.has);
+  return { from, to, rows, daily, last: last ? last.d : '', total: sum('n'), plus: sum('plus'), minus: sum('minus') };
 }
 async function renderRank() {
   const sec = $('rank-sec');
   if (!sec || !META) return;
-  const p = RANK.period, [f, l] = rankRange(p);
+  const p = RANK.period, R = rankRange(p), [f, l] = R.cur;
   const md = s => s.slice(5).replace('-', '/');
+  const sign = n => n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '0';
   const tabs = `<div class="rtabs">${RANK_PERIODS.map(([k, n]) => `<button data-p="${k}" class="${k === p ? 'on' : ''}">${n}</button>`).join('')}</div>`;
-  const head = (range) => `<div class="rank-head"><h2>D1 收單排行<span class="sub">${range}・每晚結算前一天（跟戰情室同一份資料）・淨收＝新收－退訂</span></h2>${tabs}</div>`;
-  const wire = () => sec.querySelectorAll('.rtabs button').forEach(b => b.onclick = () => { RANK.period = b.dataset.p; renderRank(); });
-  if (f > l) { sec.innerHTML = head('') + '<div class="m3 text-sm mt-3">本週還沒有資料：每天晚上才結算前一天，週二起就看得到本週。</div>'; wire(); return; }
-  const range = `${md(ymd(f))}${+f === +l ? '' : '～' + md(ymd(l))}`;
+  const tip = '每晚結算前一天的收單（跟戰情室同一份資料），今天收的明天才會出現。淨收＝新收－退訂。';
+  const head = range => `<div class="rp-head"><h2>D1 收單排行</h2><span class="rng">${range}</span><span class="rinfo" title="${tip}"><i class="fa-regular fa-circle-question"></i></span>${tabs}</div>`;
+  const shell = (range, inner) => `<div class="rp">${head(range)}${inner}</div>`;
+  const wire = () => sec.querySelectorAll('.rtabs button').forEach(b => b.onclick = () => { RANK.period = b.dataset.p; RANK.open = undefined; renderRank(); });
+  if (f > l) { sec.innerHTML = shell('', '<div class="rp-msg">本週還沒有資料：每天晚上才結算前一天，週二起就看得到本週。</div>'); wire(); return; }
+  const range = +f === +l ? `${md(ymd(f))}（${WD[f.getDay()]}）` : `${md(ymd(f))}～${md(ymd(l))}`;
   let D = RANK.data[p];
   if (!D) {
-    sec.innerHTML = head(range) + '<div class="m3 text-sm mt-3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>整理中…</div>'; wire();
-    try { D = RANK.data[p] = await rankCompute(ymd(f), ymd(l)); }
-    catch (e) { sec.innerHTML = head(range) + `<div class="text-red-400 text-sm mt-3">${esc(e.message)}</div>`; wire(); return; }
+    sec.innerHTML = shell(range, '<div class="rp-msg"><i class="fa-solid fa-spinner fa-spin mr-2"></i>整理中…</div>'); wire();
+    try {
+      const [cur, prev] = await Promise.all([rankCompute(ymd(f), ymd(l)), rankCompute(ymd(R.prev[0]), ymd(R.prev[1]))]);
+      D = RANK.data[p] = { ...cur, prevTotal: prev.total, prevLabel: R.label };
+    } catch (e) { sec.innerHTML = shell(range, `<div class="rp-msg text-red-400">${esc(e.message)}</div>`); wire(); return; }
     if (RANK.period !== p || !$('rank-sec')) return;          // 等的時候切了別的期間／離開首頁
   }
   const me = myAbbrOf();
-  const pick = D.rows.find(r => r.k === RANK.pick) || D.rows.find(r => r.k === me) || D.rows[0];
-  const max = Math.max(1, ...D.rows.map(r => r.n));
-  const sign = n => (n > 0 ? '+' : '') + n;
-  const list = D.rows.map((r, i) => `<div class="rrow${r.k === me ? ' me' : ''}${pick && r.k === pick.k ? ' pick' : ''}" data-k="${esc(r.k)}" title="點一下看 ${esc(r.name)} 收了哪些團">
-      <span class="rk${i < 3 && r.n > 0 ? ' top' : ''}">${i + 1}</span>
-      <span class="nm">${esc(r.name)}${r.k === me ? '<em>你</em>' : ''}</span>
-      <span class="rbar"><i style="width:${Math.max(0, r.n) / max * 100}%"></i></span>
-      <span class="rn${r.n < 0 ? ' neg' : r.n ? '' : ' zero'}">${sign(r.n)} 人</span></div>`).join('');
-  const tours = pick ? Object.values(pick.tours).filter(t => t.n).sort((a, b) => b.n - a.n) : [];
-  const detail = !pick ? '' : `<div class="rd-head"><b>${esc(pick.name)}</b>${pick.k === me ? '（你）' : ''}　淨收 <b class="${pick.n < 0 ? 'text-red-400' : ''}">${sign(pick.n)}</b> 人<span class="m3">（新收 +${pick.plus}${pick.minus ? '／退 ' + pick.minus : ''}）</span></div>` +
-    (tours.length ? tours.map(t => `<div class="rd-row"><span class="c">${esc(t.c)}</span><span class="p">${t.p ? esc(t.p) + `<span class="m4">｜${esc(t.ln)}</span>` : `<span class="m3">${esc(t.ln)}</span>`}</span><span class="rn${t.n < 0 ? ' neg' : ''}">${sign(t.n)}</span></div>`).join('')
-      : '<div class="m3 text-sm p-4">這段期間沒有收單</div>');
-  sec.innerHTML = head(range + (D.last && D.last < D.to ? `（資料到 ${md(D.last)}）` : '')) +
-    `<div class="rank-total">全組淨收 <b>${sign(D.total)}</b> 人<span class="m3">（新收 +${D.plus}${D.minus ? '／退 ' + D.minus : ''}）</span></div>
-     <div class="rank-wrap"><div class="rank-list">${list}</div><div class="rank-detail">${detail}</div></div>`;
+  if (RANK.open === undefined) RANK.open = D.rows.some(r => r.k === me) ? me : null;   // 業務預設展開自己的團
+  const rows = D.rows.slice().sort((a, b) => b.n - a.n || b.plus - a.plus || a.name.localeCompare(b.name, 'zh-Hant'));
+  rows.forEach((r, i) => { r.rank = i && rows[i - 1].n === r.n ? rows[i - 1].rank : i + 1; });   // 同分並列（1、1、3）
+  const busy = r => r.n !== 0 || r.plus || r.minus;               // 新收退訂互抵成 0 的也算有動作，照樣列
+  const active = rows.filter(busy), zero = rows.filter(r => !busy(r));
+  const meZero = zero.find(r => r.k === me), zeroRest = zero.filter(r => r !== meZero);
+  const lead = active.filter(r => r.rank <= 3 && r.n > 0), rest = active.filter(r => !lead.includes(r));
+  const max = Math.max(1, ...active.map(r => Math.abs(r.n)));
+  const row = (r, isLead) => {
+    const open = RANK.open === r.k;
+    const subs = r.tours.length ? `<i>${r.tours.length}</i> 團・新收 <i>${r.plus}</i>${r.minus ? `／退 <i>${Math.abs(r.minus)}</i>` : ''}` : '這段期間沒有收單';
+    let h = `<div class="rrow${isLead && r.rank === 1 ? ' first' : ''}${r.k === me ? ' me' : ''}${open ? ' open' : ''}" data-k="${esc(r.k)}" title="點一下看 ${esc(r.name)} 收了哪些團">
+      <span class="rk">${r.n > 0 || isLead ? r.rank : '–'}</span>
+      <span class="who"><b>${esc(r.name)}</b>${r.k === me ? '<span class="you">你</span>' : ''}<small>${subs}</small></span>
+      <span class="rbar">${r.n ? `<i class="${r.n < 0 ? 'neg' : ''}" style="width:${Math.abs(r.n) / max * 100}%"></i>` : ''}</span>
+      <span class="num${r.n < 0 ? ' neg' : r.n === 0 ? ' z' : ''}">${sign(r.n)}</span>
+      <i class="fa-solid fa-chevron-down chev"></i></div>`;
+    if (open) h += `<div class="rdet">${r.tours.length ? r.tours.map(t => `<div class="t"><span></span><span class="c">${esc(t.c)}</span><span class="p">${esc(t.p || t.ln)}${t.p ? `<em>${esc(t.ln)}</em>` : ''}</span><span class="n${t.n < 0 ? ' neg' : ''}">${sign(t.n)}</span><span></span></div>`).join('') : '<div class="foot">這段期間沒有收單</div>'}</div>`;
+    return h;
+  };
+  // 右欄：全組戰報
+  const diff = D.total - D.prevTotal, tours = active.reduce((s, r) => s + r.tours.length, 0);
+  const dmax = Math.max(1, ...D.daily.map(x => Math.abs(x.n)));
+  const spark = D.daily.length < 2 ? '' : `<div><h4>每天收單</h4><div class="spark">${D.daily.map(x => {
+      const [y, m, dd] = x.d.split('-').map(Number), w = WD[new Date(y, m - 1, dd).getDay()];
+      return `<div class="b${!x.has ? ' miss' : x.n < 0 ? ' neg' : x.n === 0 ? ' zero' : ''}" style="height:${!x.has ? 2 : Math.max(2, Math.abs(x.n) / dmax * 40)}px"><em>${md(x.d)}（${w}）${!x.has ? '缺資料（併入隔天）' : sign(x.n) + ' 人'}</em></div>`;
+    }).join('')}<div class="ax"><span>${md(D.daily[0].d)}</span><span>${md(D.daily[D.daily.length - 1].d)}</span></div></div></div>`;
+  const lineMap = {}; active.forEach(r => r.tours.forEach(t => { lineMap[t.ln] = (lineMap[t.ln] || 0) + t.n; }));
+  const lines = Object.entries(lineMap).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
+  const lmax = Math.max(1, ...lines.map(x => x[1]));
+  const linesHtml = !lines.length ? '' : `<div class="rlines"><h4>收在哪些線</h4>${lines.slice(0, 6).map(([ln, n]) => `<div class="ln"><span>${esc(ln)}</span><span class="lb"><i style="width:${Math.max(0, n) / lmax * 100}%"></i></span><b>${sign(n)}</b></div>`).join('')}${lines.length > 6 ? `<div class="ln more"><span>其他 ${lines.length - 6} 線</span><span></span><b>${sign(lines.slice(6).reduce((s, x) => s + x[1], 0))}</b></div>` : ''}</div>`;
+  const stale = D.last && D.last < D.to ? `（資料到 ${md(D.last)}）` : '';
+  sec.innerHTML = shell(range + stale, `<div class="rbody">
+    <div class="rlist">
+      ${lead.length ? `<div class="grp lead"><div class="grp-t">領先</div>${lead.map(r => row(r, true)).join('')}</div>` : ''}
+      ${rest.length || meZero ? `<div class="rsep"></div><div class="grp">${rest.map(r => row(r, false)).join('')}${meZero ? row(meZero, false) : ''}</div>` : ''}
+      ${zeroRest.length ? `<div class="rzero${RANK.zopen ? ' open' : ''}"><b>尚無收單 ${zeroRest.length} 人</b>${RANK.zopen ? zeroRest.map(r => `<span class="nm">${esc(r.name)}</span>`).join('<span>・</span>') : ''}<span class="tg">${RANK.zopen ? '收起' : '展開'} <i class="fa-solid fa-chevron-down"></i></span></div>` : ''}
+    </div>
+    <aside class="rside">
+      <div><div class="lbl">全組淨收</div>
+        <div class="big"><b>${sign(D.total)}</b><span>人</span></div>
+        <div class="subl"><span>新收 <i>${D.plus}</i></span><span>退訂 <i>${Math.abs(D.minus)}</i></span>
+          <span class="delta ${diff >= 0 ? 'up' : 'down'}" title="上一期同期：${D.prevTotal > 0 ? '+' : ''}${D.prevTotal} 人">${D.prevLabel} <b>${diff >= 0 ? '▲' : '▼'} ${Math.abs(diff)}</b></span></div>
+        <div class="kpis"><div class="kpi"><div class="v">${active.filter(r => r.n > 0).length}<small> / ${rows.length}</small></div><div class="k">有收單人數</div></div>
+          <div class="kpi"><div class="v">${tours}</div><div class="k">收單團數</div></div></div></div>
+      ${spark}${linesHtml}
+    </aside></div>`);
   wire();
-  sec.querySelectorAll('.rrow').forEach(el => el.onclick = () => { RANK.pick = el.dataset.k; renderRank(); });
+  sec.querySelectorAll('.rrow').forEach(el => el.onclick = () => { RANK.open = RANK.open === el.dataset.k ? null : el.dataset.k; renderRank(); });
+  const z = sec.querySelector('.rzero'); if (z) z.onclick = () => { RANK.zopen = !RANK.zopen; renderRank(); };
 }
 
 // 回首頁：清掉目前選的線（選取一起清），回到「今天要處理＋產品線」
