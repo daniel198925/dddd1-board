@@ -146,101 +146,6 @@
   [data-theme="light"] .flatpickr-calendar { box-shadow:0 8px 30px rgba(0,0,0,.15); }
   [data-theme="light"] .file-hl { background: rgba(245,158,11,.30); }
   [data-theme="light"] .file-hl .file-pick { color: #92400e !important; }   /* 淺色模式：深棕字 */
-
-  /* ══ 2026-10-07 改版（模擬圖定案：頂欄分層、篩選列統一、首頁待辦、原文標示、選取窗重排）══ */
-  .hdr-top { display:flex; align-items:center; gap:.75rem; padding:0 1rem; height:52px; background:var(--surface); border-bottom:1px solid var(--bd); }
-  .fresh { display:inline-flex; align-items:center; gap:.4rem; font-size:.75rem; color:var(--m2); white-space:nowrap; cursor:default; }
-  .fresh-dot { width:8px; height:8px; border-radius:50%; background:#34d399; box-shadow:0 0 0 3px rgba(52,211,153,.15); flex:none; }
-  .fresh.warn .fresh-dot { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.18); }
-  .fresh.bad { color:#fca5a5; font-weight:700; }
-  .fresh.bad .fresh-dot { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.2); }
-  .hnav { display:flex; gap:2px; background:var(--surface2); border:1px solid var(--bd); border-radius:7px; padding:2px; }
-  .hnav button { position:relative; display:flex; align-items:center; gap:.4rem; padding:.35rem .85rem; border-radius:5px; font-size:.84rem; font-weight:500; color:var(--m1); white-space:nowrap; }
-  .hnav button:hover { background:var(--hover); color:var(--fg); }
-  .nbadge { min-width:1.1rem; height:1.1rem; line-height:1.1rem; padding:0 .3rem; border-radius:9px; font-size:.65rem; font-weight:900; text-align:center; background:#f59e0b; color:#111; }
-  .nbadge.blue { background:#3b82f6; color:#fff; }
-  .ubtn { display:flex; align-items:center; gap:.5rem; height:34px; padding:0 .6rem; border:1px solid var(--bd); border-radius:7px; font-size:.84rem; color:var(--fg); white-space:nowrap; }
-  .ubtn:hover { border-color:var(--m4); }
-  .avatar { width:22px; height:22px; border-radius:50%; background:#24324d; color:#cfe0ff; font-size:.72rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none; }
-  [data-theme="light"] .avatar { background:#dbeafe; color:#1e3a8a; }
-  .umenu { position:absolute; right:0; top:40px; width:210px; background:var(--surface); border:1px solid var(--bd); border-radius:9px; padding:6px; z-index:65; box-shadow:0 14px 34px rgba(0,0,0,.5); }
-  .umenu a, .umenu button { display:flex; width:100%; align-items:center; gap:.65rem; padding:.5rem .65rem; border-radius:6px; font-size:.84rem; color:var(--m1); text-align:left; }
-  .umenu a:hover, .umenu button:hover { background:var(--hover); color:var(--fg); }
-  .umenu i { width:1rem; text-align:center; color:var(--m3); }
-  .umenu hr { border:0; border-top:1px solid var(--bd2); margin:.3rem 0; }
-
-  /* 篩選列：同一排、同樣高度 */
-  .frow { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; padding:.55rem 1rem; font-size:.875rem; }
-  .frow .input-style { height:36px; border-radius:7px; padding-top:0; padding-bottom:0; font-size:.86rem; display:inline-flex; align-items:center; }
-  .frow select.input-style { display:inline-block; }
-  @media (min-width: 640px) { .frow #more-btn { display:none; } }   /* 上面那條規則會蓋掉 sm:hidden，這裡補回來 */
-  .frow .flabel { color:var(--m3); font-weight:700; white-space:nowrap; }
-  .frow #f-line { font-weight:700; letter-spacing:.03em; }
-  .frow kbd { font-family:inherit; font-size:.68rem; border:1px solid var(--bd); border-bottom-width:2px; border-radius:4px; padding:0 .3rem; color:var(--m3); margin-left:.35rem; }
-  .legend-x { display:inline-flex; gap:.7rem; align-items:center; font-size:.68rem; color:var(--m3); white-space:nowrap; }
-
-  /* 原文區：左邊留一條窄邊放 ★（我的團）🔔（追蹤）；所有行一起內縮，等寬對齊不受影響 */
-  .hl { position:relative; padding-left:1.7rem; }
-  .hl-tour.is-mine::before, .hl-tour.is-fol::after { position:absolute; top:50%; transform:translateY(-50%); font-family:'Font Awesome 6 Free'; font-weight:900; font-size:.62rem; line-height:1; pointer-events:none; }
-  .hl-tour.is-mine::before { content:'\f005'; left:.3rem; color:#fbbf24; }
-  .hl-tour.is-fol::after   { content:'\f0f3'; left:.95rem; color:#93c5fd; }
-  .hl-tour.is-fol:not(.is-mine)::after { left:.3rem; }
-  /* 高度 0：浮在原文上面，出現／消失都不會把原文往下推（不然捲動時畫面會跳一下） */
-  #sec-sticky { position:sticky; top:0; left:0; z-index:5; height:0; overflow:visible; }
-  #sec-sticky .ss { display:none; position:absolute; left:0; top:0; min-width:100%; padding:.28rem 1rem .28rem 1.7rem; background:var(--sec-bg); color:var(--sec-fg); font-family:'Noto Sans TC',sans-serif; font-size:.8rem; font-weight:700; white-space:nowrap; border-bottom:1px solid var(--bd); box-shadow:0 4px 10px rgba(0,0,0,.25); }
-  #sec-sticky.on .ss { display:block; }
-  body.plain-raw .hl-tour.is-mine::before, body.plain-raw .hl-tour.is-fol::after { display:none; }
-  body.plain-raw .hl-tour.seat-low, body.plain-raw .hl-tour.seat-full { box-shadow:none; opacity:1; }
-  body.plain-raw #sec-sticky .ss { display:none !important; }
-  .filter-btn.plain-on { background:#334155; border-color:#475569; color:#fff; }
-
-  /* 首頁（還沒選線時）：今天要處理＋產品線入口 */
-  .home { font-family:'Noto Sans TC',sans-serif; white-space:normal; padding:1.1rem 1rem 2rem; display:grid; gap:1.4rem; max-width:1500px; }
-  .home h2 { font-size:.95rem; font-weight:700; color:var(--fg); }
-  .home .sub { font-size:.75rem; color:var(--m3); font-weight:400; margin-left:.6rem; }
-  .todo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:.65rem; margin-top:.55rem; align-items:start; }
-  .tcard { background:var(--surface); border:1px solid var(--bd); border-radius:8px; overflow:hidden; }
-  .tcard header { display:flex; align-items:center; gap:.5rem; padding:.5rem .75rem; border-bottom:1px solid var(--bd2); font-size:.82rem; font-weight:700; }
-  .tcard header .n { margin-left:auto; font-size:1.05rem; font-family:'SarasaMonoCL-Regular',monospace; }
-  .tcard.red header { color:#f87171; } .tcard.amber header { color:#fbbf24; } .tcard.blue header { color:#93c5fd; }
-  .trow { display:flex; align-items:center; gap:.5rem; padding:.42rem .75rem; font-size:.78rem; color:var(--m1); border-bottom:1px solid var(--bd2); cursor:pointer; }
-  .trow:last-child { border-bottom:0; }
-  .trow:hover { background:var(--hover); }
-  .trow .c { font-family:'SarasaMonoCL-Regular',monospace; color:var(--code-fg); white-space:nowrap; }
-  .trow .r { margin-left:auto; color:var(--m2); white-space:nowrap; }
-  .trow .who { color:var(--m3); white-space:nowrap; }
-  .tmore { padding:.4rem .75rem; font-size:.72rem; color:var(--m3); }
-  .line-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.65rem; margin-top:.55rem; }
-  .gcol { background:var(--surface); border:1px solid var(--bd); border-radius:8px; padding:.45rem; }
-  .gcol h3 { font-size:.7rem; color:var(--m3); margin:.15rem .3rem .3rem; letter-spacing:.08em; font-weight:500; }
-  .gl { display:flex; width:100%; align-items:center; padding:.42rem .5rem; border-radius:6px; font-size:.86rem; color:var(--fg); text-align:left; }
-  .gl:hover { background:var(--hover); }
-  .gl .ct { margin-left:auto; font-size:.72rem; color:var(--m3); font-family:'SarasaMonoCL-Regular',monospace; }
-
-  /* 選取窗：一顆主按鈕＋其餘次要（主按鈕可在「顯示欄位」切換轉換／複製） */
-  #detail-actions button { background:var(--surface2); border:1px solid var(--bd); color:var(--m1); font-weight:700; }
-  #detail-actions button:hover { border-color:var(--m4); color:var(--fg); }
-  #detail-actions button.pri { grid-column:1 / -1; order:-1; background:#2563eb; border-color:#2563eb; color:#fff; padding-top:.55rem; padding-bottom:.55rem; font-size:.8rem; }
-  #detail-actions button.pri:hover { background:#1d4ed8; }
-  #detail-actions #similar-btn { grid-column:1 / -1; }
-  .dl-row { display:grid; grid-template-columns:repeat(3,1fr); gap:.3rem; margin:.4rem 0 .2rem; }
-  .dl-row div { background:var(--surface2); border:1px solid var(--bd2); border-radius:6px; padding:.2rem; text-align:center; }
-  .dl-row small { display:block; font-size:.6rem; color:var(--m3); }
-  .dl-row b { font-family:'SarasaMonoCL-Regular',monospace; font-weight:400; font-size:.75rem; }
-  .dl-row .hot { border-color:#ef4444; } .dl-row .hot b { color:#f87171; }
-
-  @media (max-width: 639px) {
-    .hdr-top { height:46px; padding:0 .6rem; gap:.5rem; }
-    .hnav button { padding:.35rem .55rem; }
-    .frow { padding:.45rem .6rem; }
-    .hl { padding-left:1.3rem; }
-    .hl-tour.is-mine::before, .hl-tour.is-fol:not(.is-mine)::after { left:.2rem; }
-    .hl-tour.is-mine.is-fol::after { left:.7rem; }
-    #sec-sticky .ss { display:none !important; }
-    #detail-actions button.pri { grid-column:auto; order:0; padding-top:.375rem; padding-bottom:.375rem; }
-    #detail-actions #similar-btn { grid-column:auto; }
-    #detail-actions { grid-template-columns: repeat(5, 1fr) !important; }
-  }
 </style>
 </head>
 <body>
@@ -264,36 +169,26 @@
 
 <!-- ══ 主畫面 ══ -->
 <div id="main-page" class="hidden h-screen flex flex-col">
-  <header id="main-hdr" class="app-bg border-b bd2 shrink-0">
-    <!-- 頂欄只留每天用的三顆（找團／我的團／追蹤），其餘收進右邊姓名選單（2026-10-07 模擬圖定案）-->
-    <div class="hdr-top">
-      <h1 class="text-[17px] font-black whitespace-nowrap"><i class="fa-solid fa-bolt text-blue-500 mr-1"></i>D1<span class="mobile-hide"> 動態查詢</span></h1>
-      <span id="stamp-badge" class="fresh" title="每小時更新"><span class="fresh-dot"></span>載入中…</span>
+  <header id="main-hdr" class="app-bg border-b bd2 px-4 py-3 shrink-0">
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="text-lg font-black whitespace-nowrap"><i class="fa-solid fa-bolt text-blue-500 mr-1"></i>D1 動態查詢</h1>
+      <span id="stamp-badge" class="chip surface2 m1"><i class="fa-regular fa-clock mr-1"></i>載入中…</span>
       <div class="flex-1"></div>
-      <nav class="hnav">
-        <button id="finder-btn" title="跨線找團：日期＋天數＋預算一次掃全部線"><i class="fa-solid fa-magnifying-glass-location"></i><span class="mobile-hide">找團</span></button>
-        <button id="mine-btn" title="我名下的團：收訂進度、待開票"><i class="fa-solid fa-user-check"></i><span class="mobile-hide">我的團</span><span id="mine-badge" class="hidden nbadge"></span></button>
-        <button id="follow-list-btn" title="追蹤中的團：餘位/價格有變動會 LINE 通知"><i class="fa-regular fa-bell"></i><span class="mobile-hide">追蹤</span><span id="follow-badge" class="hidden nbadge blue"></span></button>
-      </nav>
-      <div class="relative">
-        <button id="umenu-btn" class="ubtn"><span id="user-avatar" class="avatar">D</span><span id="user-name" class="mobile-hide"></span><i class="fa-solid fa-chevron-down text-[.6rem] m3"></i></button>
-        <div id="umenu" class="hidden umenu">
-          <button id="agent-btn"><i class="fa-solid fa-id-card"></i>業務設定（名片）</button>
-          <a id="contract-list-btn" href="#" target="_blank" rel="noopener"><i class="fa-solid fa-file-signature"></i>合約系統</a>
-          <button id="gap-btn" title="檢查哪些團沒有配到行程（給產品部補檔用）"><i class="fa-solid fa-triangle-exclamation"></i>行程缺件檢查</button>
-          <a href="./"><i class="fa-solid fa-house"></i>回公佈欄</a>
-          <hr>
-          <button id="theme-btn"><i id="theme-icon" class="fa-solid fa-moon"></i><span id="theme-txt">切換淺色模式</span></button>
-          <a href="dynamic-classic.html" title="改版前的畫面（功能相同，備份對照用）"><i class="fa-solid fa-clock-rotate-left"></i>切換回舊版畫面</a>
-          <hr>
-          <button id="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i>登出</button>
-        </div>
-      </div>
+      <span id="user-name" class="text-sm m1 mobile-hide"></span>
+      <button id="theme-btn" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition" title="深色／淺色切換"><i id="theme-icon" class="fa-solid fa-moon"></i></button>
+      <button id="finder-btn" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition" title="跨線找團：日期＋天數＋預算一次掃全部線"><i class="fa-solid fa-magnifying-glass-location mr-1"></i><span class="mobile-hide">找團</span></button>
+      <button id="follow-list-btn" class="text-xs m2 hover:text-amber-400 border bd rounded-lg px-3 py-1.5 transition relative" title="追蹤中的團：餘位/價格有變動會 LINE 通知"><i class="fa-regular fa-bell mr-1"></i><span class="mobile-hide">追蹤</span><span id="follow-badge" class="hidden absolute -top-1.5 -right-1.5 bg-amber-500 text-black text-[.6rem] font-black rounded-full min-w-[1.1rem] h-[1.1rem] leading-[1.1rem] text-center px-0.5"></span></button>
+      <button id="mine-btn" class="text-xs m2 hover:text-emerald-400 border bd rounded-lg px-3 py-1.5 transition" title="我名下的團：收訂進度、待開票"><i class="fa-solid fa-user-check mr-1"></i><span class="mobile-hide">我的團</span></button>
+      <button id="gap-btn" class="text-xs m2 hover:text-amber-400 border bd rounded-lg px-3 py-1.5 transition" title="檢查哪些團沒有配到行程（給產品部補檔用）"><i class="fa-solid fa-triangle-exclamation mr-1"></i><span class="mobile-hide">行程缺件</span></button>
+      <button id="agent-btn" class="text-xs m2 hover:price border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-id-card mr-1"></i><span class="mobile-hide">業務設定</span></button>
+      <a id="contract-list-btn" href="#" target="_blank" rel="noopener" class="text-xs m2 hover:text-emerald-400 border bd rounded-lg px-3 py-1.5 transition" title="合約清單"><i class="fa-solid fa-file-signature mr-1"></i><span class="mobile-hide">合約</span></a>
+      <a href="./" class="text-xs m2 hover:text-blue-400 border bd rounded-lg px-3 py-1.5 transition"><i class="fa-solid fa-house mr-1"></i><span class="mobile-hide">回公佈欄</span></a>
+      <button id="logout-btn" class="text-xs m2 hover:text-red-400 border bd rounded-lg px-3 py-1.5 transition">登出</button>
     </div>
-    <div class="frow">
-      <span class="flabel mobile-hide">動態：</span>
-      <select id="f-line" class="input-style min-w-[230px] max-w-full flex-1 sm:flex-none"></select>
-      <span class="flabel ml-1 mobile-hide">地區：</span>
+    <div class="flex flex-wrap items-center gap-2 mt-3 text-sm">
+      <span class="m3 font-bold mobile-hide">動態：</span>
+      <select id="f-line" class="input-style font-bold min-w-[220px] max-w-full flex-1 sm:flex-none"></select>
+      <span class="m3 font-bold ml-2 mobile-hide">地區：</span>
       <!-- 地區＝跳到那一區（不是篩選）；選了才出現 X，按 X 回到最上面 -->
       <div class="relative flex items-center min-w-[140px] max-w-full flex-1 sm:flex-none">
         <select id="f-region" class="input-style w-full pr-7"><option value="">全部地區</option></select>
@@ -301,7 +196,7 @@
       </div>
       <button id="more-btn" class="input-style sm:hidden"><i class="fa-solid fa-sliders"></i></button>
       <div id="more-filters" class="flex flex-wrap items-center gap-2 max-sm:hidden max-sm:w-full">
-        <span class="flabel ml-1 mobile-hide">日期：</span>
+        <span class="m3 font-bold mobile-hide">日期：</span>
         <!-- 出發日範圍：一格搞定（flatpickr range），預設空白＝不篩日期 -->
         <div class="relative flex items-center">
           <input id="f-date" class="input-style w-[190px] max-sm:w-full cursor-pointer" placeholder="全部日期（點選篩選）" readonly>
@@ -319,7 +214,7 @@
             </div>
           </div>
         </div>
-        <input id="f-search" class="input-style w-52 max-sm:w-full max-sm:ml-0" placeholder="🔍 搜尋團號或任意字（按 / ）">
+        <input id="f-search" class="input-style w-44 max-sm:w-full ml-2 max-sm:ml-0" placeholder="🔍 搜尋（團號/任意字）">
       </div>
       <!-- 快速篩選（開關型，按下去變亮）-->
       <button id="f-promo" class="filter-btn input-style whitespace-nowrap"><i class="fa-solid fa-tag mr-1"></i>促銷</button>
@@ -327,8 +222,7 @@
       <!-- 瀏覽行程庫：不用先選團也能開（郵輪/國旅沒有可選團，靠這個看行程）-->
       <button id="browse-btn" class="input-style whitespace-nowrap hover:text-blue-400" title="瀏覽公司雲行程檔"><i class="fa-regular fa-folder-open mr-1"></i>行程</button>
       <span id="count-badge" class="chip surface2 m2"></span>
-      <span id="seat-legend" class="hidden legend-x"><span><span class="text-amber-500">▍</span>餘 3 位內</span><span><span class="text-slate-500">▍</span>已滿</span><span><i class="fa-solid fa-star text-amber-400"></i> 我的團</span><span><i class="fa-solid fa-bell text-blue-300"></i> 追蹤</span>
-        <button id="plain-btn" class="filter-btn input-style !h-[26px] !text-[.7rem] !px-2" title="關掉所有標示，畫面跟漢書一模一樣"><i class="fa-solid fa-eye mr-1"></i>純原文</button></span>
+      <span id="seat-legend" class="hidden text-[.65rem] m4 whitespace-nowrap"><span class="text-amber-500">▍</span>餘 3 位內　<span class="text-slate-500">▍</span>已滿</span>
     </div>
   </header>
 
@@ -336,7 +230,7 @@
 </div>
 
 <!-- ══ 明細卡（選取資料）══ -->
-<div id="detail-card" class="hidden fixed right-3 bottom-3 w-[268px] max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-1.5rem)] flex-col surface border bd rounded-2xl shadow-2xl z-50 overflow-hidden">
+<div id="detail-card" class="hidden fixed right-3 bottom-3 w-[214px] max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-1.5rem)] flex-col surface border bd rounded-2xl shadow-2xl z-50 overflow-hidden">
   <div id="detail-head" class="flex items-center justify-between px-2 py-2 border-b bd2 relative cursor-move select-none" title="拖曳可移動位置">
     <span class="font-bold text-xs truncate"><i class="fa-solid fa-grip-vertical m4 mr-1"></i>選取<span id="detail-count" class="m3 font-normal"></span></span>
     <div class="flex items-center gap-0.5 shrink-0">
@@ -353,13 +247,11 @@
     <button id="shared-file-name" class="flex-1 truncate m1 text-left hover:text-blue-400 hover:underline" title="點擊開啟行程表"></button>
     <button id="shared-file-clear" class="m3 hover:text-red-400 shrink-0 w-5" title="移除"><i class="fa-solid fa-xmark"></i></button>
   </div>
-  <!-- 主按鈕（藍、整排）＝轉換或複製，業務自己在「顯示欄位」選；其餘同一種低調樣式 -->
   <div id="detail-actions" class="grid grid-cols-2 gap-1 p-2 border-t bd2 shrink-0">
-    <button id="convert-btn" title="轉換連結（產生行程短網址＋複製報價）" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-solid fa-link"></i><span class="btn-txt ml-1">轉換連結</span></button>
-    <button id="copy-btn" title="複製報價文案" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-regular fa-copy"></i><span class="btn-txt ml-1">複製文案</span></button>
-    <button id="files-btn" title="選擇行程（套用全部選取）" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-regular fa-folder-open"></i><span class="btn-txt ml-1">行程</span></button>
-    <button id="contract-btn" title="建立合約（帶團號＋團費開合約系統）" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-solid fa-file-signature"></i><span class="btn-txt ml-1">建立合約</span></button>
-    <button id="similar-btn" title="找類似團：同一條線、出發日前後 7 天、天數相近" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-solid fa-shuffle"></i><span class="btn-txt ml-1">找類似團</span></button>
+    <button id="files-btn" title="選擇行程（套用全部選取）" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-folder-open"></i><span class="btn-txt ml-0.5">行程</span></button>
+    <button id="copy-btn" title="複製摘要" class="surface2 hover:opacity-80 m1 border bd font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-regular fa-copy"></i><span class="btn-txt ml-0.5">複製</span></button>
+    <button id="contract-btn" title="建立合約（帶團號＋團費開合約系統）" class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-solid fa-file-signature"></i><span class="btn-txt ml-0.5">合約</span></button>
+    <button id="convert-btn" title="轉換連結" class="bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-1.5 rounded-lg text-[.7rem] transition"><i class="fa-solid fa-plane"></i><span class="btn-txt ml-0.5">轉換</span></button>
   </div>
 </div>
 
@@ -543,14 +435,9 @@ const $ = id => document.getElementById(id);
 // ── 深／淺色主題（記住選擇；沒設過就跟著手機/電腦的系統設定）──
 function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
-  $('theme-icon').className = t === 'light' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
-  $('theme-txt').textContent = t === 'light' ? '切換深色模式' : '切換淺色模式';   // 選單寫「按了會變成什麼」
+  $('theme-icon').className = t === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
   localStorage.setItem('d1dt_theme', t);
 }
-// 姓名選單（業務設定／合約／缺件／公佈欄／深淺色／舊版／登出）：點姓名開，點外面或點了某一項就收
-$('umenu-btn').onclick = e => { e.stopPropagation(); $('umenu').classList.toggle('hidden'); };
-$('umenu').addEventListener('click', e => { if (e.target.closest('a,button')) $('umenu').classList.add('hidden'); });
-document.addEventListener('click', e => { if (!e.target.closest('#umenu')) $('umenu').classList.add('hidden'); });
 applyTheme(localStorage.getItem('d1dt_theme')
   || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
 // 頂部「合約」＝看合約清單（選取卡那顆「合約」是帶團號去開新合約，用途不同）
@@ -618,7 +505,6 @@ onAuthStateChanged(auth, async user => {
     if (snap.data().role === 'recorder') { $('login-msg').innerText = '此帳號沒有動態查詢的使用權限'; return signOut(auth); }
     ME = snap.data();                       // 「我的團」要用暱稱（全名）反查漢書業務簡稱
     $('user-name').textContent = ME.nickname || ME.account || '';
-    $('user-avatar').textContent = String(ME.nickname || ME.account || 'D').trim().slice(-1);
     showPage('main-page');
     // 業務設定（轉換連結名片）——多張分頁：{cards:[...], active}
     const ag = await pAgent; const ad = ag && ag.exists() ? ag.data() : {};
@@ -643,12 +529,9 @@ onAuthStateChanged(auth, async user => {
 function stampBadge() {
   if (!META) return;
   const ageMin = (Date.now() - new Date(META.stamp.replace(' ', 'T'))) / 60000;
-  // 綠＝正常；超過 1.5 小時黃（漏一班）；超過 2.5 小時紅（跟監視器同一個門檻，同步多半卡住了）
-  const stale = ageMin > 150, warn = ageMin > 90;
-  const ago = ageMin < 1 ? '剛剛' : ageMin < 60 ? `${Math.round(ageMin)} 分鐘前` : `${Math.round(ageMin / 60)} 小時前`;
-  $('stamp-badge').className = 'fresh' + (stale ? ' bad' : warn ? ' warn' : '');
-  $('stamp-badge').title = `資料時間 ${META.stamp}（每小時更新）`;
-  $('stamp-badge').innerHTML = `<span class="fresh-dot"></span><span class="mobile-hide">資料 </span>${esc(META.stamp.slice(5))}<span class="mobile-hide">・${ago}${stale ? '　⚠ 同步可能卡住' : ''}</span>`;
+  const stale = ageMin > 150;
+  $('stamp-badge').className = 'chip ' + (stale ? 'bg-red-900/60 text-red-300' : 'surface2 m1');
+  $('stamp-badge').innerHTML = `<i class="fa-regular fa-clock mr-1"></i>資料時間 ${esc(META.stamp.slice(5))}（每小時更新${stale ? '｜⚠ 已超過 ' + Math.round(ageMin / 60) + ' 小時' : ''}）`;
 }
 
 // ── 回到前景就檢查有沒有新資料（使用者 2026-07-21）──
@@ -689,170 +572,18 @@ async function boot(metaSnap) {
   stampBadge();
 
   // 動態選單：顯示漢書原始檔名（跟舊系統一樣）。第一項留空＝進來不預選、不載入任何線。
-  // 依線名分段（2026-10-07 改版）：用線名判斷不用檔號，內勤哪天又搬檔號也不會分錯段
-  $('f-line').innerHTML = '<option value="">請選擇一個動態檔案…</option>' + lineGroups().map(([g, fs]) =>
-    `<optgroup label="── ${g} ──">${fs.map(f =>
-      `<option value="${esc(f.f)}">${esc((f.name || f.line).replace(/\.txt$/i, '').replace(/\s+/g, ' '))}</option>`).join('')}</optgroup>`).join('');
+  const files = [...META.files].sort((a, b) => a.f.localeCompare(b.f));
+  $('f-line').innerHTML = '<option value="">請選擇一個動態檔案…</option>' + files.map(f =>
+    `<option value="${esc(f.f)}">${esc((f.name || f.line).replace(/\.txt$/i, '').replace(/\s+/g, ' '))}</option>`).join('');
   $('f-line').value = '';
 
   // 日期預設空白＝不篩（使用者 2026-07-21）。以前預設帶「今天～一年後」，
   //   等於一進來就在篩選狀態，過去的團看不到也不明顯。
 
-  // 進來不自動載入任何線（舊系統做法）：秒進畫面，選了才載。空白處改成首頁（待辦＋產品線入口）
-  renderHome();
-}
-
-// 產品線分段：大陸／東南亞／日韓／長程／郵輪・國旅（段內照檔號）
-const LINE_SEG = [['大陸', /大陸/], ['東南亞', /新|馬|泰|河內|峴港|南線/], ['日韓', /首爾|韓|東京|大阪|日本/], ['長程', /長程/]];
-function lineGroups() {
-  const files = [...META.files].sort((a, b) => a.f.localeCompare(b.f));
-  const segs = [...LINE_SEG.map(([g]) => [g, []]), ['郵輪・國旅', []]];
-  for (const f of files) {
-    const nm = (f.line || f.name || '').replace(/\s+/g, '');
-    const k = LINE_SEG.findIndex(([, re]) => re.test(nm));
-    segs[k >= 0 ? k : segs.length - 1][1].push(f);
-  }
-  return segs.filter(([, fs]) => fs.length);
-}
-
-// ══ 首頁（還沒選線時）：今天要處理＋產品線入口（2026-10-07 改版）══
-//    待辦要讀全部動態（約 3MB）才算得出來：電腦版畫面先出來、背景再讀（不拖慢登入）；
-//    手機版不自動讀（省流量），按一下才讀。讀過的線會留在快取，之後選線／找團／我的團都更快。
-//    主管（META.managers）看全組；一般業務看自己；沒有漢書代號的帳號只顯示追蹤清單。
-let HOME = null, HOME_LOADING = false, HOME_ROWS = [];
-const HOME_MAX = 6;   // 每張卡最多列幾筆，其餘請看「我的團」
-function homeTarget() {
-  const team = (META && META.team) || {}, managers = new Set((META && META.managers) || []);
-  const abbr = myAbbrOf();
-  const isMgr = (abbr && managers.has(abbr)) || (ME && ME.role === 'admin');
-  const target = isMgr ? new Set(Object.keys(team).filter(k => !managers.has(k))) : abbr ? new Set([abbr]) : null;
-  return { team, isMgr, target };
-}
-function homeTodoHtml(mobile) {
-  const { target, isMgr } = homeTarget();
-  const hasFol = Object.keys(FOLLOWS).length > 0;
-  if (!target && !hasFol) return '';
-  const head = `<h2>今天要處理<span class="sub">${isMgr ? '全組' : '只列你名下的團'}・DL 只列卡位未收訂・出發 5 天內合約沒完成的也會列出</span></h2>`;
-  if (HOME_LOADING) return `<section>${head}<div class="m3 text-sm mt-2"><i class="fa-solid fa-spinner fa-spin mr-2"></i>整理中…（第一次要讀全部動態，約幾秒鐘）</div></section>`;
-  if (!HOME) return mobile
-    ? `<section>${head}<button id="home-load" class="input-style mt-2 text-sm"><i class="fa-solid fa-list-check mr-1"></i>載入今天的待辦（會讀全部動態，建議用 Wi-Fi）</button></section>`
-    : `<section>${head}</section>`;
-  const { team } = homeTarget();
-  HOME_ROWS = [];
-  const row = it => {
-    const k = HOME_ROWS.push(it.x) - 1, t = it.x.r;
-    return `<div class="trow" data-k="${k}" title="點一下跳到這一團"><span class="c">${esc(t.c)}</span>${isMgr && it.who ? `<span class="who">${esc(team[it.who] || it.who)}</span>` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(t.p || '')}${t.tt ? ' ' + esc(t.tt) : ''}</span><span class="r">${it.txt}</span></div>`;
-  };
-  const card = (cls, icon, title, list, empty) => `<div class="tcard ${cls}"><header><i class="${icon}"></i>${title}<span class="n">${list ? list.length : '?'}</span></header>${
-    !list ? `<div class="tmore">${empty}</div>` : !list.length ? `<div class="tmore">${empty}</div>` :
-    list.slice(0, HOME_MAX).map(row).join('') + (list.length > HOME_MAX ? `<div class="tmore">還有 ${list.length - HOME_MAX} 筆，請看「我的團」</div>` : '')}</div>`;
-  const cards = [];
-  if (target) {
-    cards.push(card('red', 'fa-solid fa-hourglass-half', 'DL 今明兩天到期', HOME.dl, '沒有'));
-    cards.push(card('amber', 'fa-solid fa-plane-departure', '兩天內開票', HOME.ti, '沒有'));
-    cards.push(card('amber', 'fa-solid fa-folder-open', '出發前合約未完成', HOME.ctErr ? null : HOME.ct, HOME.ctErr ? '合約狀態讀取失敗：' + esc(HOME.ctErr) : '沒有'));
-  }
-  if (hasFol) cards.push(card('blue', 'fa-regular fa-bell', '追蹤中的團', HOME.fol, '沒有'));
-  return `<section>${head}<div class="todo-grid">${cards.join('')}</div></section>`;
-}
-function renderHome() {
-  if ($('f-line').value || !META) return;            // 已經選了線就不蓋掉
-  if (HOME && HOME.stamp !== META.stamp) HOME = null; // 資料換版 → 待辦重算
-  const box = $('raw-view');
-  const mobile = matchMedia('(max-width: 639px)').matches;
-  box.innerHTML = `<div class="home">${homeTodoHtml(mobile)}
-    <section><h2>選一條產品線<span class="sub">也可以用上方「動態」下拉選；不確定哪條線就用「找團」跨線搜</span></h2>
-    <div class="line-grid">${lineGroups().map(([g, fs]) => `<div class="gcol"><h3>${g}</h3>${fs.map(f =>
-      `<button class="gl" data-f="${esc(f.f)}">${esc(f.line || f.f)}<span class="ct">${f.n ? f.n + ' 團' : '看行程'}</span></button>`).join('')}</div>`).join('')}</div></section></div>`;
-  box.querySelectorAll('.gl').forEach(b => b.onclick = () => { $('f-line').value = b.dataset.f; loadFile(); });
-  box.querySelectorAll('.trow').forEach(el => el.onclick = () => { const x = HOME_ROWS[+el.dataset.k]; if (x) jumpToTour(x.f, x.r); });
-  if ($('home-load')) $('home-load').onclick = buildHome;
-  if (!mobile && !HOME && !HOME_LOADING) setTimeout(buildHome, 600);
-}
-async function buildHome() {
-  if (HOME_LOADING || !META) return;
-  const { team, target } = homeTarget();
-  if (!target && !Object.keys(FOLLOWS).length) return;
-  HOME_LOADING = true; renderHome();
-  const stamp = META.stamp;
-  const H = { stamp, dl: [], ti: [], ct: [], fol: [], ctErr: '' };
-  try {
-    const all = await loadAllRows();
-    const day = n => ymd(new Date(Date.now() + n * 864e5));
-    const today = day(0), d1 = day(1), d2 = day(2), d5 = day(5);
-    const seen = new Set(), ctCand = [];
-    for (const x of all) {
-      const t = x.r;
-      if (!target || t.sp || !t.dt || t.dt < today) continue;
-      const byWho = new Map();
-      for (const b of t.bs || []) {
-        if (!target.has(b[0])) continue;
-        const e = byWho.get(b[0]) || { pax: 0, paid: 0, unpaid: 0 };
-        e.pax += b[1] || 0; if (b[2]) e.paid += b[1] || 0; else e.unpaid += b[1] || 0;
-        byWho.set(b[0], e);
-      }
-      if (!byWho.size) continue;
-      const dlI = tiISO(t.dl, t.dt), tiI = tiISO(t.ti, t.dt);
-      for (const [who, e] of byWho) {
-        const k = `${t.c}|${t.p || ''}|${who}`;      // 同團在不同檔重複列 → 只算一次
-        if (seen.has(k)) continue; seen.add(k);
-        if (dlI && dlI >= today && dlI <= d1 && e.unpaid) H.dl.push({ x, who, sort: dlI, txt: `${dlI === today ? '今天' : '明天'}・卡位 ${e.unpaid}` });
-        if (tiI && tiI >= today && tiI <= d2 && !t.tis) H.ti.push({ x, who, sort: tiI, txt: `${tiI.slice(5).replace('-', '/')}・${e.pax} 人` });
-        if (t.dt <= d5 && e.paid) ctCand.push({ x, who, sort: t.dt, pax: e.paid });
-      }
-    }
-    H.dl.sort((a, b) => a.sort.localeCompare(b.sort));
-    H.ti.sort((a, b) => a.sort.localeCompare(b.sort));
-    // 合約：出發 5 天內、有已收訂的 → 問合約系統（同「我的團」合約欄同一支 API、同一份手動標記）
-    if (ctCand.length) {
-      try {
-        if (!CTMANUAL) {
-          try { const s = await getDoc(doc(db, 'dt_manual', 'archive')); CTMANUAL = s.exists() ? s.data() : {}; }
-          catch (_) { CTMANUAL = {}; }
-        }
-        const missing = [...new Set(ctCand.map(c => c.x.r.c))].filter(c => !(c in CTCACHE));
-        if (missing.length) {
-          const idToken = await auth.currentUser.getIdToken();
-          const r = await fetch(`${CONTRACT_BASE}/api/tour-contract-status`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken, codes: missing }),
-          });
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          const byCode = (await r.json()).byCode || {};
-          for (const c of missing) CTCACHE[c] = byCode[c] || [];
-        }
-        for (const c of ctCand.sort((a, b) => a.sort.localeCompare(b.sort))) {
-          const code = c.x.r.c;
-          if (CTMANUAL[code]) continue;                                   // 手動標記完成的不再列
-          // 判斷規則跟 LINE「合約歸檔提醒」（ticket-remind.mjs gapOf）一致：以團為單位，全數歸檔才算完成
-          const list = CTCACHE[code] || [];
-          const pend = list.filter(k => k.st !== 'signed').length, signd = list.filter(k => k.st === 'signed' && !k.ar).length;
-          const why = !list.length ? '未建約' : pend ? `${pend} 份未簽` : signd ? `${signd} 份已簽未歸檔` : '';
-          if (why) H.ct.push({ x: c.x, who: c.who, txt: `${fmtDt(c.x.r.dt, false)} 出發・${why}` });
-        }
-      } catch (e) { H.ctErr = e.message; }
-    }
-    // 追蹤中的團：目前餘位（快滿／已滿排前面）
-    const cur = new Map();
-    for (const x of all) { const k = followKey(x.r); if (!cur.has(k)) cur.set(k, x); }
-    for (const [k, fw] of Object.entries(FOLLOWS)) {
-      const x = cur.get(k);
-      if (!x || (x.r.dt && x.r.dt < today)) continue;
-      const rm = x.r.r, thr = Math.max(1, Number(fw.thr) || 3);
-      const txt = typeof rm !== 'number' ? '--' : rm <= 0 ? '<span class="text-slate-400">已滿</span>'
-        : rm <= thr ? `<span class="text-amber-400 font-bold">餘 ${rm}</span>` : `餘 ${rm}`;
-      H.fol.push({ x, txt, sort: (typeof rm === 'number' && rm <= thr ? '0' : '1') + (x.r.dt || '') });
-    }
-    H.fol.sort((a, b) => a.sort.localeCompare(b.sort));
-  } catch (e) {
-    HOME_LOADING = false;
-    if (!$('f-line').value) $('raw-view').querySelector('.home section')?.insertAdjacentHTML('beforeend', `<div class="text-red-400 text-sm mt-2">待辦讀取失敗：${esc(e.message)}</div>`);
-    return;
-  }
-  HOME = H; HOME_LOADING = false;
-  const n = H.dl.length + H.ti.length + H.ct.length;   // 「我的團」徽章＝要處理的件數
-  $('mine-badge').textContent = n; $('mine-badge').classList.toggle('hidden', !n);
-  renderHome();
+  // 進來不自動載入任何線（舊系統做法）：秒進畫面，選了才載
+  $('raw-view').innerHTML =
+    '<div class="m3 text-center py-16"><i class="fa-regular fa-folder-open text-4xl mb-3 block opacity-40"></i>' +
+    '請先從上方「動態」選擇一個檔案</div>';
 }
 
 // ── 載入一個漢書檔（原文＋解析資料）──
@@ -861,9 +592,9 @@ async function loadFile() {
   if (!fno) {          // 選回「請選擇…」→ 回到空白提示，不打網路
     LINES = []; VISIBLE = []; SELLINES = [];
     $('detail-card').classList.add('hidden');
-    $('seat-legend').classList.add('hidden');
-    $('f-region').innerHTML = '<option value="">全部地區</option>';
-    renderHome();
+    $('raw-view').innerHTML =
+      '<div class="m3 text-center py-16"><i class="fa-regular fa-folder-open text-4xl mb-3 block opacity-40"></i>' +
+      '請先從上方「動態」選擇一個檔案</div>';
     return;
   }
   localStorage.setItem('d1dt_line', fno);
@@ -943,31 +674,7 @@ $('f-date-clear').onclick = e => {
   $('f-date-clear').classList.add('hidden');
   render();
 };
-// 登入者的漢書業務簡稱（全名 → 簡稱，用 _meta.team 對照；主管/非 D1 帳號沒有＝不標 ★）
-function myAbbrOf() {
-  const me = (ME && (ME.nickname || ME.account)) || '';
-  const team = (META && META.team) || {};
-  return Object.keys(team).find(k => team[k] === me) || '';
-}
-
-// 產品名標題捲動時固定在上方：看到哪一區就顯示哪一區（電腦版；手機頂欄會收合，不做）
-let SECELS = [], _stickyRaf = 0;
-function updateSticky() {
-  _stickyRaf = 0;
-  const box = $('raw-view'), st = $('sec-sticky');
-  if (!st || !SECELS.length) return;
-  const top = box.getBoundingClientRect().top;
-  let cur = null;
-  for (const el of SECELS) { if (el.getBoundingClientRect().top < top + 2) cur = el; else break; }
-  if (!cur) { st.classList.remove('on'); return; }
-  const name = cur.textContent.replace(/[■▆▂▄▁*＊\s　"]/g, '');
-  if (st.dataset.name !== name) { st.dataset.name = name; st.innerHTML = `<div class="ss">■ ${esc(name)}</div>`; }
-  st.classList.toggle('on', !!name);
-}
-$('raw-view').addEventListener('scroll', () => { if (!_stickyRaf) _stickyRaf = requestAnimationFrame(updateSticky); }, { passive: true });
-
 function render() {
-  const myAbbr = myAbbrOf();
   const [from, to] = DATERANGE;
   const q = $('f-search').value.trim().toUpperCase();
   // 地區不再是「篩選」而是「跳位」：整份還是全部顯示，只把畫面捲到那一區，
@@ -1010,9 +717,7 @@ function render() {
       //   只有解析得出餘位的團才標；國旅/郵輪(sp)沒有餘位欄，不標
       const rm = l.row.r;
       const seat = l.row.sp || typeof rm !== 'number' ? '' : rm <= 0 ? ' seat-full' : rm <= 3 ? ' seat-low' : '';
-      // 左邊窄邊標示（2026-10-07）：★＝我名下有報名、🔔＝我追蹤中。只加 class，原文一個字都不動
-      const mark = (myAbbr && (l.row.bs || []).some(b => b[0] === myAbbr) ? ' is-mine' : '') + (FOLLOWS[followKey(l.row)] ? ' is-fol' : '');
-      out.push(`<div class="hl hl-tour${seat}${mark} ${SELLINES.includes(l.i) ? 'sel' : ''}" data-i="${l.i}">${h}</div>`);
+      out.push(`<div class="hl hl-tour${seat} ${SELLINES.includes(l.i) ? 'sel' : ''}" data-i="${l.i}">${h}</div>`);
     } else if (l.isSec) {
       if (filtering && !secHasRow.has(l.i)) continue;   // 這區沒有符合的團就整個不顯示
       out.push(`<div class="hl hl-sec" data-i="${l.i}">${esc(l.text)}</div>`);
@@ -1026,9 +731,7 @@ function render() {
       out.push(`<div class="hl m2"${l.isSub ? ` data-i="${l.i}"` : ''}>${esc(l.text) || ' '}</div>`);
     }
   }
-  $('raw-view').innerHTML = out.length ? '<div id="sec-sticky"></div>' + out.join('') : '<div class="m3 p-6">沒有符合條件的團</div>';
-  SECELS = [...$('raw-view').querySelectorAll('.hl-sec')];
-  updateSticky();
+  $('raw-view').innerHTML = out.join('') || '<div class="m3 p-6">沒有符合條件的團</div>';
   $('count-badge').textContent = filtering ? `${pass.size} 團` : '';
   $('seat-legend').classList.toggle('hidden', !LINES.length);   // 有載入動態才顯示圖例
   VISIBLE = [...$('raw-view').querySelectorAll('.hl-tour')].map(el => +el.dataset.i);
@@ -1178,27 +881,12 @@ function buildDMenu() {
     `<label class="flex items-center gap-2 py-1 text-sm cursor-pointer select-none">
       <input type="checkbox" class="accent-blue-500" data-k="${f.k}" ${dshow[f.k] ? 'checked' : ''}>${f.name}
     </label>`).join('');
-  $('dcol-menu').insertAdjacentHTML('beforeend',
-    `<div class="border-t bd2 mt-2 pt-2 text-xs m3 font-bold">主按鈕（藍色大顆）</div>` +
-    [['convert', '轉換連結'], ['copy', '複製文案']].map(([v, n]) =>
-      `<label class="flex items-center gap-2 py-1 text-sm cursor-pointer select-none">
-        <input type="radio" name="pri-pick" class="accent-blue-500" value="${v}" ${PRIMARY === v ? 'checked' : ''}>${n}</label>`).join(''));
-  $('dcol-menu').querySelectorAll('input[type=checkbox]').forEach(cb => cb.onchange = () => {
+  $('dcol-menu').querySelectorAll('input').forEach(cb => cb.onchange = () => {
     dshow[cb.dataset.k] = cb.checked;
     localStorage.setItem('d1dt_dfields', JSON.stringify(dshow));
     showDetail();
   });
-  $('dcol-menu').querySelectorAll('input[name=pri-pick]').forEach(rb => rb.onchange = () => {
-    PRIMARY = rb.value; localStorage.setItem('d1dt_primary', PRIMARY); applyPrimary();
-  });
 }
-// 選取窗的主按鈕：轉換連結 or 複製文案（每位業務習慣不同，自己選；預設轉換）
-let PRIMARY = localStorage.getItem('d1dt_primary') === 'copy' ? 'copy' : 'convert';
-function applyPrimary() {
-  $('convert-btn').classList.toggle('pri', PRIMARY === 'convert');
-  $('copy-btn').classList.toggle('pri', PRIMARY === 'copy');
-}
-applyPrimary();
 $('dcol-btn').onclick = e => { e.stopPropagation(); buildDMenu(); $('dcol-menu').classList.toggle('hidden'); };
 document.addEventListener('click', e => { if (!$('dcol-menu').contains(e.target) && e.target !== $('dcol-btn')) $('dcol-menu').classList.add('hidden'); });
 
@@ -1256,16 +944,6 @@ function groupBlock(g, multi) {
   if (dshow.an) parts.push(line('航空公司', anWithFlight(r0)));
   if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt, !!dshow.wk)}</span>`).join('')}</span>`));
   if (dshow.dy) parts.push(line('天數', r0.dy ? r0.dy + '天' : '--'));
-  // 單一團：DL／票款／開票排一列（2026-10-07）。漢書只寫月/日 → 用出發日回推年份；DL 今明天到期標紅
-  if (g.length === 1 && (r0.dl || r0.tp || r0.ti)) {
-    const today = ymd(new Date()), tmr = ymd(new Date(Date.now() + 864e5));
-    const cell = (k, md, hotOK) => {
-      const iso = tiISO(md, r0.dt);
-      const hot = hotOK && iso && iso >= today && iso <= tmr;
-      return `<div class="${hot ? 'hot' : ''}"><small>${k}</small><b>${iso ? iso.slice(5).replace('-', '/') : '--'}</b></div>`;
-    };
-    parts.push(`<div class="dl-row">${cell('DL', r0.dl, true)}${cell('票款', r0.tp)}${cell('開票', r0.ti)}</div>`);
-  }
   if (dshow.p)  parts.push(line('產品', `${esc(r0.p)}${r0.gw !== '直飛' ? '｜' + esc(r0.gw) : ''}${r0.dp !== '台北' ? '｜' + esc(r0.dp) + '出發' : ''}`));
 
   const cols = PERTOUR.filter(f => dshow[f.k]);
@@ -1895,32 +1573,6 @@ $('contract-btn').onclick = () => {
   toast('已開啟合約系統，帶入團號＋團費');
 };
 
-// ── 找類似團（2026-10-07）：用選中的第一團帶條件開「找團」——同一條線、出發日前後 7 天、天數 ±1、只看有位 ──
-$('similar-btn').onclick = () => {
-  const r = selRows()[0];
-  if (!r || !r.dt) return;
-  const [y, m, d] = r.dt.split('-').map(Number);
-  const from = new Date(y, m - 1, d - 7), to = new Date(y, m - 1, d + 7);
-  FDLINES = new Set([$('f-line').value].filter(Boolean));
-  $('fd-dmin').value = r.dy ? Math.max(1, r.dy - 1) : '';
-  $('fd-dmax').value = r.dy ? r.dy + 1 : '';
-  $('fd-budget').value = ''; $('fd-q').value = '';
-  $('fd-avail').checked = true; $('fd-promo').checked = false;
-  fpFd.setDate([from, to], true);          // true＝觸發 onChange，FDRANGE 跟著更新
-  $('finder-btn').onclick();
-  toast(`找類似團：${r.ln || '同一條線'}、${fmtDt(ymd(from), false)}～${fmtDt(ymd(to), false)}、${r.dy ? (r.dy - 1) + '～' + (r.dy + 1) + ' 天' : '不限天數'}`);
-};
-
-// ── 純原文：關掉 ★🔔、餘位色條、固定標題，畫面跟漢書一模一樣（記住選擇）──
-function applyPlain(on) {
-  document.body.classList.toggle('plain-raw', on);
-  $('plain-btn').classList.toggle('plain-on', on);
-  $('plain-btn').innerHTML = on ? '<i class="fa-solid fa-eye-slash mr-1"></i>純原文中（點此恢復標示）' : '<i class="fa-solid fa-eye mr-1"></i>純原文';
-  localStorage.setItem('d1dt_plain', on ? '1' : '0');
-}
-applyPlain(localStorage.getItem('d1dt_plain') === '1');
-$('plain-btn').onclick = () => applyPlain(!document.body.classList.contains('plain-raw'));
-
 // ── 篩選事件 ──
 $('f-line').onchange = loadFile;
 // 地區＝跳到那一區（不篩選，所以不用 render）。日期改用 flatpickr，變動在它的 onChange 觸發
@@ -2238,18 +1890,15 @@ $('gap-btn').onclick = async () => {
 };
 
 // ── 全線資料載入（找團／追蹤清單共用；已載過的檔用快取，換版時 refreshIfStale 會清）──
-//    沒快取的線一起發（2026-10-07：原本一條一條排隊讀，19 條要十幾秒）
-let _allRowsP = null;
 async function loadAllRows() {
-  if (!_allRowsP) {
-    _allRowsP = Promise.all(META.files.filter(f => !ROWCACHE[f.f]).map(async f => {
+  const all = [];
+  for (const f of META.files) {
+    if (!ROWCACHE[f.f]) {
       const s = await getDoc(doc(db, 'dt_tours', f.f));
       ROWCACHE[f.f] = s.exists() ? JSON.parse(s.data().rows) : [];
-    })).finally(() => { _allRowsP = null; });   // 首頁背景讀取跟找團同時按，只讀一次
+    }
+    for (const r of ROWCACHE[f.f]) all.push({ f: f.f, r });
   }
-  await _allRowsP;
-  const all = [];
-  for (const f of META.files) for (const r of ROWCACHE[f.f] || []) all.push({ f: f.f, r });
   return all;
 }
 
@@ -2426,7 +2075,6 @@ $('follow-btn').onclick = async () => {
   try {
     await saveFollows();
     updateFollowBadge(); updateFollowBtn();
-    if (LINES.length) render();            // 原文左邊的 🔔 跟著更新
     toast(allOn ? `已取消追蹤 ${rows.length} 團` : `已追蹤 ${rows.length} 團（預設餘位≤3時 LINE 通知，門檻可到「追蹤」清單調整）`);
   } catch (e) { toast('儲存失敗：' + e.message); }
 };
@@ -2478,7 +2126,7 @@ $('follow-list-btn').onclick = async () => {
     });
     body.querySelectorAll('.fw-del').forEach(b => b.onclick = async () => {
       delete FOLLOWS[b.dataset.k];
-      try { await saveFollows(); updateFollowBadge(); updateFollowBtn(); if (LINES.length) render(); $('follow-list-btn').onclick(); }
+      try { await saveFollows(); updateFollowBadge(); updateFollowBtn(); $('follow-list-btn').onclick(); }
       catch (e) { toast('儲存失敗：' + e.message); }
     });
     // 每團的餘位通知門檻：改了直接存。改完若餘位已在門檻內，後端下一輪會補一則「門檻調整確認通知」
@@ -2530,19 +2178,8 @@ $('f-search').oninput = render;
 });
 
 // ESC 關掉最上層的浮動視窗（使用者 2026-07-20）：選擇行程 → 業務設定 → 選取資料卡
-// 「/」直接跳到搜尋框（正在打字、開著視窗時不攔）
-document.addEventListener('keydown', e => {
-  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
-  if (e.target.closest && e.target.closest('input,textarea,select,[contenteditable]')) return;
-  if (!$('main-page').classList.contains('flex')) return;
-  if (document.querySelector('.fixed.inset-0:not(.hidden)')) return;   // 有彈窗開著
-  e.preventDefault();
-  if (window.matchMedia('(max-width: 639px)').matches) $('more-filters').classList.remove('max-sm:hidden');
-  $('f-search').focus(); $('f-search').select();
-});
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (!$('umenu').classList.contains('hidden')) { $('umenu').classList.add('hidden'); return; }
   if (!$('files-modal').classList.contains('hidden')) $('files-modal').classList.add('hidden');
   else if (!$('finder-modal').classList.contains('hidden')) $('finder-modal').classList.add('hidden');
   else if (!$('follow-modal').classList.contains('hidden')) $('follow-modal').classList.add('hidden');
