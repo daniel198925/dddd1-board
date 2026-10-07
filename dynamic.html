@@ -154,6 +154,14 @@
   .fresh.warn .fresh-dot { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.18); }
   .fresh.bad { color:#fca5a5; font-weight:700; }
   .fresh.bad .fresh-dot { background:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.2); }
+  .lq { display:inline-flex; align-items:center; gap:.9rem; font-size:.72rem; color:var(--m2); white-space:nowrap; padding-left:.9rem; border-left:1px solid var(--bd); }
+  .lq-label { color:var(--m3); }
+  .lq-item { display:inline-flex; align-items:center; gap:.4rem; cursor:default; }
+  .lq-bar { width:70px; height:4px; border-radius:99px; background:var(--bd); overflow:hidden; }
+  .lq-bar i { display:block; height:100%; border-radius:99px; background:#10b981; }
+  .lq-item.warn { color:#fbbf24; } .lq-item.warn .lq-bar i { background:#f59e0b; }
+  .lq-item.bad { color:#f87171; font-weight:700; } .lq-item.bad .lq-bar i { background:#ef4444; }
+  @media (max-width: 1099px) { #line-quota { display:none !important; } }   /* 窄螢幕放不下，讓位給主要按鈕 */
   .hnav { display:flex; gap:2px; background:var(--surface2); border:1px solid var(--bd); border-radius:7px; padding:2px; }
   .hnav button { position:relative; display:flex; align-items:center; gap:.4rem; padding:.35rem .85rem; border-radius:5px; font-size:.84rem; font-weight:500; color:var(--m1); white-space:nowrap; }
   .hnav button:hover { background:var(--hover); color:var(--fg); }
@@ -269,6 +277,8 @@
     <div class="hdr-top">
       <h1 class="text-[17px] font-black whitespace-nowrap"><i class="fa-solid fa-bolt text-blue-500 mr-1"></i>D1<span class="mobile-hide"> 動態查詢</span></h1>
       <span id="stamp-badge" class="fresh" title="每小時更新"><span class="fresh-dot"></span>載入中…</span>
+      <!-- LINE 本月用量（主管才看得到；2026-10-07 使用者要監看流量）-->
+      <span id="line-quota" class="hidden lq"></span>
       <div class="flex-1"></div>
       <nav class="hnav">
         <button id="finder-btn" title="跨線找團：日期＋天數＋預算一次掃全部線"><i class="fa-solid fa-magnifying-glass-location"></i><span class="mobile-hide">找團</span></button>
@@ -700,7 +710,33 @@ async function boot(metaSnap) {
 
   // 進來不自動載入任何線（舊系統做法）：秒進畫面，選了才載。空白處改成首頁（待辦＋產品線入口）
   renderHome();
+  loadLineQuota();
 }
+
+// ── LINE 本月用量（主管才顯示）：領隊機器人＋D1小助手，數字由合約系統代查（只回用量，不含任何訊息內容）──
+async function loadLineQuota() {
+  if (!homeTarget().isMgr) return;
+  try {
+    const idToken = await auth.currentUser.getIdToken();
+    const r = await fetch(`${CONTRACT_BASE}/api/tour-contract-status`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken, quota: true }),
+    });
+    if (!r.ok) return;
+    const q = (await r.json()).quota || {};
+    const one = (name, x) => {
+      if (!x || typeof x.used !== 'number') return '';
+      const pct = x.limit ? Math.min(100, Math.round(x.used / x.limit * 100)) : 0;
+      const cls = pct >= 95 ? ' bad' : pct >= 80 ? ' warn' : '';
+      const tip = `${name}：本月已發 ${x.used.toLocaleString()} 則` + (x.limit ? `，上限 ${x.limit.toLocaleString()} 則（${pct}%）` : '（無上限）');
+      return `<span class="lq-item${cls}" title="${esc(tip)}">${name}<span class="lq-bar"><i style="width:${pct}%"></i></span>${x.used.toLocaleString()}${x.limit ? ' / ' + x.limit.toLocaleString() : ''} 則</span>`;
+    };
+    const html = one('領隊', q.leader) + one('D1小助手', q.d1);
+    if (!html) return;
+    $('line-quota').innerHTML = `<span class="lq-label">LINE 本月</span>${html}`;
+    $('line-quota').classList.remove('hidden');
+  } catch { /* 查不到就不顯示，不影響其他功能 */ }
+}
+setInterval(() => { if (META) loadLineQuota(); }, 30 * 60 * 1000);   // 開著不關的也每 30 分更新一次
 
 // 產品線分段：大陸／東南亞／日韓／長程／郵輪・國旅（段內照檔號）
 const LINE_SEG = [['大陸', /大陸/], ['東南亞', /新|馬|泰|河內|峴港|南線/], ['日韓', /首爾|韓|東京|大阪|日本/], ['長程', /長程/]];
