@@ -772,7 +772,7 @@ function homeTodoHtml(mobile) {
   const { target, isMgr } = homeTarget();
   const hasFol = Object.keys(FOLLOWS).length > 0;
   if (!target && !hasFol) return '';
-  const head = `<h2>今天要處理<span class="sub">${isMgr ? '全組' : '只列你名下的團'}・DL 只列卡位未收訂・出發 5 天內合約沒完成的也會列出</span></h2>`;
+  const head = `<h2>今天要處理<span class="sub">${isMgr ? '全組' : '只列你名下的團'}・卡位未收訂全部列出（DL 近的排前面）・出發 5 天內合約沒完成的也會列出</span></h2>`;
   if (HOME_LOADING) return `<section>${head}<div class="m3 text-sm mt-2"><i class="fa-solid fa-spinner fa-spin mr-2"></i>整理中…（第一次要讀全部動態，約幾秒鐘）</div></section>`;
   if (!HOME) return mobile
     ? `<section>${head}<button id="home-load" class="input-style mt-2 text-sm"><i class="fa-solid fa-list-check mr-1"></i>載入今天的待辦（會讀全部動態，建議用 Wi-Fi）</button></section>`
@@ -789,7 +789,7 @@ function homeTodoHtml(mobile) {
     list.slice(0, HOME_MAX).map(row).join('') + (list.length > HOME_MAX ? `<div class="tmore">還有 ${list.length - HOME_MAX} 筆，請看「我的團」</div>` : '')}</div>`;
   const cards = [];
   if (target) {
-    cards.push(card('red', 'fa-solid fa-hourglass-half', 'DL 今明兩天到期', HOME.dl, '沒有'));
+    cards.push(card('red', 'fa-solid fa-hourglass-half', '卡位未收訂', HOME.dl, '沒有'));
     cards.push(card('amber', 'fa-solid fa-plane-departure', '兩天內開票', HOME.ti, '沒有'));
     cards.push(card('amber', 'fa-solid fa-folder-open', '出發前合約未完成', HOME.ctErr ? null : HOME.ct, HOME.ctErr ? '合約狀態讀取失敗：' + esc(HOME.ctErr) : '沒有'));
   }
@@ -840,7 +840,13 @@ async function buildHome() {
       for (const [who, e] of byWho) {
         const k = `${t.c}|${t.p || ''}|${who}`;      // 同團在不同檔重複列 → 只算一次
         if (seen.has(k)) continue; seen.add(k);
-        if (dlI && dlI >= today && dlI <= d1 && e.unpaid) H.dl.push({ x, who, sort: dlI, txt: `${dlI === today ? '今天' : '明天'}・卡位 ${e.unpaid}` });
+        // 卡位未收訂：不限 DL 日期全部列（使用者 2026-10-07）。排序：DL 已過 → 今天 → 明天 → 之後 → 沒寫 DL（照出發日）
+        if (e.unpaid) {
+          const over = dlI && dlI < today, urgent = dlI && dlI <= d1;
+          const when = !dlI ? `${fmtDt(t.dt, false)} 出發` : over ? `<span class="text-red-400 font-bold">DL 已過 ${fmtDt(dlI, false)}</span>`
+            : dlI === today ? '<span class="text-red-400 font-bold">今天 DL</span>' : dlI === d1 ? '<span class="text-amber-400 font-bold">明天 DL</span>' : `DL ${fmtDt(dlI, false)}`;
+          H.dl.push({ x, who, urgent, sort: (dlI ? '0' + dlI : '1' + t.dt), txt: `${when}・卡位 ${e.unpaid}` });
+        }
         if (tiI && tiI >= today && tiI <= d2 && !t.tis) H.ti.push({ x, who, sort: tiI, txt: `${tiI.slice(5).replace('-', '/')}・${e.pax} 人` });
         if (t.dt <= d5 && e.paid) ctCand.push({ x, who, sort: t.dt, pax: e.paid });
       }
@@ -898,7 +904,8 @@ async function buildHome() {
   renderHome();
 }
 function updateMineBadge() {   // 「我的團」徽章＝要處理的件數
-  const n = HOME ? HOME.dl.length + HOME.ti.length + HOME.ct.length : 0;
+  // 卡位只算「DL 已過／今明天」的，不然所有卡位都算進來徽章會很大、失去提醒意義
+  const n = HOME ? HOME.dl.filter(x => x.urgent).length + HOME.ti.length + HOME.ct.length : 0;
   $('mine-badge').textContent = n; $('mine-badge').classList.toggle('hidden', !n);
 }
 // 首頁合約卡：點一下＝手動標記歸檔完成（存 dt_manual/archive，跟「我的團」☑ 標記、LINE 合約提醒共用同一份）
