@@ -760,7 +760,8 @@ const HOME_MAX = 6;   // 每張卡最多列幾筆，其餘請看「我的團」
 function homeTarget() {
   const team = (META && META.team) || {}, managers = new Set((META && META.managers) || []);
   const abbr = myAbbrOf();
-  const isMgr = (abbr && managers.has(abbr)) || (ME && ME.role === 'admin');
+  // 主管＝d1-team.mjs 的 MANAGERS（目前只有 陳育仁）才看全組；公佈欄帳號是 admin 不算（使用者 2026-10-07：業務看自己的）
+  const isMgr = !!(abbr && managers.has(abbr));
   const target = isMgr ? new Set(Object.keys(team).filter(k => !managers.has(k))) : abbr ? new Set([abbr]) : null;
   return { team, isMgr, target };
 }
