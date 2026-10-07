@@ -218,6 +218,8 @@
   .trow .r { margin-left:auto; color:var(--m2); white-space:nowrap; }
   .trow .who { color:var(--m3); white-space:nowrap; }
   .tmore { padding:.4rem .75rem; font-size:.72rem; color:var(--m3); }
+  .trow .mk { flex:none; font-size:.68rem; color:var(--m2); border:1px solid var(--bd); border-radius:5px; padding:0 .35rem; line-height:1.4rem; }
+  .trow[data-mk]:hover .mk { color:#34d399; border-color:#34d399; }
   .line-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.65rem; margin-top:.55rem; }
   .gcol { background:var(--surface); border:1px solid var(--bd); border-radius:8px; padding:.45rem; }
   .gcol h3 { font-size:.7rem; color:var(--m3); margin:.15rem .3rem .3rem; letter-spacing:.08em; font-weight:500; }
@@ -275,12 +277,13 @@
   <header id="main-hdr" class="app-bg border-b bd2 shrink-0">
     <!-- 頂欄只留每天用的三顆（找團／我的團／追蹤），其餘收進右邊姓名選單（2026-10-07 模擬圖定案）-->
     <div class="hdr-top">
-      <h1 class="text-[17px] font-black whitespace-nowrap"><i class="fa-solid fa-bolt text-blue-500 mr-1"></i>D1<span class="mobile-hide"> 動態查詢</span></h1>
+      <h1 id="brand-home" class="text-[17px] font-black whitespace-nowrap cursor-pointer" title="回首頁"><i class="fa-solid fa-bolt text-blue-500 mr-1"></i>D1<span class="mobile-hide"> 動態查詢</span></h1>
       <span id="stamp-badge" class="fresh" title="每小時更新"><span class="fresh-dot"></span>載入中…</span>
       <!-- LINE 本月用量（主管才看得到；2026-10-07 使用者要監看流量）-->
       <span id="line-quota" class="hidden lq"></span>
       <div class="flex-1"></div>
       <nav class="hnav">
+        <button id="home-btn" title="回首頁（今天要處理＋產品線）"><i class="fa-solid fa-house"></i><span class="mobile-hide">首頁</span></button>
         <button id="finder-btn" title="跨線找團：日期＋天數＋預算一次掃全部線"><i class="fa-solid fa-magnifying-glass-location"></i><span class="mobile-hide">找團</span></button>
         <button id="mine-btn" title="我名下的團：收訂進度、待開票"><i class="fa-solid fa-user-check"></i><span class="mobile-hide">我的團</span><span id="mine-badge" class="hidden nbadge"></span></button>
         <button id="follow-list-btn" title="追蹤中的團：餘位/價格有變動會 LINE 通知"><i class="fa-regular fa-bell"></i><span class="mobile-hide">追蹤</span><span id="follow-badge" class="hidden nbadge blue"></span></button>
@@ -291,7 +294,7 @@
           <button id="agent-btn"><i class="fa-solid fa-id-card"></i>業務設定（名片）</button>
           <a id="contract-list-btn" href="#" target="_blank" rel="noopener"><i class="fa-solid fa-file-signature"></i>合約系統</a>
           <button id="gap-btn" title="檢查哪些團沒有配到行程（給產品部補檔用）"><i class="fa-solid fa-triangle-exclamation"></i>行程缺件檢查</button>
-          <a href="./"><i class="fa-solid fa-house"></i>回公佈欄</a>
+          <a href="./"><i class="fa-solid fa-bullhorn"></i>回公佈欄</a>
           <hr>
           <button id="theme-btn"><i id="theme-icon" class="fa-solid fa-moon"></i><span id="theme-txt">切換淺色模式</span></button>
           <a href="dynamic-classic.html" title="改版前的畫面（功能相同，備份對照用）"><i class="fa-solid fa-clock-rotate-left"></i>切換回舊版畫面</a>
@@ -776,9 +779,10 @@ function homeTodoHtml(mobile) {
     : `<section>${head}</section>`;
   const { team } = homeTarget();
   HOME_ROWS = [];
+  // 合約那張卡（it.mk）點一下＝手動標記歸檔完成（跟「我的團」☑ 同一份標記）；其他卡點一下跳到那一團
   const row = it => {
     const k = HOME_ROWS.push(it.x) - 1, t = it.x.r;
-    return `<div class="trow" data-k="${k}" title="點一下跳到這一團"><span class="c">${esc(t.c)}</span>${isMgr && it.who ? `<span class="who">${esc(team[it.who] || it.who)}</span>` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(t.p || '')}${t.tt ? ' ' + esc(t.tt) : ''}</span><span class="r">${it.txt}</span></div>`;
+    return `<div class="trow" data-k="${k}"${it.mk ? ` data-mk="${esc(t.c)}" title="點一下＝標記歸檔完成（首頁不再列出）"` : ' title="點一下跳到這一團"'}><span class="c">${esc(t.c)}</span>${isMgr && it.who ? `<span class="who">${esc(team[it.who] || it.who)}</span>` : ''}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(t.p || '')}${t.tt ? ' ' + esc(t.tt) : ''}</span><span class="r">${it.txt}</span>${it.mk ? '<span class="mk">☑ 標記</span>' : ''}</div>`;
   };
   const card = (cls, icon, title, list, empty) => `<div class="tcard ${cls}"><header><i class="${icon}"></i>${title}<span class="n">${list ? list.length : '?'}</span></header>${
     !list ? `<div class="tmore">${empty}</div>` : !list.length ? `<div class="tmore">${empty}</div>` :
@@ -802,7 +806,10 @@ function renderHome() {
     <div class="line-grid">${lineGroups().map(([g, fs]) => `<div class="gcol"><h3>${g}</h3>${fs.map(f =>
       `<button class="gl" data-f="${esc(f.f)}">${esc(f.line || f.f)}<span class="ct">${f.n ? f.n + ' 團' : '看行程'}</span></button>`).join('')}</div>`).join('')}</div></section></div>`;
   box.querySelectorAll('.gl').forEach(b => b.onclick = () => { $('f-line').value = b.dataset.f; loadFile(); });
-  box.querySelectorAll('.trow').forEach(el => el.onclick = () => { const x = HOME_ROWS[+el.dataset.k]; if (x) jumpToTour(x.f, x.r); });
+  box.querySelectorAll('.trow').forEach(el => el.onclick = () => {
+    if (el.dataset.mk) return homeMarkCt(el.dataset.mk);
+    const x = HOME_ROWS[+el.dataset.k]; if (x) jumpToTour(x.f, x.r);
+  });
   if ($('home-load')) $('home-load').onclick = buildHome;
   if (!mobile && !HOME && !HOME_LOADING) setTimeout(buildHome, 600);
 }
@@ -865,7 +872,7 @@ async function buildHome() {
           const list = CTCACHE[code] || [];
           const pend = list.filter(k => k.st !== 'signed').length, signd = list.filter(k => k.st === 'signed' && !k.ar).length;
           const why = !list.length ? '未建約' : pend ? `${pend} 份未簽` : signd ? `${signd} 份已簽未歸檔` : '';
-          if (why) H.ct.push({ x: c.x, who: c.who, txt: `${fmtDt(c.x.r.dt, false)} 出發・${why}` });
+          if (why) H.ct.push({ x: c.x, who: c.who, mk: true, txt: `${fmtDt(c.x.r.dt, false)} 出發・${why}` });
         }
       } catch (e) { H.ctErr = e.message; }
     }
@@ -887,10 +894,34 @@ async function buildHome() {
     return;
   }
   HOME = H; HOME_LOADING = false;
-  const n = H.dl.length + H.ti.length + H.ct.length;   // 「我的團」徽章＝要處理的件數
-  $('mine-badge').textContent = n; $('mine-badge').classList.toggle('hidden', !n);
+  updateMineBadge();
   renderHome();
 }
+function updateMineBadge() {   // 「我的團」徽章＝要處理的件數
+  const n = HOME ? HOME.dl.length + HOME.ti.length + HOME.ct.length : 0;
+  $('mine-badge').textContent = n; $('mine-badge').classList.toggle('hidden', !n);
+}
+// 首頁合約卡：點一下＝手動標記歸檔完成（存 dt_manual/archive，跟「我的團」☑ 標記、LINE 合約提醒共用同一份）
+async function homeMarkCt(code) {
+  if (!confirm(`是否將 ${code} 手動標記為「歸檔完成」？\n\n（備忘用：首頁不再列出、LINE 不再提醒；「我的團」合約欄會顯示 📁手動✓，全組都看得到；不影響合約系統的真實狀態）`)) return;
+  const mk = { by: (ME && (ME.nickname || ME.account)) || '', at: new Date().toISOString() };
+  try {
+    await setDoc(doc(db, 'dt_manual', 'archive'), { [code]: mk }, { merge: true });
+    (CTMANUAL ??= {})[code] = mk;
+    if (HOME) HOME.ct = HOME.ct.filter(x => x.x.r.c !== code);
+    updateMineBadge(); renderHome();
+    toast('已標記歸檔完成');
+  } catch (e) { toast('標記失敗：' + e.message); }
+}
+
+// 回首頁：清掉目前選的線（選取一起清），回到「今天要處理＋產品線」
+function goHome() {
+  if ($('f-line').value) { $('f-line').value = ''; loadFile(); }
+  else renderHome();
+  $('raw-view').scrollTo({ top: 0 });
+}
+$('home-btn').onclick = goHome;
+$('brand-home').onclick = goHome;
 
 // ── 載入一個漢書檔（原文＋解析資料）──
 async function loadFile() {
@@ -899,7 +930,9 @@ async function loadFile() {
     LINES = []; VISIBLE = []; SELLINES = [];
     $('detail-card').classList.add('hidden');
     $('seat-legend').classList.add('hidden');
+    $('count-badge').textContent = '';
     $('f-region').innerHTML = '<option value="">全部地區</option>';
+    ANCHOR = -1; SELBASE = []; SHAREDFILE = null; CHOSENFILES = {};
     renderHome();
     return;
   }
