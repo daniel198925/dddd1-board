@@ -2454,9 +2454,9 @@ async function openMine() {
   const me = (ME && (ME.nickname || ME.account)) || '';
   const team = (META && META.team) || {};
   const myAbbr = Object.keys(team).find(k => team[k] === me);
-  // 主管（d1-team.mjs 的 MANAGERS，或帳號 role=admin）可以切換看任一位／全組（使用者 2026-07-30）
+  // 只有主管（d1-team.mjs 的 MANAGERS＝陳育仁）能切換看任一位／全組；公佈欄 admin 帳號不算（使用者 2026-10-08，比照首頁）
   const managers = new Set((META && META.managers) || []);
-  const isMgr = (myAbbr && managers.has(myAbbr)) || (ME && ME.role === 'admin');
+  const isMgr = !!(myAbbr && managers.has(myAbbr));
   const sales = Object.keys(team).filter(k => !managers.has(k)).sort((a, b) => team[a].localeCompare(team[b], 'zh-Hant'));
   const pick = $('mine-pick');
   pick.classList.toggle('hidden', !isMgr);
