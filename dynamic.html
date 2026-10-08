@@ -220,6 +220,87 @@
   .tmore { padding:.4rem .75rem; font-size:.72rem; color:var(--m3); }
   .trow .mk { flex:none; font-size:.68rem; color:var(--m2); border:1px solid var(--bd); border-radius:5px; padding:0 .35rem; line-height:1.4rem; }
   .trow[data-mk]:hover .mk { color:#34d399; border-color:#34d399; }
+  /* ══ 我的團 2026-10-08 改版 ══ */
+  .mine-side { width:220px; flex:none; border-right:1px solid var(--bd2); overflow-y:auto; padding:.6rem 0; }
+  .ms-head { display:flex; align-items:center; gap:.4rem; padding:.2rem .9rem .5rem; font-size:.68rem; color:var(--m3); letter-spacing:.08em; }
+  .ms-head button { margin-left:auto; font-size:.68rem; color:var(--m3); border:1px solid var(--bd2); border-radius:4px; padding:0 .35rem; }
+  .ms-head button.on { color:var(--fg); border-color:var(--bd); }
+  .ms-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.3rem; width:100%; padding:.42rem .9rem; text-align:left; font-size:.8rem; color:var(--m1); position:relative; }
+  .ms-row:hover { background:var(--hover); }
+  .ms-row.on { background:var(--hover); color:var(--fg); }
+  .ms-row.on::before { content:''; position:absolute; left:0; top:.35rem; bottom:.35rem; width:3px; border-radius:0 2px 2px 0; background:#3b82f6; }
+  .ms-row b { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ms-row small { display:block; font-size:.68rem; color:var(--m3); font-family:'SarasaMonoCL-Regular',monospace; }
+  .ms-row .un { font-size:.68rem; color:#fbbf24; font-family:'SarasaMonoCL-Regular',monospace; white-space:nowrap; }
+  .ms-row.all { border-bottom:1px solid var(--bd2); margin-bottom:.3rem; padding-bottom:.55rem; }
+  .mine-pick-sel { display:none; }
+  @media (max-width: 899px) { .mine-side { display:none !important; } .mine-pick-sel { display:inline-block; } }
+  .mine-top { padding:.65rem 1rem .5rem; border-bottom:1px solid var(--bd2); display:grid; gap:.55rem; }
+  /* 月份按鈕：按鈕本身就是摘要 */
+  .mm-row { display:flex; gap:.35rem; overflow-x:auto; padding-bottom:2px; }
+  .mm { flex:none; display:flex; flex-direction:column; align-items:flex-start; gap:.1rem; padding:.35rem .7rem; border:1px solid var(--bd); border-radius:7px; background:var(--surface2); color:var(--m1); min-width:5.6rem; text-align:left; }
+  .mm:hover { border-color:var(--m4); }
+  .mm.on { border-color:#3b82f6; background:rgba(59,130,246,.12); color:var(--fg); }
+  .mm .t { font-size:.8rem; font-weight:700; }
+  .mm .s { font-size:.68rem; color:var(--m3); font-family:'SarasaMonoCL-Regular',monospace; white-space:nowrap; }
+  .mm.on .s { color:var(--m1); }
+  .mm .dot { position:absolute; } .mm { position:relative; }
+  .mm .warn { position:absolute; right:.35rem; top:.35rem; width:6px; height:6px; border-radius:50%; background:#f59e0b; }
+  /* KPI 一列：可點的＝篩選 */
+  .kp-row { display:flex; flex-wrap:wrap; gap:.4rem .5rem; align-items:center; }
+  .kp { display:inline-flex; align-items:baseline; gap:.35rem; padding:.25rem .6rem; border:1px solid transparent; border-radius:6px; font-size:.75rem; color:var(--m2); }
+  .kp b { font-family:'SarasaMonoCL-Regular',monospace; font-size:.95rem; color:var(--fg); font-weight:700; }
+  .kp.act { cursor:pointer; border-color:var(--bd2); }
+  .kp.act:hover { border-color:var(--m4); color:var(--fg); }
+  .kp.act.on { background:rgba(59,130,246,.14); border-color:#3b82f6; color:var(--fg); }
+  .kp.warn b { color:#fbbf24; } .kp.bad b { color:#f87171; } .kp.zero b { color:var(--m3); font-weight:400; }
+  .kp-sep { width:1px; height:1.1rem; background:var(--bd2); }
+  .kp-tog { margin-left:auto; display:inline-flex; gap:.35rem; align-items:center; font-size:.72rem; color:var(--m3); cursor:pointer; white-space:nowrap; }
+  .kp-tog input { accent-color:#3b82f6; }
+  .mine-fchips { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; font-size:.72rem; color:var(--m3); }
+  .mine-fchips .fc { display:inline-flex; align-items:center; gap:.3rem; padding:.1rem .5rem; border:1px solid var(--bd); border-radius:999px; color:var(--m1); background:var(--surface2); }
+  .mine-fchips .fc i { cursor:pointer; color:var(--m3); } .mine-fchips .fc i:hover { color:#f87171; }
+  .mine-fchips .clr { cursor:pointer; color:var(--code-fg); margin-left:.2rem; }
+  /* 表格 */
+  .mine-scroll { flex:1; overflow:auto; min-height:0; }
+  .mt { width:100%; border-collapse:separate; border-spacing:0; font-size:.78rem; }
+  .mt thead th { position:sticky; top:0; z-index:3; background:var(--surface); color:var(--m3); font-weight:500; font-size:.7rem; text-align:left; padding:.45rem .6rem; border-bottom:1px solid var(--bd); white-space:nowrap; }
+  .mt thead th.r { text-align:right; }
+  .mt td { padding:.4rem .6rem; border-bottom:1px solid var(--bd2); vertical-align:middle; }
+  .mt td.r { text-align:right; }
+  .mt tr.mg td { position:sticky; top:2.05rem; z-index:2; background:var(--sec-bg); color:var(--sec-fg); font-weight:700; font-size:.76rem; padding:.3rem .6rem; border-bottom:1px solid var(--bd); }
+  .mt tr.mg td small { color:var(--m2); font-weight:400; margin-left:.6rem; font-family:'SarasaMonoCL-Regular',monospace; }
+  .mt tr.row:hover td { background:var(--hover); }
+  .mt tr.row.hold td:first-child { box-shadow:inset 3px 0 0 #f59e0b; }
+  .mt .c { font-family:'SarasaMonoCL-Regular',monospace; color:var(--code-fg); white-space:nowrap; }
+  .mt .p { display:block; color:var(--m1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:19rem; }
+  .mt .p em { font-style:normal; color:var(--m3); font-size:.7rem; margin-left:.4rem; }
+  .mt .d { font-family:'SarasaMonoCL-Regular',monospace; white-space:nowrap; }
+  .mt .sub { display:block; font-size:.68rem; color:var(--m3); white-space:nowrap; }
+  .mt .sub.hot { color:#fbbf24; } .mt .sub.late { color:#f87171; }
+  .mt .ok { color:#34d399; } .mt .hold { color:#fbbf24; font-weight:700; }
+  .mt .dim { color:var(--m3); }
+  .mt .seat-lo { color:#fbbf24; font-weight:700; } .mt .seat-full { color:var(--m4); }
+  .mt .acts { white-space:nowrap; text-align:right; }
+  .mt .acts button { width:1.6rem; height:1.6rem; border-radius:5px; color:var(--m3); border:1px solid transparent; opacity:.35; }
+  .mt tr.row:hover .acts button { opacity:1; }
+  .mt .acts button:hover { color:var(--fg); border-color:var(--bd); background:var(--surface2); }
+  .mt .mine-mk, .mt .mine-unmk { font-size:.68rem !important; }
+  .mine-empty { padding:2.5rem 1rem; text-align:center; color:var(--m3); font-size:.85rem; }
+  @media (max-width: 640px) {
+    .mt thead { display:none; }
+    .mt, .mt tbody { display:block; }
+    .mt tr.mg { display:block; } .mt tr.mg td { display:block; position:sticky; top:0; }
+    .mt tr.row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:'dt tour pax' 'who tour ti' 'st st seat' 'ct ct acts'; gap:.2rem .6rem; padding:.55rem .75rem; border-bottom:1px solid var(--bd2); align-items:start; }
+    .mt tr.row td { display:block; border:0; padding:0; min-width:0; }
+    .mt tr.row.hold { box-shadow:inset 3px 0 0 #f59e0b; } .mt tr.row.hold td:first-child { box-shadow:none; }
+    .mt .m-dt { grid-area:dt; } .mt .m-tour { grid-area:tour; } .mt .m-pax { grid-area:pax; text-align:right; }
+    .mt .m-who { grid-area:who; font-size:.7rem; color:var(--m2); } .mt .m-st { grid-area:st; } .mt .m-ti { grid-area:ti; text-align:right; }
+    .mt .m-seat { grid-area:seat; text-align:right; } .mt .m-ct { grid-area:ct; } .mt .m-acts { grid-area:acts; }
+    .mt .m-st .sub, .mt .m-ti .sub { display:inline; margin-left:.35rem; }
+    .mt .acts button { opacity:1; }
+    .mt .p { max-width:none; white-space:normal; }
+  }
   /* D1 收單排行（2026-10-07 會診＋模擬圖定案）：左排行、右全組戰報 */
   .rp { background:var(--surface); border:1px solid var(--bd); border-radius:10px; overflow:hidden; }
   .rp-head { display:flex; align-items:center; gap:.75rem; padding:.9rem 1.25rem .6rem; flex-wrap:wrap; }
@@ -516,18 +597,22 @@
 <div id="toast" class="bg-blue-600 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-xl"></div>
 
 <!-- 我的團：業務名下的團、收訂進度、待開票（使用者 2026-07-30）-->
-<div id="mine-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
-  <div class="surface border bd rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl">
-    <div class="flex items-center justify-between px-5 py-4 border-b bd2 shrink-0">
-      <span class="font-bold flex items-center flex-wrap gap-2"><span><i class="fa-solid fa-user-check text-emerald-400 mr-2"></i>我的團</span><span id="mine-who" class="m3 font-normal text-sm"></span>
-        <!-- 主管才出現：可切換看任一位業務或全組 -->
-        <select id="mine-pick" class="hidden input-style text-xs py-1 font-normal"></select></span>
-      <div class="flex items-center gap-2">
-        <button id="mine-copy" class="hidden text-xs border bd2 m2 hover:price rounded-lg px-3 py-1.5 transition"><i class="fa-regular fa-copy mr-1"></i>複製</button>
-        <button id="mine-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
-      </div>
+<!-- 2026-10-08 改版（三方會診）：月份按鈕帶團數人數、KPI 可點篩選、組長左側業務欄、表格依月份分組、合併欄位＋DL／票款、點列可跳團／建合約 -->
+<div id="mine-modal" class="hidden fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-2 sm:p-4">
+  <div class="surface border bd rounded-2xl w-full max-w-6xl h-[92vh] sm:h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+    <div class="flex items-center gap-3 px-4 sm:px-5 py-3 border-b bd2 shrink-0">
+      <span class="font-bold whitespace-nowrap"><i class="fa-solid fa-user-check text-emerald-400 mr-2"></i>我的團</span>
+      <span id="mine-who" class="m3 text-sm truncate"></span>
+      <!-- 主管才出現：窄螢幕用下拉切換業務（寬螢幕用左側欄）-->
+      <select id="mine-pick" class="hidden input-style !h-8 !py-0 text-xs mine-pick-sel"></select>
+      <span id="mine-stamp" class="m4 text-xs ml-auto whitespace-nowrap mobile-hide"></span>
+      <button id="mine-copy" class="hidden text-xs border bd2 m2 hover:price rounded-lg px-3 py-1.5 transition whitespace-nowrap" title="複製目前篩選範圍的純文字摘要（貼 LINE 用）"><i class="fa-regular fa-copy mr-1"></i>複製摘要</button>
+      <button id="mine-close" class="m2 hover:text-white w-7 h-7"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div id="mine-body" class="p-5 text-sm overflow-y-auto flex-1"></div>
+    <div class="flex flex-1 min-h-0">
+      <aside id="mine-side" class="hidden mine-side"></aside>
+      <div id="mine-body" class="flex-1 min-w-0 flex flex-col min-h-0"></div>
+    </div>
   </div>
 </div>
 
@@ -2338,122 +2423,176 @@ function wireManualButtons(body) {
 $('mine-close').onclick = () => $('mine-modal').classList.add('hidden');
 $('mine-modal').onclick = e => { if (e.target === $('mine-modal')) $('mine-modal').classList.add('hidden'); };
 $('mine-copy').onclick = () => { copyText(() => MINETEXT).then(() => toast('已複製')); };
-$('mine-pick').onchange = e => { MINEPICK = e.target.value; $('mine-btn').onclick(); };
-$('mine-btn').onclick = async () => {
+$('mine-pick').onchange = e => { MINEPICK = e.target.value; MINE.month = ''; openMine(); };
+
+// ══ 我的團（2026-10-08 改版，三方會診定案）══
+//    月份按鈕（帶團數・人數）＝篩選器；KPI 可點＝篩選；組長左側業務欄；表格依月份分組、
+//    團號＋產品合併、收訂＋DL 合併、開票＋票款合併；點列可跳到該團／建合約；手機改資訊列。
+//    團數一律以團號去重；人數＝合報平均分後的人數（跟首頁收單排行、LINE 週報同口徑）。
+const MINE = { month: '', f: new Set(), rows: null, stamp: '', isMgr: false, allMode: false, team: {}, target: null, sideSort: 'pax' };
+const MF_LABEL = { unpaid: '未收訂', ti14: '14 天內開票', dl: 'DL 今明天', ct: '合約未完成' };
+const fmtMD = iso => iso ? iso.slice(5).replace('-', '/') : '';
+const daysLeft = iso => Math.round((new Date(iso + 'T00:00:00') - new Date(ymd(new Date()) + 'T00:00:00')) / 864e5);
+// 合約有缺＝沒建約／有未簽／有已簽未歸檔；手動標記過＝算完成。規則同 LINE 合約提醒與首頁待辦
+const ctGap = code => {
+  if (!(code in CTCACHE) || (CTMANUAL && CTMANUAL[code])) return false;
+  const l = CTCACHE[code] || [];
+  return !l.length || l.some(x => x.st !== 'signed') || l.some(x => !x.ar);
+};
+function mineFilter(x, today, d14, d1) {
+  const f = MINE.f;
+  if (f.has('unpaid') && x.paid) return false;
+  if (f.has('ti14') && !(x.ti && !x.t.tis && x.ti <= d14)) return false;
+  if (f.has('dl') && !(!x.paid && x.dl && x.dl <= d1)) return false;
+  if (f.has('ct') && !(x.paid && ctGap(x.t.c))) return false;
+  return true;
+}
+async function openMine() {
   $('mine-modal').classList.remove('hidden');
   $('mine-copy').classList.add('hidden');
-  const body = $('mine-body');
+  const body = $('mine-body'), side = $('mine-side');
   const me = (ME && (ME.nickname || ME.account)) || '';
-  // 全名 → 漢書簡稱
   const team = (META && META.team) || {};
   const myAbbr = Object.keys(team).find(k => team[k] === me);
   // 主管（d1-team.mjs 的 MANAGERS，或帳號 role=admin）可以切換看任一位／全組（使用者 2026-07-30）
   const managers = new Set((META && META.managers) || []);
   const isMgr = (myAbbr && managers.has(myAbbr)) || (ME && ME.role === 'admin');
+  const sales = Object.keys(team).filter(k => !managers.has(k)).sort((a, b) => team[a].localeCompare(team[b], 'zh-Hant'));
   const pick = $('mine-pick');
   pick.classList.toggle('hidden', !isMgr);
   if (isMgr && !pick.options.length) {
-    const sales = Object.keys(team).filter(k => !managers.has(k)).sort((a, b) => team[a].localeCompare(team[b], 'zh-Hant'));
     pick.innerHTML = `<option value="">— 我自己 —</option><option value="*">★ 全組（${sales.length} 位）</option>` +
       sales.map(k => `<option value="${esc(k)}">${esc(team[k])}（${esc(k)}）</option>`).join('');
-    // 主管自己通常沒收客，預設直接開「全組」比較有用（使用者是主管，第一次打開看到 0 團）
-    if (myAbbr && managers.has(myAbbr) && !MINEPICK) MINEPICK = '*';
-    pick.value = MINEPICK;
+    if (myAbbr && managers.has(myAbbr) && !MINEPICK) MINEPICK = '*';   // 主管自己不收客，預設看全組
   }
-  // 這次要看誰：'*'＝全組（Set 裝所有業務簡稱）、某簡稱＝那一位、''＝自己
-  const target = isMgr && MINEPICK === '*' ? new Set(Object.keys(team).filter(k => !managers.has(k)))
-               : isMgr && MINEPICK        ? new Set([MINEPICK])
-               : myAbbr                   ? new Set([myAbbr]) : null;
-  const allMode = target && target.size > 1;
-  const who = allMode ? `全組 ${target.size} 位` : target ? `${team[[...target][0]]}／${[...target][0]}` : me;
-  $('mine-who').textContent = `（${who}）`;
+  if (isMgr) pick.value = MINEPICK;
+  const target = isMgr && MINEPICK === '*' ? new Set(sales) : isMgr && MINEPICK ? new Set([MINEPICK]) : myAbbr ? new Set([myAbbr]) : null;
+  const allMode = !!(target && target.size > 1);
+  Object.assign(MINE, { isMgr, allMode, team, target, me, myAbbr, sales });
+  $('mine-who').textContent = allMode ? `全組 ${target.size} 位` : target ? `${team[[...target][0]]}（${[...target][0]}）` : me;
+  $('mine-stamp').textContent = META ? `資料 ${META.stamp.slice(5)}` : '';
+  side.classList.toggle('hidden', !isMgr);
   if (!target) {
-    body.innerHTML = `<div class="m3 py-8 text-center">找不到「${esc(me)}」對應的漢書業務代號。<br>
-      <span class="text-xs">此功能目前只支援 D1 組業務；名單在 <b>d1-team.mjs</b>，有新人要加進去。</span></div>`;
+    body.innerHTML = `<div class="mine-empty">找不到「${esc(me)}」對應的漢書業務代號。<br><span class="text-xs">此功能目前只支援 D1 組業務；名單在 d1-team.mjs，有新人要加進去。</span></div>`;
     return;
   }
-  body.innerHTML = '<div class="m3"><i class="fa-solid fa-spinner fa-spin mr-2"></i>整理中…（要讀全部動態，約需十幾秒）</div>';
-  try {
-    const all = [];
-    for (const f of META.files) {
-      if (!ROWCACHE[f.f]) {
-        const s = await getDoc(doc(db, 'dt_tours', f.f));
-        ROWCACHE[f.f] = s.exists() ? JSON.parse(s.data().rows) : [];
+  if (!MINE.rows || MINE.stamp !== META.stamp) {
+    body.innerHTML = '<div class="mine-empty"><i class="fa-solid fa-spinner fa-spin mr-2"></i>整理中…（第一次要讀全部動態，約幾秒）</div>';
+    try {
+      const all = await loadAllRows();
+      MINE.rows = [];
+      for (const { f, r: t } of all) for (const b of t.bs || []) {
+        if (!team[b[0]]) continue;
+        MINE.rows.push({ f, t, who: b[0], pax: b[1] || 0, paid: !!b[2], shared: b[3] || 0, ti: tiISO(t.ti, t.dt), dl: tiISO(t.dl, t.dt), tp: tiISO(t.tp, t.dt) });
       }
-      all.push(...ROWCACHE[f.f]);
+      MINE.rows.sort((a, b) => (a.t.dt || '').localeCompare(b.t.dt || '') || a.t.c.localeCompare(b.t.c));
+      MINE.stamp = META.stamp;
+    } catch (e) { body.innerHTML = '<div class="mine-empty">讀取失敗：' + esc(e.message) + '</div>'; return; }
+  }
+  renderMine();
+}
+$('mine-btn').onclick = openMine;
+
+function renderMine() {
+  const { team, target, allMode, isMgr, sales } = MINE;
+  const body = $('mine-body'), today = ymd(new Date());
+  const day = n => ymd(new Date(Date.now() + n * 864e5)), d14 = day(14), d1 = day(1);
+  const all = MINE.rows.filter(x => target.has(x.who));
+  const base = MINEPAST ? all : all.filter(x => !x.t.dt || x.t.dt >= today);     // 範圍：未出發／含已出發
+  const pastN = all.length - all.filter(x => !x.t.dt || x.t.dt >= today).length;
+  const nTours = list => new Set(list.map(x => x.t.c)).size, nPax = list => list.reduce((s, x) => s + x.pax, 0);
+
+  // ── 左側業務欄（主管）：依目前月份範圍統計，點名字切換 ──
+  if (isMgr) {
+    const scope = MINE.month ? MINE.rows.filter(x => (x.t.dt || '').startsWith(MINE.month) && (MINEPAST || !x.t.dt || x.t.dt >= today)) : MINE.rows.filter(x => MINEPAST || !x.t.dt || x.t.dt >= today);
+    const per = sales.map(k => { const l = scope.filter(x => x.who === k); return { k, name: team[k], n: nTours(l), pax: nPax(l), un: l.filter(x => !x.paid).length }; });
+    per.sort((a, b) => MINE.sideSort === 'un' ? b.un - a.un || b.pax - a.pax : b.pax - a.pax || b.n - a.n);
+    const allL = scope.filter(x => sales.includes(x.who));
+    $('mine-side').innerHTML = `<div class="ms-head">業務<button data-s="pax" class="${MINE.sideSort === 'pax' ? 'on' : ''}" title="依人數排序">人數</button><button data-s="un" class="${MINE.sideSort === 'un' ? 'on' : ''}" title="依未收訂排序">未收</button></div>
+      <button class="ms-row all${MINEPICK === '*' ? ' on' : ''}" data-k="*"><span><b>★ 全組</b><small>${nTours(allL)} 團・${nPax(allL)} 人</small></span>${allL.some(x => !x.paid) ? `<span class="un">未收 ${allL.filter(x => !x.paid).length}</span>` : ''}</button>` +
+      per.map(p => `<button class="ms-row${MINEPICK === p.k ? ' on' : ''}" data-k="${esc(p.k)}"><span><b>${esc(p.name)}</b><small>${p.n} 團・${p.pax} 人</small></span>${p.un ? `<span class="un">未收 ${p.un}</span>` : ''}</button>`).join('');
+    $('mine-side').querySelectorAll('.ms-row').forEach(b => b.onclick = () => { MINEPICK = b.dataset.k; $('mine-pick').value = MINEPICK; openMine(); });
+    $('mine-side').querySelectorAll('.ms-head button').forEach(b => b.onclick = () => { MINE.sideSort = b.dataset.s; renderMine(); });
+  }
+
+  // ── 月份按鈕：依出發日分月，每月團數・人數（未套其他篩選，才回答「每個月多少人出團」）──
+  const months = [...new Set(base.map(x => (x.t.dt || '').slice(0, 7)).filter(Boolean))].sort();
+  if (MINE.month && !months.includes(MINE.month)) MINE.month = '';
+  const mLabel = m => m.slice(0, 4) === today.slice(0, 4) ? (+m.slice(5)) + ' 月' : `${m.slice(0, 4)}年${+m.slice(5)}月`;   // 跨年寫清楚
+  const mBtn = (m, list, lbl) => `<button class="mm${MINE.month === m ? ' on' : ''}" data-m="${m}"><span class="t">${lbl}</span><span class="s">${nTours(list)} 團・${nPax(list)} 人</span>${list.some(x => (!x.paid && x.dl && x.dl <= d1) || (x.ti && !x.t.tis && x.ti <= d14)) ? '<span class="warn" title="有 DL 今明天或 14 天內開票"></span>' : ''}</button>`;
+  const monthBar = mBtn('', base, '全部') + months.map(m => mBtn(m, base.filter(x => (x.t.dt || '').startsWith(m)), mLabel(m))).join('');
+
+  // ── KPI（目前月份範圍）＋可點篩選 ──
+  const inMonth = MINE.month ? base.filter(x => (x.t.dt || '').startsWith(MINE.month)) : base;
+  const cnt = { unpaid: inMonth.filter(x => !x.paid), ti14: inMonth.filter(x => x.ti && !x.t.tis && x.ti <= d14), dl: inMonth.filter(x => !x.paid && x.dl && x.dl <= d1), ct: inMonth.filter(x => x.paid && ctGap(x.t.c)) };
+  const ctKnown = inMonth.filter(x => x.paid).every(x => x.t.c in CTCACHE);
+  const kp = (k, label, v, cls) => `<span class="kp act${MINE.f.has(k) ? ' on' : ''}${!v ? ' zero' : cls ? ' ' + cls : ''}" data-f="${k}" title="點一下只看這些"><b>${v}</b>${label}</span>`;
+  const kpis = `<span class="kp"><b>${nTours(inMonth)}</b>團</span><span class="kp"><b>${nPax(inMonth)}</b>人</span><span class="kp-sep"></span>` +
+    kp('unpaid', `未收訂${cnt.unpaid.length ? `（${nPax(cnt.unpaid)} 人）` : ''}`, cnt.unpaid.length, 'warn') + kp('dl', 'DL 今明天', cnt.dl.length, 'bad') +
+    kp('ti14', '14 天內開票', cnt.ti14.length, 'warn') + (ctKnown ? kp('ct', '合約未完成', cnt.ct.length, 'warn') : `<span class="kp" id="mine-kp-ct"><b>…</b>合約未完成</span>`) +
+    `<label class="kp-tog"><input type="checkbox" id="mine-past" ${MINEPAST ? 'checked' : ''}>含已出發${pastN ? `（${pastN}）` : ''}</label>`;
+  const chips = (MINE.month || MINE.f.size) ? `<div class="mine-fchips">篩選：${MINE.month ? `<span class="fc">${mLabel(MINE.month)}<i class="fa-solid fa-xmark" data-x="month"></i></span>` : ''}${[...MINE.f].map(k => `<span class="fc">${MF_LABEL[k]}<i class="fa-solid fa-xmark" data-x="${k}"></i></span>`).join('')}<span class="clr" data-x="all">清除全部</span></div>` : '';
+
+  // ── 表格 ──
+  const show = inMonth.filter(x => mineFilter(x, today, d14, d1));
+  const dateCell = (iso, kind, done) => {
+    if (done) return `<span class="dim">已開票</span>`;
+    if (!iso) return '<span class="dim">--</span>';
+    const n = daysLeft(iso), cls = n < 0 ? 'late' : n <= (kind === 'dl' ? 1 : 14) ? 'hot' : '';
+    return `<span class="d ${cls ? (cls === 'late' ? 'text-red-400' : 'text-amber-400 font-bold') : ''}">${fmtMD(iso)}</span><span class="sub ${cls}">${n < 0 ? `逾 ${-n} 天` : n === 0 ? '今天' : `剩 ${n} 天`}</span>`;
+  };
+  const row = x => {
+    const t = x.t, seat = t.sp || typeof t.r !== 'number' ? '<span class="dim">--</span>' : t.r <= 0 ? '<span class="seat-full">已滿</span>' : t.r <= 3 ? `<span class="seat-lo">餘 ${t.r}</span>` : `餘 ${t.r}`;
+    return `<tr class="row${x.paid ? '' : ' hold'}" data-i="${MINE.rows.indexOf(x)}">
+      <td class="m-dt"><span class="d">${fmtDt(t.dt, true)}</span></td>
+      <td class="m-tour"><span class="c">${esc(t.c || '')}</span><span class="p">${esc(t.p || '')}${t.tt ? ' ' + esc(t.tt) : ''}${t.dy ? ' ' + t.dy + '天' : ''}<em>${esc(t.ln || '')}</em></span></td>
+      ${allMode ? `<td class="m-who">${esc(team[x.who] || x.who)}</td>` : ''}
+      <td class="r m-pax"><b>${x.pax}</b> 人${x.shared ? `<span class="sub" title="漢書上是 ${x.shared} 位業務合報一組人數，系統平均分">${x.shared} 人合報</span>` : ''}</td>
+      <td class="m-st">${x.paid ? `<span class="ok">已收訂</span>${x.dl ? `<span class="sub">DL ${fmtMD(x.dl)}</span>` : ''}` : `<span class="hold">卡位</span>${x.dl ? `<span class="sub ${daysLeft(x.dl) < 0 ? 'late' : daysLeft(x.dl) <= 1 ? 'hot' : ''}">DL ${fmtMD(x.dl)}${daysLeft(x.dl) < 0 ? '・已過' : daysLeft(x.dl) === 0 ? '・今天' : daysLeft(x.dl) === 1 ? '・明天' : ''}</span>` : '<span class="sub">沒寫 DL</span>'}`}</td>
+      <td class="m-ti">${dateCell(x.ti, 'ti', t.tis)}${x.tp && !t.tis ? `<span class="sub">票款 ${fmtMD(x.tp)}</span>` : ''}</td>
+      <td class="r m-seat">${seat}</td>
+      <td class="m-ct mine-ct" data-c="${esc(t.c || '')}">${x.paid ? '<span class="dim"><i class="fa-solid fa-spinner fa-spin"></i></span>' : '<span class="dim">--</span>'}</td>
+      <td class="acts m-acts"><button data-go="1" title="跳到動態查詢裡的這一團"><i class="fa-solid fa-location-arrow"></i></button><button data-ct="1" title="建立合約（帶團號＋團費開合約系統）"><i class="fa-solid fa-file-signature"></i></button></td>
+    </tr>`;
+  };
+  let tbody = '', curM = '';
+  const cols = allMode ? 9 : 8;
+  for (const x of show) {
+    const m = (x.t.dt || '').slice(0, 7);
+    if (!MINE.month && m !== curM) {   // 全部月份時加月份分組表頭（捲動時固定在表頭下方）
+      curM = m; const ml = show.filter(y => (y.t.dt || '').startsWith(m));
+      tbody += `<tr class="mg"><td colspan="${cols}">${m ? mLabel(m) : '沒有出發日'}<small>${nTours(ml)} 團・${nPax(ml)} 人</small></td></tr>`;
     }
-    const today = ymd(new Date());
-    const mine = [];
-    for (const t of all) {
-      for (const b of t.bs || []) {
-        if (!target.has(b[0])) continue;
-        mine.push({ t, who: b[0], pax: b[1] || 0, paid: !!b[2], shared: b[3] || 0, ti: tiISO(t.ti, t.dt) });
-      }
-    }
-    mine.sort((a, b) => (a.t.dt || '').localeCompare(b.t.dt || ''));
-    const show = MINEPAST ? mine : mine.filter(x => !x.t.dt || x.t.dt >= today);
-    const pastN = mine.length - mine.filter(x => !x.t.dt || x.t.dt >= today).length;
+    tbody += row(x);
+  }
+  const ctTip = '📁 已歸檔＝簽了、NAS 歸檔完成　✍ 已簽＝還沒歸檔　📝 未簽＝建了約客人未簽　未建＝合約系統沒有這團　☑ 標記＝手動標記歸檔完成（備忘，全組共見）';
+  body.innerHTML = `<div class="mine-top"><div class="mm-row">${monthBar}</div><div class="kp-row">${kpis}</div>${chips}</div>
+    <div class="mine-scroll">${show.length ? `<table class="mt"><thead><tr><th>出發日</th><th>團號／產品</th>${allMode ? '<th>業務</th>' : ''}<th class="r">${allMode ? '人數' : '我的人數'}</th><th>收訂・DL</th><th>開票・票款</th><th class="r">餘位</th><th title="${esc(ctTip)}">合約 <i class="fa-regular fa-circle-question m4"></i></th><th></th></tr></thead><tbody>${tbody}</tbody></table>`
+      : `<div class="mine-empty">${MINE.f.size || MINE.month ? '這個篩選條件下沒有團' : allMode ? '目前沒有任何團' : '目前沒有掛在' + (MINEPICK ? '這位業務' : '你') + '名下的團'}</div>`}</div>`;
 
-    const sum = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
-    const unpaid = show.filter(x => !x.paid);
-    const d14 = new Date(Date.now() + 14 * 864e5), ti14 = ymd(d14);
-    const soonTi = show.filter(x => x.ti && x.ti >= today && x.ti <= ti14);
-    const chip = (label, v, cls) => `<span class="chip surface2 ${cls || 'm2'}">${label} <b>${v}</b></span>`;
+  // ── 複製摘要（跟著目前篩選）──
+  const rng = [MINE.month ? mLabel(MINE.month) : '全部月份', ...[...MINE.f].map(k => MF_LABEL[k])].join('・');
+  MINETEXT = [`我的團　${$('mine-who').textContent}　${rng}　資料時間 ${META.stamp}`,
+    `${nTours(show)} 團／${nPax(show)} 人　未收訂 ${show.filter(x => !x.paid).length} 團　14天內開票 ${show.filter(x => x.ti && !x.t.tis && x.ti <= d14).length} 團`, '',
+    ...show.map(x => `${allMode ? team[x.who] + '　' : ''}${fmtDt(x.t.dt, true)} ${x.t.c} ${x.t.p || ''}${x.t.tt ? ' ' + x.t.tt : ''} ${x.t.dy || ''}天　${x.pax}人　${x.paid ? '已收訂' : '卡位' + (x.dl ? ' DL' + fmtMD(x.dl) : '')}　開票${x.t.tis ? '已開' : x.ti ? fmtMD(x.ti) : '--'}`)].join('\n');
 
-    const rows = show.map(x => {
-      const t = x.t, late = x.ti && x.ti < today;
-      const tiCls = !x.ti ? 'm4' : late ? 'text-red-400' : x.ti <= ti14 ? 'text-amber-400 font-bold' : 'm2';
-      const seat = t.sp || typeof t.r !== 'number' ? '--' : t.r <= 0 ? '<span class="text-slate-500">已滿</span>'
-        : t.r <= 3 ? `<span class="text-amber-400 font-bold">餘${t.r}</span>` : `餘${t.r}`;
-      return `<tr class="border-t bd2">
-        ${allMode ? `<td class="py-1 pr-2 whitespace-nowrap font-bold">${esc(team[x.who] || x.who)}</td>` : ''}
-        <td class="py-1 whitespace-nowrap">${fmtDt(t.dt, true)}</td>
-        <td class="px-2 whitespace-nowrap"><span class="code">${esc(t.c || '')}</span></td>
-        <td class="px-2">${esc(t.p || '')}${t.tt ? ' ' + esc(t.tt) : ''} ${t.dy || ''}天</td>
-        <td class="px-2 text-right whitespace-nowrap">${x.pax} 人${x.shared ? `<span class="m4 text-[.65rem]" title="漢書上是 ${x.shared} 位業務合報一組人數，系統平均分">（${x.shared}人合報）</span>` : ''}</td>
-        <td class="px-2 whitespace-nowrap">${x.paid ? '<span class="text-emerald-400">已收訂</span>' : '<span class="text-amber-400 font-bold">卡位</span>'}</td>
-        <td class="px-2 text-right whitespace-nowrap">${seat}</td>
-        <td class="px-2 whitespace-nowrap ${tiCls}">${x.ti ? x.ti.slice(5).replace('-', '/') + (late ? '(過)' : '') : '--'}</td>
-        <td class="px-2 whitespace-nowrap mine-ct" data-c="${esc(t.c || '')}">${x.paid ? '<span class="m4"><i class="fa-solid fa-spinner fa-spin"></i></span>' : '<span class="m4">--</span>'}</td>
-        <td class="px-2 m4 whitespace-nowrap hidden sm:table-cell">${esc(t.ln || '')}</td>
-      </tr>`;
-    }).join('');
-
-    // 全組模式：先給每人小計，再列明細（依業務分組、各自照出發日）
-    const perSales = allMode ? [...target].map(k => ({ k, name: team[k], list: show.filter(x => x.who === k) }))
-      .filter(p => p.list.length).sort((a, b) => b.list.length - a.list.length) : null;
-    MINETEXT = [`我的團　${who}　資料時間 ${META.stamp}`,
-      `${show.length} 團／${sum(show, x => x.pax)} 人　未收訂 ${unpaid.length} 團　14天內開票 ${soonTi.length} 團`, '',
-      ...(allMode
-        ? perSales.flatMap(p => [`【${p.name}（${p.k}）】${p.list.length} 團／${sum(p.list, x => x.pax)} 人　未收訂 ${p.list.filter(x => !x.paid).length}`,
-            ...p.list.map(x => `  ${fmtDt(x.t.dt, true)} ${x.t.c} ${x.t.p || ''}${x.t.tt ? ' ' + x.t.tt : ''} ${x.t.dy}天　${x.pax}人　${x.paid ? '已收訂' : '卡位'}　開票${x.ti ? x.ti.slice(5) : '--'}`), ''])
-        : show.map(x => `${fmtDt(x.t.dt, true)} ${x.t.c} ${x.t.p || ''}${x.t.tt ? ' ' + x.t.tt : ''} ${x.t.dy}天　${x.pax}人　${x.paid ? '已收訂' : '卡位'}　開票${x.ti ? x.ti.slice(5) : '--'}`))
-    ].join('\n');
-    // 全組模式的每人小計列（點名字可切到那一位）
-    const salesBar = allMode ? `<div class="flex flex-wrap gap-1.5 mb-3">${perSales.map(p =>
-      `<button class="mine-jump chip surface2 m2 hover:price transition" data-k="${esc(p.k)}" title="只看${esc(p.name)}">${esc(p.name)} <b>${p.list.length}</b>團 ${sum(p.list, x => x.pax)}人${p.list.some(x => !x.paid) ? ` <span class="text-amber-400">未收${p.list.filter(x => !x.paid).length}</span>` : ''}</button>`).join('')}</div>` : '';
-
-    body.innerHTML =
-      `<div class="flex flex-wrap gap-2 mb-3 text-xs">
-         ${chip('團數', allMode ? new Set(show.map(x => x.t.c)).size : show.length)} ${chip('總人數', sum(show, x => x.pax))}
-         ${chip('未收訂', unpaid.length + ' 團／' + sum(unpaid, x => x.pax) + ' 人', unpaid.length ? 'text-amber-400' : 'm2')}
-         ${chip('14天內開票', soonTi.length, soonTi.length ? 'text-amber-400' : 'm2')}
-         <label class="chip surface2 m2 cursor-pointer"><input type="checkbox" id="mine-past" class="mr-1" ${MINEPAST ? 'checked' : ''}>含已出發${pastN ? '（' + pastN + '）' : ''}</label>
-       </div>
-       <div class="text-xs m2 mb-3 leading-6">合約欄：<span class="text-emerald-400 font-bold">📁 已歸檔</span><span class="m3">（簽了、NAS 歸檔完成）</span>　<span class="text-sky-400 font-bold">✍ 已簽</span><span class="m3">（還沒歸檔）</span>　<span class="text-amber-400 font-bold">📝 未簽</span><span class="m3">（建了約客人未簽）</span>　<span class="m2">未建＝系統無合約</span>　<span class="border bd2 rounded px-1.5 py-0.5 m2">☑ 標記</span><span class="m3">＝手動標記歸檔（備忘）</span></div>` + salesBar +
-      (show.length ? `<div class="overflow-x-auto"><table class="w-full text-xs">
-         <thead class="m3"><tr class="text-left">
-           ${allMode ? '<th class="py-1 pr-2">業務</th>' : ''}<th class="py-1">出發日</th><th class="px-2">團號</th><th class="px-2">產品</th>
-           <th class="px-2 text-right">${allMode ? '人數' : '我的人數'}</th><th class="px-2">收訂</th><th class="px-2 text-right">餘位</th>
-           <th class="px-2">開票日</th><th class="px-2" title="📁已歸檔　✍已簽待歸檔　📝未簽">合約</th><th class="px-2 hidden sm:table-cell">動態</th></tr></thead>
-         <tbody>${rows}</tbody></table></div>`
-        : `<div class="m3 py-8 text-center">${allMode ? '目前沒有任何團' : '目前沒有掛在' + (MINEPICK ? '這位業務' : '你') + '名下的團'}</div>`);
-    $('mine-past').onchange = e => { MINEPAST = e.target.checked; $('mine-btn').onclick(); };
-    body.querySelectorAll('.mine-jump').forEach(b => b.onclick = () => { MINEPICK = b.dataset.k; pick.value = MINEPICK; $('mine-btn').onclick(); });
-    fillContractCells(body);                     // 「合約」欄非同步補上，不擋表格顯示
-    $('mine-copy').classList.remove('hidden');
-  } catch (e) { body.innerHTML = '<div class="m3">讀取失敗：' + esc(e.message) + '</div>'; }
-};
+  // ── 事件 ──
+  body.querySelectorAll('.mm').forEach(b => b.onclick = () => { MINE.month = b.dataset.m === MINE.month ? '' : b.dataset.m; renderMine(); });
+  body.querySelectorAll('.kp.act').forEach(b => b.onclick = () => { const k = b.dataset.f; MINE.f.has(k) ? MINE.f.delete(k) : MINE.f.add(k); renderMine(); });
+  body.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { const k = b.dataset.x; if (k === 'all') { MINE.month = ''; MINE.f.clear(); } else if (k === 'month') MINE.month = ''; else MINE.f.delete(k); renderMine(); });
+  $('mine-past').onchange = e => { MINEPAST = e.target.checked; renderMine(); };
+  body.querySelectorAll('tr.row').forEach(tr => {
+    const x = MINE.rows[+tr.dataset.i];
+    tr.querySelector('[data-go]').onclick = () => { $('mine-modal').classList.add('hidden'); jumpToTour(x.f, x.t); };
+    tr.querySelector('[data-ct]').onclick = () => { window.open(`${CONTRACT_BASE}/?tour=${encodeURIComponent(x.t.c)}&price=${encodeURIComponent(x.t.pr ?? '')}`, '_blank', 'noopener'); };
+  });
+  const scroller = body.querySelector('.mine-scroll');
+  fillContractCells(body).then(() => {            // 合約欄補完 → 更新「合約未完成」數字（有套該篩選就重畫）
+    if (MINE.f.has('ct')) return renderMine();
+    const el = $('mine-kp-ct'); if (el) { el.outerHTML = kp('ct', '合約未完成', inMonth.filter(x => x.paid && ctGap(x.t.c)).length, 'warn'); const n = body.querySelector('.kp.act[data-f=ct]'); if (n) n.onclick = () => { MINE.f.add('ct'); renderMine(); }; }
+  });
+  $('mine-copy').classList.remove('hidden');
+}
 
 // ── 行程缺件檢查（使用者 2026-07-30）──
 //    把「配不到行程」從沉默變成一張清單，產品部照著補檔，配對率才會往上走。
