@@ -406,11 +406,6 @@
   #detail-actions button.pri { grid-column:1 / -1; order:-1; background:#2563eb; border-color:#2563eb; color:#fff; padding-top:.55rem; padding-bottom:.55rem; font-size:.8rem; }
   #detail-actions button.pri:hover { background:#1d4ed8; }
   #detail-actions #similar-btn { grid-column:1 / -1; }
-  .dl-row { display:grid; grid-template-columns:repeat(3,1fr); gap:.3rem; margin:.4rem 0 .2rem; }
-  .dl-row div { background:var(--surface2); border:1px solid var(--bd2); border-radius:6px; padding:.2rem; text-align:center; }
-  .dl-row small { display:block; font-size:.6rem; color:var(--m3); }
-  .dl-row b { font-family:'SarasaMonoCL-Regular',monospace; font-weight:400; font-size:.75rem; }
-  .dl-row .hot { border-color:#ef4444; } .dl-row .hot b { color:#f87171; }
 
   @media (max-width: 639px) {
     .hdr-top { height:46px; padding:0 .6rem; gap:.5rem; }
@@ -1641,16 +1636,6 @@ function groupBlock(g, multi) {
   if (dshow.an) parts.push(line('航空公司', anWithFlight(r0)));
   if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt, !!dshow.wk)}</span>`).join('')}</span>`));
   if (dshow.dy) parts.push(line('天數', r0.dy ? r0.dy + '天' : '--'));
-  // 單一團：DL／票款／開票排一列（2026-10-07）。漢書只寫月/日 → 用出發日回推年份；DL 今明天到期標紅
-  if (g.length === 1 && (r0.dl || r0.tp || r0.ti)) {
-    const today = ymd(new Date()), tmr = ymd(new Date(Date.now() + 864e5));
-    const cell = (k, md, hotOK) => {
-      const iso = tiISO(md, r0.dt);
-      const hot = hotOK && iso && iso >= today && iso <= tmr;
-      return `<div class="${hot ? 'hot' : ''}"><small>${k}</small><b>${iso ? iso.slice(5).replace('-', '/') : '--'}</b></div>`;
-    };
-    parts.push(`<div class="dl-row">${cell('DL', r0.dl, true)}${cell('票款', r0.tp)}${cell('開票', r0.ti)}</div>`);
-  }
   if (dshow.p)  parts.push(line('產品', `${esc(r0.p)}${r0.gw !== '直飛' ? '｜' + esc(r0.gw) : ''}${r0.dp !== '台北' ? '｜' + esc(r0.dp) + '出發' : ''}`));
 
   const cols = PERTOUR.filter(f => dshow[f.k]);
