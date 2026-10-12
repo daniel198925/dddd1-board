@@ -279,6 +279,7 @@
   .mt .sub { display:block; font-size:.68rem; color:var(--m3); white-space:nowrap; }
   .mt .sub.hot { color:#fbbf24; } .mt .sub.late { color:#f87171; }
   .mt .ok { color:#34d399; } .mt .hold { color:#fbbf24; font-weight:700; }
+  .mt .pr { font-family:'SarasaMonoCL-Regular',monospace; font-weight:700; color:#38bdf8; }
   .mt .dim { color:var(--m3); }
   .mt .seat-lo { color:#fbbf24; font-weight:700; } .mt .seat-full { color:var(--m4); }
   .mt .acts { white-space:nowrap; text-align:right; }
@@ -291,10 +292,10 @@
     .mt thead { display:none; }
     .mt, .mt tbody { display:block; }
     .mt tr.mg { display:block; } .mt tr.mg td { display:block; position:sticky; top:0; }
-    .mt tr.row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:'dt tour pax' 'who tour ti' 'st st seat' 'ct ct acts'; gap:.2rem .6rem; padding:.55rem .75rem; border-bottom:1px solid var(--bd2); align-items:start; }
+    .mt tr.row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:'dt tour pax' 'who tour pr' 'st st ti' 'ct ct seat' 'ct ct acts'; gap:.2rem .6rem; padding:.55rem .75rem; border-bottom:1px solid var(--bd2); align-items:start; }
     .mt tr.row td { display:block; border:0; padding:0; min-width:0; }
     .mt tr.row.hold { box-shadow:inset 3px 0 0 #f59e0b; } .mt tr.row.hold td:first-child { box-shadow:none; }
-    .mt .m-dt { grid-area:dt; } .mt .m-tour { grid-area:tour; } .mt .m-pax { grid-area:pax; text-align:right; }
+    .mt .m-dt { grid-area:dt; } .mt .m-tour { grid-area:tour; } .mt .m-pax { grid-area:pax; text-align:right; } .mt .m-pr { grid-area:pr; text-align:right; }
     .mt .m-who { grid-area:who; font-size:.7rem; color:var(--m2); } .mt .m-st { grid-area:st; } .mt .m-ti { grid-area:ti; text-align:right; }
     .mt .m-seat { grid-area:seat; text-align:right; } .mt .m-ct { grid-area:ct; } .mt .m-acts { grid-area:acts; }
     .mt .m-st .sub, .mt .m-ti .sub { display:inline; margin-left:.35rem; }
@@ -2532,6 +2533,7 @@ function renderMine() {
       <td class="m-dt"><span class="d">${fmtDt(t.dt, true)}</span></td>
       <td class="m-tour"><span class="c">${esc(t.c || '')}</span><span class="p">${esc(t.p || '')}${t.tt ? ' ' + esc(t.tt) : ''}${t.dy ? ' ' + t.dy + '天' : ''}<em>${esc(t.ln || '')}</em></span></td>
       ${allMode ? `<td class="m-who">${esc(team[x.who] || x.who)}</td>` : ''}
+      <td class="r m-pr">${t.pr != null ? `<span class="pr">${t.sp ? t.pr : Math.round(t.pr / 100)}</span>` : '<span class="dim">--</span>'}</td>
       <td class="r m-pax"><b>${x.pax}</b> 人${x.shared ? `<span class="sub" title="漢書上是 ${x.shared} 位業務合報一組人數，系統平均分">${x.shared} 人合報</span>` : ''}</td>
       <td class="m-st">${x.paid ? `<span class="ok">已收訂</span>${x.dl ? `<span class="sub">DL ${fmtMD(x.dl)}</span>` : ''}` : `<span class="hold">卡位</span>${x.dl ? `<span class="sub ${daysLeft(x.dl) < 0 ? 'late' : daysLeft(x.dl) <= 1 ? 'hot' : ''}">DL ${fmtMD(x.dl)}${daysLeft(x.dl) < 0 ? '・已過' : daysLeft(x.dl) === 0 ? '・今天' : daysLeft(x.dl) === 1 ? '・明天' : ''}</span>` : '<span class="sub">沒寫 DL</span>'}`}</td>
       <td class="m-ti">${dateCell(x.ti, 'ti', t.tis)}${x.tp && !t.tis ? `<span class="sub">票款 ${fmtMD(x.tp)}</span>` : ''}</td>
@@ -2541,7 +2543,7 @@ function renderMine() {
     </tr>`;
   };
   let tbody = '', curM = '';
-  const cols = allMode ? 9 : 8;
+  const cols = allMode ? 10 : 9;
   for (const x of show) {
     const m = (x.t.dt || '').slice(0, 7);
     if (!MINE.month && m !== curM) {   // 全部月份時加月份分組表頭（捲動時固定在表頭下方）
@@ -2552,14 +2554,14 @@ function renderMine() {
   }
   const ctTip = '📁 已歸檔＝簽了、NAS 歸檔完成　✍ 已簽＝還沒歸檔　📝 未簽＝建了約客人未簽　未建＝合約系統沒有這團　☑ 標記＝手動標記歸檔完成（備忘，全組共見）';
   body.innerHTML = `<div class="mine-top"><div class="mm-row">${monthBar}</div><div class="kp-row">${kpis}</div>${chips}</div>
-    <div class="mine-scroll">${show.length ? `<table class="mt"><thead><tr><th>出發日</th><th>團號／產品</th>${allMode ? '<th>業務</th>' : ''}<th class="r">${allMode ? '人數' : '我的人數'}</th><th>收訂・DL</th><th>開票・票款</th><th class="r">餘位</th><th title="${esc(ctTip)}">合約 <i class="fa-regular fa-circle-question m4"></i></th><th></th></tr></thead><tbody>${tbody}</tbody></table>`
+    <div class="mine-scroll">${show.length ? `<table class="mt"><thead><tr><th>出發日</th><th>團號／產品</th>${allMode ? '<th>業務</th>' : ''}<th class="r" title="漢書寫法（一般團＝百元；國旅＝全額）">售價</th><th class="r">${allMode ? '人數' : '我的人數'}</th><th>收訂・DL</th><th>開票・票款</th><th class="r">餘位</th><th title="${esc(ctTip)}">合約 <i class="fa-regular fa-circle-question m4"></i></th><th></th></tr></thead><tbody>${tbody}</tbody></table>`
       : `<div class="mine-empty">${MINE.f.size || MINE.month ? '這個篩選條件下沒有團' : allMode ? '目前沒有任何團' : '目前沒有掛在' + (MINEPICK ? '這位業務' : '你') + '名下的團'}</div>`}</div>`;
 
   // ── 複製摘要（跟著目前篩選）──
   const rng = [MINE.month ? mLabel(MINE.month) : '全部月份', ...[...MINE.f].map(k => MF_LABEL[k])].join('・');
   MINETEXT = [`我的團　${$('mine-who').textContent}　${rng}　資料時間 ${META.stamp}`,
     `${nTours(show)} 團／${nPax(show)} 人　未收訂 ${show.filter(x => !x.paid).length} 團　14天內開票 ${show.filter(x => x.ti && !x.t.tis && x.ti <= d14).length} 團`, '',
-    ...show.map(x => `${allMode ? team[x.who] + '　' : ''}${fmtDt(x.t.dt, true)} ${x.t.c} ${x.t.p || ''}${x.t.tt ? ' ' + x.t.tt : ''} ${x.t.dy || ''}天　${x.pax}人　${x.paid ? '已收訂' : '卡位' + (x.dl ? ' DL' + fmtMD(x.dl) : '')}　開票${x.t.tis ? '已開' : x.ti ? fmtMD(x.ti) : '--'}`)].join('\n');
+    ...show.map(x => `${allMode ? team[x.who] + '　' : ''}${fmtDt(x.t.dt, true)} ${x.t.c} ${x.t.p || ''}${x.t.tt ? ' ' + x.t.tt : ''} ${x.t.dy || ''}天　售價${x.t.pr != null ? (x.t.sp ? x.t.pr : Math.round(x.t.pr / 100)) : '--'}　${x.pax}人　${x.paid ? '已收訂' : '卡位' + (x.dl ? ' DL' + fmtMD(x.dl) : '')}　開票${x.t.tis ? '已開' : x.ti ? fmtMD(x.ti) : '--'}`)].join('\n');
 
   // ── 事件 ──
   body.querySelectorAll('.mm').forEach(b => b.onclick = () => { MINE.month = b.dataset.m === MINE.month ? '' : b.dataset.m; renderMine(); });
