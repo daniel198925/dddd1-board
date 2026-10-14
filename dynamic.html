@@ -1731,7 +1731,17 @@ function showDetail() {
   updateSharedFile();
   // 團型下拉：選了就記住並重畫（只影響畫面，不會動到漢書資料）
   $('detail-body').querySelectorAll('.tt-pick').forEach(sel => {
-    sel.onchange = () => { TTPICK[sel.dataset.gk] = sel.value; showDetail(); };
+    sel.onchange = () => {
+      const gk = sel.dataset.gk;
+      TTPICK[gk] = sel.value;
+      // 換團型＝行程也要換：先前挑的行程是舊團型的，清掉讓業務重選（不然轉換連結會送出舊行程）
+      if (CHOSENFILES[gk]) { delete CHOSENFILES[gk]; toast('團型已換，請重新選擇行程'); }
+      else if (SHAREDFILE) {
+        if (new Set(selRows().map(groupKey)).size === 1) { SHAREDFILE = null; toast('團型已換，請重新選擇行程'); }
+        else toast('團型已換，這組請用「單獨換行程」改行程');
+      }
+      showDetail();
+    };
     sel.onpointerdown = e => e.stopPropagation();
   });
   // 同班機其他目的地：點了跳到那一列
@@ -1933,7 +1943,10 @@ let filesMode = 'related';   // related=只列相關｜all=瀏覽全樹
 function pickTarget() {
   const rows = selRows();
   if (!rows.length) return null;
-  return rows.find(r => groupKey(r) === FILEPICK_GK) || rows[0];
+  const r = rows.find(r => groupKey(r) === FILEPICK_GK) || rows[0];
+  // 業務切了團型 → 相關行程要照切換後的團型評分（使用者 2026-10-14：京阪切玩雪，價格變了、星星還在京阪合掌村）
+  const p = TTPICK[groupKey(r)];
+  return p && r.alt && r.alt.some(a => a[0] === p) && p !== r.tt ? { ...r, tt: p } : r;
 }
 async function openFiles() {
   if (!selRows().length) return;
