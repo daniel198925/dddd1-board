@@ -679,7 +679,7 @@
 <!-- 滑鼠指到團號列時跟著游標的小提示：出發日全年份＋星期（團號裡只有 MMDD 看不出年份/星期）-->
 <div id="hovertip" class="hidden fixed z-[70] pointer-events-none surface border bd rounded-lg shadow-xl px-2.5 py-1 text-xs font-bold whitespace-nowrap"></div>
 
-<script src="./match.js?v=6"></script>
+<script src="./match.js?v=7"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -2082,7 +2082,7 @@ function renderFiles() {
       // 配對結果一律講清楚，不要沉默——業務才知道是「系統挑好了」還是「要自己挑」（使用者 2026-07-30）
       const hint =
         t.sp        ? '，請自行挑選'
-      : bestIds.tie ? `<br><span class="text-amber-300">⚠ 有 ${bestIds.size} 份行程分數相同，系統分不出來 → 標 ○ 的都可能符合，請自行確認</span>`
+      : bestIds.tie ? `<br><span class="text-amber-300">⚠ 有 ${bestIds.size} 份行程分數相同、航班尚未核對 → 標 ○ 的都可能符合，請自行確認</span>`
       : bestIds.size ? '，⭐ 是系統判斷跟這團最相符的'
       : `<br><span class="text-amber-300">⚠ 這團沒有自動配到行程（常見原因：檔名沒寫團型或天數、行程還沒上傳）→ 請自行挑選</span>`;
       $('files-tree').innerHTML =

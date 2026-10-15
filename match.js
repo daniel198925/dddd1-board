@@ -103,13 +103,16 @@ function bestMatchIds(folder, t) {
   };
   walk(folder, folder.name);
   const pw = pNorm(t.p), cw = t.ds ? nz(t.ds) : '';
+  // 這個產品有沒有明確標 (--) 的行程檔？有的話，檔名的 (１)(２) 就算漢書沒定義也當別條航線扣分
+  //   （2026-10-15 會診保險：9 月樣本北歐夾同時有「(--) 北歐15日」和產品部自編的 (３)(５)，只看漢書代號會三支同分）
+  const hasDash = all.some(x => /^\s*[（(]\s*[-－]{2}\s*[)）]/.test(x.f.n) && (!pw || nz(x.f.n + '/' + x.path).replace(/\s+/g, '').includes(pw)));
   let best = -1;
   const scored = all.map(x => {
     const fnN = nz(x.f.n), pathN = nz(x.path);
     // 目的地比對要「去掉所有空白」——資料夾名常寫「桂  林」「重 慶」，含空白比不上「桂林」。
     //   airlineConflict 不能用去空白版：航空代碼要靠空格當邊界（"賞楓 CI八日"）
     const fnS = fnN.replace(/\s+/g, ''), pathS = pathN.replace(/\s+/g, '');
-    const sc = scoreFile(t, x.f, x.path);
+    const sc = scoreFile(t, x.f, x.path, hasDash);
     // 目的地關卡（2026-09-05 補強，Codex 審查 #2＋實測黃山被星到山東檔）：
     //   大區詞(ds=江南/澳門…)只認「檔名」——子路線改版後整個資料夾路徑都含大區詞，靠路徑過關等於沒關。
     //   產品詞(p)仍可用路徑過關（西葡的檔名只寫西班牙葡萄牙，靠「15.西葡」資料夾名才對得上）。
@@ -292,7 +295,7 @@ function dayHit(t, nm) {
   if (!t.dy) return false;
   return new RegExp(`(?:^|\\D)(?:${t.dy}\\s*(?:日|天|D\\s*\\d+\\s*N)|${dayCN(t.dy)}(?:日|天))`).test(nm);
 }
-function scoreFile(t, f, path) {
+function scoreFile(t, f, path, hasDash) {
   let s = 0; const nm = f.n;
   const hay = nz(nm + ' ' + (path || ''));   // 檔名＋所在資料夾（時段常在資料夾名）；全形正規化對得上「雪+墨」
   // 目的地／路線（最強訊號）：檔名或所在資料夾含這團目的地 → 大加分。
@@ -307,7 +310,16 @@ function scoreFile(t, f, path) {
   if (t.op) {
     const om = nm.match(/^\s*[（(]([^)）]{1,3}|\s*[0-9０-９]{1,2}(?:\s*[、,，]\s*[0-9０-９]{1,2})+\s*)[)）]/);   // (２)／(--)／(1、2、3)
     //   (1、2、3) 這種是「適用 1、2、3 號航班」→ 包含這團的代號就算對（2026-10-01 抽查：瑞士冬季檔被當成不符）
-    if (om) s += half(om[1]).split(/[、,，\s]+/).filter(Boolean).includes(half(t.op)) ? 16 : -12;   // 有標代號卻不是這條 → 壓下去
+    if (om) {
+      const codes = half(om[1]).split(/[、,，\s]+/).filter(Boolean);
+      if (codes.includes(half(t.op))) s += 16;
+      // 有標代號卻不是這條 → 壓下去。但只有「漢書這區塊真的定義過」的代號才算別條航線（t.os＝區塊定義的全部代號）：
+      //   產品部自己編的 (１)(２) 不在漢書清單裡＝不是航線代號，不加不扣。
+      //   （2026-10-15 三方會診：瑞士 10 天漢書只有 (--)(３)，檔名卻編 (１)(２)(３)，26 團全被扣到配去德瑞；
+      //    北歐漢書定義了 (１)(２)(--)，(--) 團看到 (１) 檔照扣，才不會三支同分）
+      //   舊資料沒有 os 欄位時維持原本「一律扣」。
+      else if (!t.os || hasDash || codes.some(c => t.os.map(half).includes(c))) s -= 12;
+    }
   }
   const myTT = ttNorm(t.tt);
   const al = TT_ALIAS[t.tt] || (myTT ? [myTT] : []);
