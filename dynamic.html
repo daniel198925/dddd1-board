@@ -708,6 +708,18 @@ let SELLINES = [];            // 選取的行 index（可多筆，照舊系統�
 let ANCHOR = -1;              // Shift 框選的起點
 let SELBASE = [];             // Shift 框選的基準＝上一次一般點擊後的選取（讓多段框選能保留前面的段）
 let FILETREE = null;          // 行程檔案樹
+// 行程 PDF 的航班表（dt_flights/{線名}，同步程式 flights.mjs 抽的）：開到哪條線才載那條，合併進 match.js 的 FLIGHTS
+const FLIGHTS_LOADED = new Set();
+async function loadFlights(lineName) {
+  if (!lineName || FLIGHTS_LOADED.has(lineName)) return false;
+  FLIGHTS_LOADED.add(lineName);
+  try {
+    const s = await getDoc(doc(db, 'dt_flights', lineName.replace(/\//g, '／')));
+    if (!s.exists()) return false;
+    Object.assign(FLIGHTS, s.data().m || {});
+    return true;
+  } catch { return false; }
+}
 let UID = null;               // 登入者 uid
 let AGENT = {};               // 目前使用中的名片（= AG_CARDS[AG_ACTIVE]，下游轉換連結都讀這個）
 let AG_CARDS = [], AG_ACTIVE = 0;   // 多張名片＋目前選中第幾張（dt_agent/{uid} 存 {cards,active}）
@@ -2047,11 +2059,21 @@ function renderFiles() {
   $('files-collapse').classList.toggle('hidden', related);
 
   const fmtTime = ms => { if (!ms) return ''; const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-  // hl＝這份是系統挑出來的；tie＝同分太多分不出來（標 ○ 而不是 ⭐，提醒業務自己確認）
-  const fileRow = (f, pad, hl, tie) =>
+  // 航班核對標籤（2026-10-15）：漢書這團的航班 vs PDF 航班表。四態：✓ 相符／△ 部分／✗ 疑似不符／（沒資料就不標，別讓業務以為檢查過沒問題）
+  const fcTag = fc => {
+    if (!fc || fc.st === 'weak') return '';
+    const title = `漢書 ${fc.mine.join('/')}｜PDF ${fc.file.join('/')}${fc.nopt > 1 ? `（PDF 列 ${fc.nopt} 套，取最接近的第 ${fc.opt} 套）` : ''}`;
+    const [cls, txt] = fc.st === 'ok' ? ['text-emerald-300 border-emerald-400/40', '✓ 航班相符']
+      : fc.st === 'part' ? ['text-amber-300 border-amber-400/40', '△ 航班部分相符']
+      : ['text-rose-300 border-rose-400/40', '✗ 航班疑似不符'];
+    return `<span class="text-[.65rem] font-bold ${cls} border rounded px-1 whitespace-nowrap cursor-help" title="${esc(title)}">${txt}</span>`;
+  };
+  // hl＝這份是系統挑出來的；tie＝同分太多分不出來（標 ○ 而不是 ⭐，提醒業務自己確認）；fc＝航班核對結果
+  const fileRow = (f, pad, hl, tie, fc) =>
     `<div class="flex justify-between items-center py-1.5 pr-2 hover:bg-[#1a2336] rounded gap-2 ${hl ? 'file-hl' : ''}" ${hl ? 'data-hl="1"' : ''} style="padding-left:${pad}rem">
       <button class="file-pick ${hl ? 'text-amber-300 font-bold' : 'text-blue-400'} hover:underline text-left" data-id="${esc(f.id)}" data-n="${esc(f.n)}">${hl ? (tie ? '○ ' : '⭐ ') : ''}${esc(f.n.replace(/\.(pdf|docx?)$/i,''))}</button>
       <span class="shrink-0 flex items-center gap-2">
+        ${fcTag(fc)}
         ${fKind(f) === 'w' ? '<span class="text-[.6rem] font-bold text-blue-300 border border-blue-400/40 rounded px-1" title="這份只有 Word 檔">W</span>' : ''}
         <span class="m4 text-xs">${fmtTime(f.t)}</span>
         <a href="https://drive.google.com/file/d/${esc(f.id)}/view" target="_blank" rel="noopener" title="預覽" class="m3 hover:text-blue-400"><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i></a>
@@ -2062,7 +2084,7 @@ function renderFiles() {
   const node = (n, depth, forceOpen, bestIds) => {
     if (n.files === undefined) return '';
     const kids = (n.children || []).filter(c => !isNoiseFolder(c.name)).map(c => node(c, depth + 1, forceOpen, bestIds)).join('') +
-      itinFiles(n.files).filter(f => !q || f.n.toLowerCase().includes(q)).map(f => fileRow(f, depth * 1.25 + 1, bestIds && bestIds.has(f.id), bestIds && bestIds.tie)).join('');
+      itinFiles(n.files).filter(f => !q || f.n.toLowerCase().includes(q)).map(f => fileRow(f, depth * 1.25 + 1, bestIds && bestIds.has(f.id), bestIds && bestIds.tie, bestIds && bestIds.fc && bestIds.fc[f.id])).join('');
     if (q && !kids) return '';
     const open = forceOpen || expandAll || q || depth === 0;
     return `<details ${open ? 'open' : ''} style="padding-left:${depth ? 1.25 : 0}rem">
@@ -2077,13 +2099,19 @@ function renderFiles() {
       $('files-tree').innerHTML = `<div class="m3 text-center py-8">找不到「${esc(t.ln)}」對應的行程資料夾<br><button id="jump-all" class="text-blue-400 hover:underline text-xs mt-2">改用「全部瀏覽」手動找 →</button></div>`;
       $('jump-all').onclick = () => { filesMode = 'all'; renderFiles(); };
     } else {
+      // 這條線的航班表還沒載 → 背景載，載到了重畫一次（標籤與分數才會算進航班）
+      if (!FLIGHTS_LOADED.has(folder.name)) loadFlights(folder.name).then(ok => { if (ok && filesMode === 'related') renderFiles(); });
       // 國旅/郵輪(special)沒有可配對標星的檔 → 只展開最外層、子資料夾摺疊，業務自己挑（使用者 2026-07-24）
       const bestIds = t.sp ? new Set() : bestMatchIds(folder, t);
+      // 星號檔的航班核對：全部 ✓ 才說「航班已核對」；有檔沒資料就講「航班未核對」
+      const fcOf = id => bestIds.fc && bestIds.fc[id];
+      const fcAllOk = bestIds.size > 0 && [...bestIds].every(id => fcOf(id) && fcOf(id).st === 'ok');
+      const fcNone = bestIds.size > 0 && [...bestIds].some(id => !fcOf(id) || fcOf(id).st === 'weak');
       // 配對結果一律講清楚，不要沉默——業務才知道是「系統挑好了」還是「要自己挑」（使用者 2026-07-30）
       const hint =
         t.sp        ? '，請自行挑選'
-      : bestIds.tie ? `<br><span class="text-amber-300">⚠ 有 ${bestIds.size} 份行程分數相同、航班尚未核對 → 標 ○ 的都可能符合，請自行確認</span>`
-      : bestIds.size ? '，⭐ 是系統判斷跟這團最相符的'
+      : bestIds.tie ? `<br><span class="text-amber-300">⚠ 有 ${bestIds.size} 份行程分數相同${fcNone ? '、航班尚未核對' : ''} → 標 ○ 的都可能符合，請自行確認</span>`
+      : bestIds.size ? `，⭐ 是系統判斷跟這團最相符的${fcAllOk ? '<span class="text-emerald-300">（航班已核對 ✓）</span>' : fcNone ? '<span class="m4">（航班無資料、未核對）</span>' : ''}`
       : `<br><span class="text-amber-300">⚠ 這團沒有自動配到行程（常見原因：檔名沒寫團型或天數、行程還沒上傳）→ 請自行挑選</span>`;
       $('files-tree').innerHTML =
         `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${hint}</div>` +
@@ -2622,6 +2650,7 @@ $('gap-btn').onclick = async () => {
       }
       all.push(...ROWCACHE[f.f]);
     }
+    for (const c of FILETREE.children || []) await loadFlights(c.name);   // 航班表全線載入，配對才算得到航班分
     // 逐團配對：沒配到＝缺件；同分太多＝分不出來（另外列，性質不同）
     const gap = new Map(), tie = new Map();   // 依「產品｜團型｜天數｜航空」歸類，不然幾百個團號看不完
     let okN = 0, spN = 0;
