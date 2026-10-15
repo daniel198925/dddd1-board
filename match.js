@@ -336,7 +336,8 @@ function flightCheck(t, fileId) {
     const timeSame = mine[0].dep && mine[0].dep === best.legs[0].dep && last(mine).arr && last(mine).arr === last(best.legs).arr;
     st = timeSame ? 'part' : (my.length >= 2 && best.n >= 2 ? 'bad' : 'weak');
   }
-  return { st, mine: my, file: [...new Set(best.legs.map(l => l.f))], opt: best.i + 1, nopt: opts.length };
+  const tm = !!(mine[0].dep && best.legs[0] && mine[0].dep === best.legs[0].dep);   // 去程第一段起飛時間也一樣（同班號不同時段的決勝）
+  return { st, mine: my, file: [...new Set(best.legs.map(l => l.f))], opt: best.i + 1, nopt: opts.length, tm };
 }
 // 加減分要比團型(+10)／天數(+8)小：航班相符是「決勝」不是「推翻」（2026-10-15 全量比對：+20 時東京樹冰團被星到航班相符的櫻花祭檔）；
 //   不符扣 12＝跟「標了別家航空」同等級，仍會讓它輸給同分的對手
@@ -429,7 +430,7 @@ function scoreFile(t, f, path, hasDash) {
   // 航班核對：PDF 航班表 vs 漢書航班（瑞士 10 天：(１) 班號全對 +20、(２) 回程 CA950 不同 −20、德瑞全不同 −20）
   //   限定日期剛好對上的檔（限0204.0205.0206）不因航班不符扣分：特定日期的團常用特別班機，PDF 表格還是印標準班機（2026-10-15 全量比對：河內限0204 五日被扣到輸給一般六日檔）
   const fc = flightCheck(t, f.id);
-  if (fc && !(fc.st === 'bad' && p && p.lim && p.ok)) s += FC_SCORE[fc.st] || 0;
+  if (fc && !(fc.st === 'bad' && p && p.lim && p.ok)) s += (FC_SCORE[fc.st] || 0) + (fc.st === 'ok' && fc.tm ? 2 : 0);   // 班號對＋去程起飛時間也對：再 +2（河內 (-----) 0810 vs (午午) 1140 同班號不同時段）
   return s;
 }
 
