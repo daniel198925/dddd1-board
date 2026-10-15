@@ -2302,7 +2302,8 @@ $('contract-btn').onclick = () => {
   if (rows.length !== 1) return;            // 一團一份（按鈕已反灰，這裡再擋一層）
   const r = rows[0];
   const { price } = priceOfRow(r);          // 團費跟著業務當下選的團型走
-  const url = `${CONTRACT_BASE}/?tour=${encodeURIComponent(r.c)}&price=${encodeURIComponent(price)}`;
+  // 2026-10-15 多帶產品名＋天數，合約團名自動變「月/日 產品 N天 (航空)」（玩法等帶字字典進來再加）
+  const url = `${CONTRACT_BASE}/?tour=${encodeURIComponent(r.c)}&price=${encodeURIComponent(price)}&name=${encodeURIComponent(r.p || '')}&days=${encodeURIComponent(r.dy || '')}`;
   window.open(url, '_blank', 'noopener');
   toast('已開啟合約系統，帶入團號＋團費');
 };
@@ -2612,7 +2613,7 @@ function renderMine() {
   body.querySelectorAll('tr.row').forEach(tr => {
     const x = MINE.rows[+tr.dataset.i];
     tr.querySelector('[data-go]').onclick = () => { $('mine-modal').classList.add('hidden'); jumpToTour(x.f, x.t); };
-    tr.querySelector('[data-ct]').onclick = () => { window.open(`${CONTRACT_BASE}/?tour=${encodeURIComponent(x.t.c)}&price=${encodeURIComponent(x.t.pr ?? '')}`, '_blank', 'noopener'); };
+    tr.querySelector('[data-ct]').onclick = () => { window.open(`${CONTRACT_BASE}/?tour=${encodeURIComponent(x.t.c)}&price=${encodeURIComponent(x.t.pr ?? '')}&name=${encodeURIComponent(x.t.p || '')}&days=${encodeURIComponent(x.t.dy || '')}`, '_blank', 'noopener'); };
   });
   const scroller = body.querySelector('.mine-scroll');
   fillContractCells(body).then(() => {            // 合約欄補完 → 更新「合約未完成」數字（有套該篩選就重畫）
