@@ -734,7 +734,11 @@ let FILEPICK_GK = null;       // null＝正在挑共同行程；否則＝正在�
 const effFile = gk => CHOSENFILES[gk] || SHAREDFILE;   // 這一組實際用的行程
 let VISIBLE = [];             // 目前畫面上看得到的團行 index（Shift 框選用）
 const ITIN_BASE = 'https://discoveredtrip.com';   // 中轉頁
-const CONTRACT_BASE = 'https://findit-contract.vercel.app';   // 線上合約系統（吃 ?tour=團號&price=團費）
+const CONTRACT_BASE = 'https://findit-contract.vercel.app';   // 線上合約系統（吃 ?tour=團號&price=團費&name=產品&days=天數&type=玩法）
+// 合約團名用的玩法：漢書表頭是簡寫、合約要印全名的在這裡換（使用者 2026-10-15：夜臥沙→夜臥砂壩）；
+//   對不到玩法（tt 空）就不帶，合約團名只剩「月/日 產品 N天 (航空)」
+const CONTRACT_TYPE_NAME = { '夜臥沙': '夜臥砂壩' };
+const contractTypeOf = t => { const tt = (t && t.tt) || ''; return tt ? (CONTRACT_TYPE_NAME[tt] || tt) : ''; };
 
 const $ = id => document.getElementById(id);
 
@@ -2303,7 +2307,7 @@ $('contract-btn').onclick = () => {
   const r = rows[0];
   const { price } = priceOfRow(r);          // 團費跟著業務當下選的團型走
   // 2026-10-15 多帶產品名＋天數，合約團名自動變「月/日 產品 N天 (航空)」（玩法等帶字字典進來再加）
-  const url = `${CONTRACT_BASE}/?tour=${encodeURIComponent(r.c)}&price=${encodeURIComponent(price)}&name=${encodeURIComponent(r.p || '')}&days=${encodeURIComponent(r.dy || '')}`;
+  const url = `${CONTRACT_BASE}/?tour=${encodeURIComponent(r.c)}&price=${encodeURIComponent(price)}&name=${encodeURIComponent(r.p || '')}&days=${encodeURIComponent(r.dy || '')}&type=${encodeURIComponent(contractTypeOf(r))}`;
   window.open(url, '_blank', 'noopener');
   toast('已開啟合約系統，帶入團號＋團費');
 };
@@ -2613,7 +2617,7 @@ function renderMine() {
   body.querySelectorAll('tr.row').forEach(tr => {
     const x = MINE.rows[+tr.dataset.i];
     tr.querySelector('[data-go]').onclick = () => { $('mine-modal').classList.add('hidden'); jumpToTour(x.f, x.t); };
-    tr.querySelector('[data-ct]').onclick = () => { window.open(`${CONTRACT_BASE}/?tour=${encodeURIComponent(x.t.c)}&price=${encodeURIComponent(x.t.pr ?? '')}&name=${encodeURIComponent(x.t.p || '')}&days=${encodeURIComponent(x.t.dy || '')}`, '_blank', 'noopener'); };
+    tr.querySelector('[data-ct]').onclick = () => { window.open(`${CONTRACT_BASE}/?tour=${encodeURIComponent(x.t.c)}&price=${encodeURIComponent(x.t.pr ?? '')}&name=${encodeURIComponent(x.t.p || '')}&days=${encodeURIComponent(x.t.dy || '')}&type=${encodeURIComponent(contractTypeOf(x.t))}`, '_blank', 'noopener'); };
   });
   const scroller = body.querySelector('.mine-scroll');
   fillContractCells(body).then(() => {            // 合約欄補完 → 更新「合約未完成」數字（有套該篩選就重畫）
