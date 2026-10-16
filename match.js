@@ -424,6 +424,14 @@ function scoreFile(t, f, path, hasDash) {
     if (hay.includes(t.dp) || (t.dp === '高雄' && /高出|高／|高\//.test(hay))) s += 5;
   } else if (OTHER_DEP.test(hay)) s -= 12;   // 台北的團配到「高雄出發」→ 明確不符，壓下去
   else s += 2;
+  // 松山／桃園（2026-10-16）：團號前 3 碼 SHA＝松山飛虹橋、PVG＝桃園飛浦東；檔名寫「(松松MU)」「(桃桃MU)」「松山進出」「桃園進出」
+  //   寫了另一邊的機場 → −10（只認這幾種寫法，免得「四國松山」被當機場）
+  {
+    const ap = (t.c || '').slice(0, 3), songFile = /松松|松山進出|松進|松出|[（(]松/.test(nm), taoFile = /桃桃|桃園進出|桃進|桃出|[（(]桃/.test(nm);
+    if (ap === 'SHA' && taoFile && !songFile) s -= 10;
+    else if (ap !== 'SHA' && songFile && !taoFile) s -= 10;
+    else if ((ap === 'SHA' && songFile) || (ap !== 'SHA' && taoFile)) s += 3;
+  }
   // 航空：對到 +4；別家航空 −12（而且 bestMatchIds 會直接不標星，硬條件）。
   //   航空常寫在資料夾名（曼谷＝CI／九州-JX星宇），所以比對 hay 不是 nm
   const alCode = (half(t.al || '').toUpperCase() || (t.c || '').slice(-8, -6));   // 航空以解析欄位為準，團號切位當備援（Codex 審查 #3）
