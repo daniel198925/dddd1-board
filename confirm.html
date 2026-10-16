@@ -178,7 +178,7 @@ const db = firebase.firestore();
       + '<div class="facts">' + facts.map(f => '<span class="chip hi">' + esc(f) + '</span>').join('') + (fr ? '<span class="chip">漢書航班 ' + esc(fr) + '</span>' : '') + '</div>'
       + '<div class="codes">' + esc((d.codes || []).join('　')) + '</div>'
       + (d.reason ? '<p class="q">' + esc(d.reason) + '</p>' : '')
-      + (st === 'auto' ? '<p class="q">系統自動確認：唯一候選、航班相符、每團一致。覺得不對可以改點別份。</p>' : '')
+      + (st === 'auto' ? '<p class="q">' + (d.seasonal ? '系統自動確認（依出發期間分檔：每團各自配到唯一一份、航班相符）。' : '系統自動確認：唯一候選、航班相符、每團一致。') + '覺得不對可以改點別份。</p>' : '')
       + (a.by ? '<p class="saved">已由 ' + esc(a.by) + ' 於 ' + esc((a.at || '').slice(0, 16).replace('T', ' ')) + ' 確認' + (savedAt[d.id] ? '（已存）' : '') + '</p>' : (d.by && st !== 'review' ? '<p class="saved">已由 ' + esc(d.by) + ' 確認</p>' : ''))
       + '<div class="cands">' + cands.map(c => candHtml(d, c, v === c.id)).join('') + (cands.length ? '' : '<p class="q">系統沒找到任何候選，請按「資料夾裡沒有」或先請產品部上傳。</p>') + '</div>'
       + '<div class="btns"><button data-id="' + esc(d.id) + '" data-v="none" aria-pressed="' + (a.v === 'none') + '">資料夾裡沒有</button>'
