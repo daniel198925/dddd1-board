@@ -442,7 +442,7 @@ function scoreFile(t, f, path, hasDash) {
 
 const MATCH = { nz, half, pNorm, ttNorm, dayCN, inFilePeriod, isNoiseFolder, isNoiseFile, fKind, fBase, itinFiles,
   TT_ALIAS, LINE_FOLDER_ALIAS, findFolderDeep, findLineFolder, AL_SHORT, AMBIG_AIRLINE, alCodeRe, periodInfo, isLCC, airlineConflict, fileDeps, depConflict, scoreFile, bestMatchIds,
-  FLIGHTS, flightCheck, unpackOpt };
+  FLIGHTS, flightCheck, unpackOpt, dayHit };
 Object.assign(g, MATCH);
 if (typeof module !== 'undefined' && module.exports) module.exports = MATCH;
 })(typeof window !== 'undefined' ? window : globalThis);
