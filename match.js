@@ -62,7 +62,8 @@ function findLineFolder(tree, lineName) {
 //   ⚠ 已知副作用：產品部把現行的「香港進出」桂林行程放在 2.桂林/OLD/香港進出(可北.中.高)/ 裡，
 //     藏了 OLD 之後 6 團 HKG6JX 會找不到行程 → 解法是請產品部把該資料夾搬出 OLD，不是放寬這裡。
 //   \bold\b 只會中資料夾名剛好叫 OLD 的，不會誤傷 Golden（前後須為非英文字）
-const isNoiseFolder = name => /圖片|素材|照片|相片|海報|文宣|封面|備份|複製|副本|舊(?!金山)|下架|待修|資訊|圖庫|\bold\b/i.test(name);
+//   停售／停用／作廢資料夾也不上（2026-10-16：「0.超值八天(停售中 不再另開新團)」夾裡的檔被配給江西團；isNoiseFile 早有這幾個字，資料夾漏了）
+const isNoiseFolder = name => /圖片|素材|照片|相片|海報|文宣|封面|備份|複製|副本|舊(?!金山)|下架|待修|資訊|圖庫|停售|停用|作廢|\bold\b/i.test(name);
 //   ⚠ ~$開頭是 Word 開檔時產生的暫存鎖定檔（~$杜鵑花貴州八日遊.doc），不是行程
 const isNoiseFile = name => /^~\$|複製|副本|[-\s]copy|\(舊\)|舊版|舊檔|作廢|勿用|停售|停用|不用|草稿|test/i.test(name);
 
@@ -372,12 +373,14 @@ function scoreFile(t, f, path, hasDash) {
       else if (!t.os || hasDash || codes.some(c => t.os.map(half).includes(c))) s -= 12;
     }
   }
-  const myTT = ttNorm(t.tt);
-  const al = TT_ALIAS[t.tt] || (myTT ? [myTT] : []);
-  if (al.some(a => nm.includes(a))) s += 10;
+  //   「標準團」是漢書的通用佔位名、不是真團型（2026-10-16 大仁哥對照表發現）→ 當未知團型，不加分也不套「別的團型」扣分
+  const myTT = ttNorm(t.tt) === '標準團' ? '' : ttNorm(t.tt);
+  const al = myTT ? (TT_ALIAS[t.tt] || [myTT]) : [];
+  const ttHit = al.some(a => nm.includes(a));
+  if (ttHit) s += 10;
   // 同區塊有多個團型時要分乾淨（芬蘭：玻璃屋／破冰船／破＋玻）。
   //   「玻璃屋」是「破冰船+玻璃屋」的子字串，光用包含比對會兩個都中（使用者 2026-07-21 回報）
-  if (t.tt && t.alt) {
+  if (myTT && t.alt) {
     const names = t.alt.map(a => ttNorm(a[0])).filter(Boolean);
     const solo = names.filter(n => !/[＋+]/.test(n));
     if (/[＋+]/.test(myTT)) {
@@ -385,7 +388,10 @@ function scoreFile(t, f, path, hasDash) {
       const full = myTT.split(/[＋+]/).filter(Boolean).map(p => solo.find(n => n.startsWith(p)) || p);
       if (full.length > 1 && full.every(f => nm.includes(f))) s += 12;
     } else if (solo.some(n => n !== myTT && nm.includes(n))) {
-      s -= 12;   // 檔名出現同區塊「別的」團型 → 是別的商品或組合行程，不是這團
+      // 檔名出現同區塊「別的」團型 → 是別的商品或組合行程，不是這團。
+      //   2026-10-16 查過「江西賞楓(限1015-1231)八日」輸給通用檔的案子：真因是團型被填成「標準團」（上面已改成當未知），
+      //   不是這條扣分；試過「連寫就不扣」反而把山東團配到泰山檔，所以這條維持原樣。
+      s -= 12;
     }
   }
   // 班機時段（使用者 2026-07-20）：午班→午晚、晚班→午晚、早班→早午。
