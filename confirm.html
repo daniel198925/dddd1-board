@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>找到了旅遊 - 行程確認表</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+/* 行程確認表（2026-10-16 三方會診定案）：把「每團猜一次行程」改成「每種套路確認一次、新團自動沿用」。
+   資料來源 itin_confirm（sync.mjs 每小時算）；產品部在這裡點正確行程 → itin_pick_answers/{套路id}，下一輪同步合併。
+   不需登入（產品部沒有動態系統帳號）。 */
+:root{
+  --bg:#f6f4f4; --surface:#ffffff; --fg:#231a1d; --muted:#6f6467; --line:#e4dcde;
+  --accent:#b81846; --accent-soft:#f8e3ea;
+  --ok:#1f7a4d; --ok-soft:#e1f2e8; --bad:#b3261e; --bad-soft:#fbe4e2; --warn:#8a5a00; --warn-soft:#fbefd6;
+  --font-body:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#171214; --surface:#211a1d; --fg:#f1e9eb; --muted:#ab9ea2; --line:#3a2f33;
+  --accent:#ec5c86; --accent-soft:#3d1a26;
+  --ok:#5cc58f; --ok-soft:#173326; --bad:#f08178; --bad-soft:#3d1c1a; --warn:#e3b45a; --warn-soft:#382a10; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.6}
+[hidden]{display:none!important}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 16px 60px;display:flex;flex-direction:column;gap:16px}
+h1{font-size:24px;margin:0}
+.lede{color:var(--muted);margin:4px 0 0;max-width:70ch}
+.how{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:6px}
+.how b{color:var(--accent)}
+.me{background:var(--accent-soft);border-radius:10px;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.me input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface);color:var(--fg);flex:1 1 200px;min-width:0}
+.me .hint{flex-basis:100%;font-size:13px;color:var(--muted);margin:0}
+.stats{background:var(--bg);padding-block:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid var(--line)}
+@media (min-height:760px){.stats{position:sticky;top:0;z-index:5}}
+.stat{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px 12px;min-width:86px}
+.stat span{font-size:12px;color:var(--muted)} .stat strong{font-size:19px;font-variant-numeric:tabular-nums}
+.stat.big strong{color:var(--accent)}
+.bar{flex:1 1 140px;height:8px;background:var(--line);border-radius:4px;overflow:hidden;min-width:100px}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:4px 12px;cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.list{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.card.done{border-left:4px solid var(--ok)}
+.card.review{border-left:4px solid var(--warn)}
+.card .top{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
+.num{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.prod{font-weight:700;font-size:17px}
+.kind{font-size:12px;border-radius:6px;padding:1px 8px}
+.kind.pending{background:var(--warn-soft);color:var(--warn)} .kind.review{background:var(--bad-soft);color:var(--bad)}
+.kind.auto{background:var(--ok-soft);color:var(--ok)} .kind.confirmed{background:var(--ok-soft);color:var(--ok)} .kind.nofile{background:var(--bg);color:var(--muted)}
+.facts{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 8px}
+.chip.hi{background:var(--accent-soft);border-color:transparent}
+.codes{font-family:var(--font-mono);font-size:12.5px;color:var(--muted)}
+.q{font-size:13px;color:var(--muted);margin:0}
+.cands{display:flex;flex-direction:column;gap:6px}
+.cand{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;background:var(--surface)}
+.cand:hover{border-color:var(--accent)}
+.cand[aria-pressed="true"]{border-color:var(--ok);background:var(--ok-soft)}
+.cand .dot{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid var(--line)}
+.cand[aria-pressed="true"] .dot{border-color:var(--ok);background:radial-gradient(var(--ok) 45%,transparent 50%)}
+.cand .txt{min-width:0;flex:1}
+.cand .fn{font-weight:500;overflow-wrap:anywhere}
+.cand .fd{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.tag{font-size:11.5px;border-radius:5px;padding:0 6px;margin-left:6px;white-space:nowrap}
+.tag.star{background:var(--accent-soft);color:var(--accent)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.part{background:var(--warn-soft);color:var(--warn)} .tag.bad{background:var(--bad-soft);color:var(--bad)}
+.cand a{flex:none;font-size:13px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);border-radius:6px;padding:2px 8px}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+.btns button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:5px 14px;cursor:pointer}
+.btns button[aria-pressed="true"][data-v="none"]{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.btns button[aria-pressed="true"][data-v="unsure"]{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.locked .cand,.locked .btns button{pointer-events:none;opacity:.55}
+textarea{font:inherit;font-size:14px;width:100%;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--bg);color:var(--fg);resize:vertical}
+.saved{font-size:13px;color:var(--ok)}
+.notice{font-size:14px;color:var(--bad);margin:0}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:28px 16px;text-align:center;color:var(--muted)}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>行程確認表</h1>
+    <p class="lede" id="lede">載入中…</p>
+  </header>
+  <section class="how">
+    <div>1. 先填你的名字。</div>
+    <div>2. 每一張卡是一種「套路」（同產品、團型、天數、航空、航線、時段、出發地），底下列出系統找到的候選行程，<b>點正確的那一份</b>。有 ✓ 的代表 PDF 裡的航班跟漢書一樣，△ 部分一樣，✗ 不一樣（多半是舊版）。</div>
+    <div>3. 都不對或資料夾裡沒有這團的行程 → 按 <b>資料夾裡沒有</b>；真的看不出來 → 按 <b>看不出來</b>。點了就自動存，之後同套路的新團會自動沿用，不用再點。</div>
+    <div>4. 「請再看一次」的卡是以前確認過、但 PDF 換版或航班變了，請確認要不要沿用。</div>
+  </section>
+  <div class="me">
+    <label for="who">你的名字</label>
+    <input id="who" type="text" autocomplete="name" placeholder="例如：產品部 王小明" maxlength="30">
+    <p class="hint" id="whoHint">填了名字才能選。</p>
+  </div>
+  <div class="stats" role="status">
+    <div class="stat big"><span>網站可用率</span><strong id="sRate">–</strong></div>
+    <div class="bar" aria-hidden="true"><i id="sBar"></i></div>
+    <div class="stat"><span>待確認套路</span><strong id="sPending">–</strong></div>
+    <div class="stat"><span>請再看一次</span><strong id="sReview">–</strong></div>
+    <div class="stat"><span>已確認（人工）</span><strong id="sConfirmed">–</strong></div>
+    <div class="stat"><span>自動確認</span><strong id="sAuto">–</strong></div>
+    <div class="stat"><span>資料時間</span><strong id="sStamp" style="font-size:13px">–</strong></div>
+  </div>
+  <div class="filters" role="group" aria-label="篩選" id="filters">
+    <button data-f="todo" aria-pressed="true">待確認</button>
+    <button data-f="review" aria-pressed="false">請再看一次</button>
+    <button data-f="done" aria-pressed="false">已確認</button>
+    <button data-f="all" aria-pressed="false">全部</button>
+  </div>
+  <div class="filters" role="group" aria-label="產品線" id="lines"></div>
+  <p class="notice" id="notice" hidden></p>
+  <div class="list" id="list"></div>
+</div>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCeUModpZrGLQifjDXhIOfIAYdK538wgik",
+  authDomain: "ddd1-v3.firebaseapp.com",
+  projectId: "ddd1-v3",
+  appId: "1:932033353369:web:4a9d11493257fa6e924a08"
+});
+const db = firebase.firestore();
+(function(){
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+  const notice = m => { $('notice').textContent = m || ''; $('notice').hidden = !m; };
+  $('who').value = lsGet('confirmName') || lsGet('matchPickName') || '';
+  const myName = () => $('who').value.trim();
+  $('who').addEventListener('input', () => { lsSet('confirmName', myName()); $('whoHint').hidden = !!myName(); render(); });
+
+  let docs = [], meta = null, answers = {}, filter = 'todo', line = '';
+  const drafts = {}, timers = {}, savedAt = {};
+  // 狀態（含本機剛點的答案：同步一小時才合併，這裡先顯示成已確認）
+  const effStatus = d => { const a = answers[d.id]; if (!a || !a.v) return d.status; return a.v === 'none' ? 'nofile' : a.v === 'unsure' ? 'pending' : 'confirmed'; };
+  const isTodo = d => ['pending', 'review'].includes(effStatus(d));
+
+  function stats(){
+    if (!meta) return;
+    const todo = docs.filter(d => effStatus(d) === 'pending').length, rev = docs.filter(d => effStatus(d) === 'review').length;
+    const conf = docs.filter(d => effStatus(d) === 'confirmed').length, auto = docs.filter(d => d.status === 'auto').length;
+    // 可用率：以團數計；本機剛點的也先算進去
+    let usable = 0, total = 0;
+    for (const d of docs) { if (!d.n) continue; total += d.n; const s = effStatus(d); if (s === 'auto' || s === 'confirmed') usable += d.n; }
+    const rate = total ? Math.round(usable / total * 100) : 0;
+    $('sRate').textContent = rate + '%'; $('sBar').style.width = rate + '%';
+    $('sPending').textContent = todo; $('sReview').textContent = rev; $('sConfirmed').textContent = conf; $('sAuto').textContent = auto;
+    $('sStamp').textContent = meta.stamp || '';
+    $('lede').textContent = `全公司未出發的正常團共 ${total} 團、${docs.filter(d => d.n).length} 種套路。系統自己有把握的 ${auto} 種已自動確認；還有 ${todo + rev} 種要請你點一下，點完網站就能全部掛上正確行程。`;
+  }
+  function fcTag(fc){ return fc === 'ok' ? '<span class="tag ok">✓ 航班相符</span>' : fc === 'part' ? '<span class="tag part">△ 航班部分相符</span>' : fc === 'bad' ? '<span class="tag bad">✗ 航班不符</span>' : ''; }
+  function candHtml(d, c, pressed){
+    return '<div class="cand" role="button" tabindex="0" data-id="' + esc(d.id) + '" data-pick="' + esc(c.id) + '" aria-pressed="' + pressed + '">'
+      + '<span class="dot"></span><span class="txt"><span class="fn">' + esc(c.n.replace(/\.(pdf|docx?)$/i, '')) + '</span>'
+      + (c.star ? '<span class="tag star">系統首選</span>' : '') + fcTag(c.fc)
+      + '<span class="fd">' + esc(c.path || '') + '</span></span>'
+      + '<a href="https://drive.google.com/file/d/' + encodeURIComponent(c.id) + '/view" target="_blank" rel="noopener" data-stop="1">開啟</a></div>';
+  }
+  const KIND = { pending: '待確認', review: '請再看一次', auto: '自動確認', confirmed: '已確認', nofile: '資料夾裡沒有' };
+  function cardHtml(d, i){
+    const st = effStatus(d), a = answers[d.id] || {}, v = a.v || (st === 'auto' || st === 'confirmed' || st === 'review' ? d.fileId : '') || '';
+    const facts = [d.p, d.tt, d.dy ? d.dy + '天' : '', d.an || d.al, d.op && d.op !== '--' ? '航線 ' + d.op : '', d.fl ? '時段 ' + d.fl : '', d.dp && d.dp !== '台北' ? d.dp + '出發' : ''].filter(Boolean);
+    const fr = (d.fr || '').split(',').filter(Boolean).map(x => x.split(':')[1]).join('／');
+    let cands = (d.cands || []).slice();
+    if (v && !cands.some(c => c.id === v) && d.fileId === v) cands.unshift({ id: v, n: d.fileName || v, path: '（先前確認的檔）', fc: null });
+    let h = '<div class="card ' + (st === 'confirmed' || st === 'auto' ? 'done' : st === 'review' ? 'review' : '') + (myName() ? '' : ' locked') + '" data-card="' + esc(d.id) + '">'
+      + '<div class="top"><span class="num">' + (i + 1) + '.</span><span class="prod">' + esc(d.ln) + '｜' + esc(d.p || '') + '</span><span class="kind ' + st + '">' + KIND[st] + '</span>'
+      + '<span class="num">' + d.n + ' 團，最近出發 ' + esc((d.nextDt || '').slice(5).replace('-', '/')) + '</span></div>'
+      + '<div class="facts">' + facts.map(f => '<span class="chip hi">' + esc(f) + '</span>').join('') + (fr ? '<span class="chip">漢書航班 ' + esc(fr) + '</span>' : '') + '</div>'
+      + '<div class="codes">' + esc((d.codes || []).join('　')) + '</div>'
+      + (d.reason ? '<p class="q">' + esc(d.reason) + '</p>' : '')
+      + (st === 'auto' ? '<p class="q">系統自動確認：唯一候選、航班相符、每團一致。覺得不對可以改點別份。</p>' : '')
+      + (a.by ? '<p class="saved">已由 ' + esc(a.by) + ' 於 ' + esc((a.at || '').slice(0, 16).replace('T', ' ')) + ' 確認' + (savedAt[d.id] ? '（已存）' : '') + '</p>' : (d.by && st !== 'review' ? '<p class="saved">已由 ' + esc(d.by) + ' 確認</p>' : ''))
+      + '<div class="cands">' + cands.map(c => candHtml(d, c, v === c.id)).join('') + (cands.length ? '' : '<p class="q">系統沒找到任何候選，請按「資料夾裡沒有」或先請產品部上傳。</p>') + '</div>'
+      + '<div class="btns"><button data-id="' + esc(d.id) + '" data-v="none" aria-pressed="' + (a.v === 'none') + '">資料夾裡沒有</button>'
+      + '<button data-id="' + esc(d.id) + '" data-v="unsure" aria-pressed="' + (a.v === 'unsure') + '">看不出來</button></div>'
+      + '<textarea data-note="' + esc(d.id) + '" placeholder="備註（選填）：例如「這團其實走新版」「11 月起換檔」" maxlength="300">' + esc(drafts[d.id] ?? a.note ?? '') + '</textarea>'
+      + '</div>';
+    return h;
+  }
+  function render(){
+    stats();
+    const lines = [...new Set(docs.filter(d => d.n).map(d => d.ln))].sort();
+    $('lines').innerHTML = '<button data-l="" aria-pressed="' + (line === '') + '">全部線</button>' + lines.map(l => '<button data-l="' + esc(l) + '" aria-pressed="' + (line === l) + '">' + esc(l) + ' <span class="num">' + docs.filter(d => d.ln === l && isTodo(d)).length + '</span></button>').join('');
+    const list = docs.filter(d => d.n).filter(d => !line || d.ln === line).filter(d => filter === 'all' ? true : filter === 'todo' ? effStatus(d) === 'pending' : filter === 'review' ? effStatus(d) === 'review' : ['auto', 'confirmed', 'nofile'].includes(effStatus(d)))
+      .sort((a, b) => (b.n - a.n));
+    $('list').innerHTML = list.length ? list.map(cardHtml).join('') : '<div class="empty">這個篩選沒有項目</div>';
+  }
+  async function save(id, patch){
+    const d = docs.find(x => x.id === id); if (!d) return;
+    const cur = answers[id] || {};
+    const next = { v: patch.v ?? cur.v ?? '', note: patch.note ?? cur.note ?? drafts[id] ?? '', by: myName(), at: new Date().toISOString(), key: d.key };
+    if (!next.v) return;   // 只改備註還沒選 → 不存
+    if (!next.note) delete next.note;
+    answers[id] = next;
+    try { await db.collection('itin_pick_answers').doc(id).set(next); savedAt[id] = Date.now(); notice(''); }
+    catch (e) { notice('存檔失敗：' + e.message + '（可能是權限還沒開）'); }
+    render();
+  }
+  document.addEventListener('click', e => {
+    const stop = e.target.closest('[data-stop]'); if (stop) return;
+    const f = e.target.closest('#filters button'); if (f) { filter = f.dataset.f; render(); return; }
+    const l = e.target.closest('#lines button'); if (l) { line = l.dataset.l; render(); return; }
+    if (!myName()) { const c0 = e.target.closest('.cand,.btns button'); if (c0) { notice('先填名字再點選'); $('who').focus(); } return; }
+    const c = e.target.closest('.cand'); if (c) { save(c.dataset.id, { v: c.dataset.pick }); return; }
+    const b = e.target.closest('.btns button'); if (b) { save(b.dataset.id, { v: b.dataset.v }); return; }
+  });
+  document.addEventListener('input', e => {
+    const t = e.target.closest('textarea[data-note]'); if (!t) return;
+    const id = t.dataset.note; drafts[id] = t.value;
+    clearTimeout(timers[id]); timers[id] = setTimeout(() => { if (answers[id]?.v) save(id, { note: t.value }); }, 800);
+  });
+  async function load(){
+    try {
+      const [cs, as] = await Promise.all([db.collection('itin_confirm').get(), db.collection('itin_pick_answers').get()]);
+      docs = []; cs.forEach(x => { if (x.id === '_meta') meta = x.data(); else docs.push({ id: x.id, ...x.data() }); });
+      as.forEach(x => { answers[x.id] = x.data(); });
+      if (!meta) meta = { stamp: '' };
+      render();
+    } catch (e) { $('lede').textContent = '讀不到確認表：' + e.message + '（Firestore 規則可能還沒開放這個頁面）'; }
+  }
+  load();
+})();
+</script>
+</body>
+</html>

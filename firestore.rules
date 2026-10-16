@@ -138,6 +138,29 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // dt_flights：行程 PDF 抽出的航班表（航班核對用，flights.mjs 每小時寫），權限同 dt_files
+    //   ⚠ 2026-10-16 補：航班核對 10/15 上線時漏了這條，前端讀不到 → 標籤一直不出現
+    match /dt_flights/{docId} {
+      allow read: if isSignedIn() && !isRecorder();
+      allow write: if false;
+    }
+
+    // itin_confirm：行程版本確認表（confirm.mjs 每小時寫；網站、產品部確認頁、動態都要讀）
+    //   產品部沒有這個系統的帳號，確認頁 confirm.html 不登入 → 開放讀；寫只有 Admin SDK
+    match /itin_confirm/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // itin_pick_answers：產品部在 confirm.html 點的答案（一套路一份），不登入可寫；sync 下一輪合併進 itin_confirm
+    //   只收固定幾個欄位、字數有限，避免被當成任意儲存空間
+    match /itin_pick_answers/{docId} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasOnly(['v', 'by', 'at', 'note', 'key'])
+                   && request.resource.data.v is string && request.resource.data.v.size() <= 64
+                   && (!('note' in request.resource.data) || request.resource.data.note.size() <= 300)
+                   && (!('by' in request.resource.data) || request.resource.data.by.size() <= 40);
+    }
+
     // dt_agent：動態查詢的業務個人設定（轉換連結用的名片資料），只能讀寫自己的
     match /dt_agent/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId && !isRecorder();

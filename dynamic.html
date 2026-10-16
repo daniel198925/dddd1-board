@@ -2106,7 +2106,15 @@ function renderFiles() {
       // 這條線的航班表還沒載 → 背景載，載到了重畫一次（標籤與分數才會算進航班）
       if (!FLIGHTS_LOADED.has(folder.name)) loadFlights(folder.name).then(ok => { if (ok && filesMode === 'related') renderFiles(); });
       // 國旅/郵輪(special)沒有可配對標星的檔 → 只展開最外層、子資料夾摺疊，業務自己挑（使用者 2026-07-24）
-      const bestIds = t.sp ? new Set() : bestMatchIds(folder, t);
+      let bestIds = t.sp ? new Set() : bestMatchIds(folder, t);
+      // 行程版本確認表（2026-10-16）：這套路已確認（自動或產品部點過）→ 以確認的那份為準，蓋過即時配對
+      //   （cf＝確認的檔案 id、cfs＝auto／confirmed，同步程式每小時寫進團資料；檔案已不在樹上就退回即時配對）
+      let confirmedNote = '';
+      if (t.cf && (t.cfs === 'auto' || t.cfs === 'confirmed')) {
+        const fcKeep = bestIds.fc || {};
+        bestIds = new Set([t.cf]); bestIds.fc = fcKeep;
+        confirmedNote = t.cfs === 'confirmed' ? '<span class="text-emerald-300">✔ 產品部已確認這份</span>' : '<span class="text-emerald-300">✔ 系統已確認（航班相符）</span>';
+      }
       // 星號檔的航班核對：全部 ✓ 才說「航班已核對」；有檔沒資料就講「航班未核對」
       const fcOf = id => bestIds.fc && bestIds.fc[id];
       const fcAllOk = bestIds.size > 0 && [...bestIds].every(id => fcOf(id) && fcOf(id).st === 'ok');
@@ -2115,6 +2123,7 @@ function renderFiles() {
       const hint =
         t.sp        ? '，請自行挑選'
       : bestIds.tie ? `<br><span class="text-amber-300">⚠ 有 ${bestIds.size} 份行程分數相同${fcNone ? '、航班尚未核對' : ''} → 標 ○ 的都可能符合，請自行確認</span>`
+      : confirmedNote ? `，⭐ ${confirmedNote}`
       : bestIds.size ? `，⭐ 是系統判斷跟這團最相符的${fcAllOk ? '<span class="text-emerald-300">（航班已核對 ✓）</span>' : fcNone ? '<span class="m4">（航班無資料、未核對）</span>' : ''}`
       : `<br><span class="text-amber-300">⚠ 這團沒有自動配到行程（常見原因：檔名沒寫團型或天數、行程還沒上傳）→ 請自行挑選</span>`;
       $('files-tree').innerHTML =
