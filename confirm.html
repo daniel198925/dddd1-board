@@ -58,6 +58,10 @@ h1{font-size:24px;margin:0}
 .chip{font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 8px}
 .chip.hi{background:var(--accent-soft);border-color:transparent}
 .codes{font-family:var(--font-mono);font-size:12.5px;color:var(--muted)}
+.rawbtn{align-self:flex-start;font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:3px 12px;cursor:pointer}
+.rawbtn[aria-expanded="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.raw{margin:0;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;font-family:var(--font-mono);font-size:12.5px;line-height:1.7;white-space:pre;overflow-x:auto;color:var(--fg)}
+.raw .rc{color:var(--accent)}
 .q{font-size:13px;color:var(--muted);margin:0}
 .cands{display:flex;flex-direction:column;gap:6px}
 .cand{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;background:var(--surface)}
@@ -177,6 +181,8 @@ const db = firebase.firestore();
       + '<span class="num">' + d.n + ' 團，最近出發 ' + esc((d.nextDt || '').slice(5).replace('-', '/')) + '</span></div>'
       + '<div class="facts">' + facts.map(f => '<span class="chip hi">' + esc(f) + '</span>').join('') + (fr ? '<span class="chip">漢書航班 ' + esc(fr) + '</span>' : '') + '</div>'
       + '<div class="codes">' + esc((d.codes || []).join('　')) + '</div>'
+      /* 原始動態（2026-10-19 Daniel：只看團號很難對，要看漢書那一行原文才認得出是哪團）：按了才去讀 dt_tours 那條線的文件，每條線只讀一次 */
+      + '<button type="button" class="rawbtn" data-raw="' + esc(d.id) + '" aria-expanded="false">看原始動態</button><pre class="raw" id="raw-' + esc(d.id) + '" hidden></pre>'
       + (d.reason ? '<p class="q">' + esc(d.reason) + '</p>' : '')
       + (st === 'auto' ? '<p class="q">' + (d.seasonal ? '系統自動確認（依出發期間分檔：每團各自配到唯一一份、航班相符）。' : '系統自動確認：唯一候選、航班相符、每團一致。') + '覺得不對可以改點別份。</p>' : '')
       + (a.by ? '<p class="saved">已由 ' + esc(a.by) + ' 於 ' + esc((a.at || '').slice(0, 16).replace('T', ' ')) + ' 確認' + (savedAt[d.id] ? '（已存）' : '') + '</p>' : (d.by && st !== 'review' ? '<p class="saved">已由 ' + esc(d.by) + ' 確認</p>' : ''))
@@ -206,8 +212,38 @@ const db = firebase.firestore();
     catch (e) { notice('存檔失敗：' + e.message + '（可能是權限還沒開）'); }
     render();
   }
+  // 原始動態：dt_tours 一條線一份文件（rows 是 JSON 字串，每列 rw＝漢書原文那一行）。線名 → 文件編號 從 dt_tours/_meta.files 查
+  const rawLine = {}; let rawMeta = null;
+  async function rawRows(ln){
+    if (rawLine[ln]) return rawLine[ln];
+    return rawLine[ln] = (async () => {
+      if (!rawMeta) rawMeta = (await db.collection('dt_tours').doc('_meta').get()).data() || {};
+      const f = (rawMeta.files || []).find(x => x.line === ln); if (!f) throw new Error('找不到「' + ln + '」的漢書檔');
+      const doc = await db.collection('dt_tours').doc(f.f).get(); if (!doc.exists) throw new Error('漢書檔 ' + f.f + ' 不存在');
+      const rows = JSON.parse(doc.data().rows || '[]'); const byCode = {};
+      for (const r of rows) { if (!r.c || !r.rw) continue; (byCode[r.c] = byCode[r.c] || []).push(r.rw); }
+      return { byCode, stamp: doc.data().stamp || '' };
+    })().catch(e => { delete rawLine[ln]; throw e; });
+  }
+  async function toggleRaw(btn){
+    const d = docs.find(x => x.id === btn.dataset.raw); const pre = $('raw-' + btn.dataset.raw); if (!d || !pre) return;
+    const open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!open)); pre.hidden = open; if (open) return;
+    pre.textContent = '讀取漢書中…';
+    const show = (lines, stamp) => {
+      const seen = new Set(); const out = [];
+      for (const [c, rw] of lines) { if (!rw || seen.has(rw)) continue; seen.add(rw); out.push(rw.replace(c, '\u0000' + c + '\u0001')); }
+      pre.innerHTML = (out.length ? out.map(esc).join('\n').replace(/\u0000/g, '<span class="rc">').replace(/\u0001/g, '</span>') : '這幾團在目前的漢書檔裡找不到（可能已出發或改團號）')
+        + '\n<span class="q">漢書 ' + esc(stamp) + '・' + out.length + ' 行（最多列 5 團）</span>';
+    };
+    // 優先用確認表文件自帶的 rws（confirm.mjs 每小時跟 codes 一起寫，不登入也讀得到）；舊文件沒有 rws 才退回讀 dt_tours（要有 D1 系統登入）
+    if (Array.isArray(d.rws) && d.rws.length) { show((d.codes || []).map((c, i) => [c, d.rws[i] || '']), d.stamp || ''); return; }
+    try { const { byCode, stamp } = await rawRows(d.ln); show((d.codes || []).flatMap(c => (byCode[c] || []).map(rw => [c, rw])), stamp); }
+    catch (e) { pre.textContent = /permission|insufficient/i.test(e.message) ? '這張卡的原始動態要等下一次每小時同步後才有（新欄位 rws）。' : '讀不到原始動態：' + e.message; }
+  }
   document.addEventListener('click', e => {
     const stop = e.target.closest('[data-stop]'); if (stop) return;
+    const rb = e.target.closest('.rawbtn'); if (rb) { toggleRaw(rb); return; }
     const f = e.target.closest('#filters button'); if (f) { filter = f.dataset.f; render(); return; }
     const l = e.target.closest('#lines button'); if (l) { line = l.dataset.l; render(); return; }
     if (!myName()) { const c0 = e.target.closest('.cand,.btns button'); if (c0) { notice('先填名字再點選'); $('who').focus(); } return; }
