@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<!-- 系統地圖：嵌在公佈欄「系統監視」分頁（只有 admin 看得到按鈕）。
+     ?theme=dark|light 由公佈欄帶入；公佈欄切換深淺色時會 postMessage 過來。
+     本頁高度變動時回報給公佈欄，讓 iframe 跟著長高，不出現兩層捲軸。 -->
+<script>
+(function(){
+  var t=new URLSearchParams(location.search).get("theme");
+  if(t==="dark"||t==="light") document.documentElement.setAttribute("data-theme",t);
+  window.addEventListener("message",function(e){
+    if(e.origin!==location.origin||!e.data||e.data.type!=="sysmap-theme") return;
+    if(e.data.theme==="dark"||e.data.theme==="light") document.documentElement.setAttribute("data-theme",e.data.theme);
+  });
+  function report(){
+    if(window.parent===window) return;
+    window.parent.postMessage({type:"sysmap-height",h:document.documentElement.scrollHeight},location.origin);
+  }
+  window.addEventListener("load",report);
+  window.addEventListener("resize",report);
+  document.addEventListener("DOMContentLoaded",function(){
+    if(window.ResizeObserver) new ResizeObserver(report).observe(document.body);
+    report();
+  });
+})();
+</script>
+<style>html{color-scheme:light}body{margin:0}[hidden]{display:none!important}*{box-sizing:border-box}</style>
+<title>線上合約系統地圖</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 一張橫向流程大圖（人 → 網頁 → 後端 → 資料 → 外部系統），下面三組說明欄 */
+:root{
+  --bg:#f7f4f5; --surface:#ffffff; --ink:#22181b; --muted:#6e5f64; --line:#d9cdd1;
+  --accent:#b81846; --accent-soft:#f6e3e9; --warn:#a35b00; --warn-soft:#fbecd6; --ok:#2f7a4f;
+  --band:#efe8ea; --quote:#0d7f75; --quote-soft:#e2f2f0;
+  --f-display:"Noto Serif TC","Songti TC",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#171214; --surface:#211a1d; --ink:#f1e9ec; --muted:#ab9aa0; --line:#3d3236;
+  --accent:#ec5a83; --accent-soft:#3a1d27; --warn:#f0a443; --warn-soft:#3a2a14; --ok:#6cc792;
+  --band:#1d1619; --quote:#4cc4b6; --quote-soft:#13302d; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#171214; --surface:#211a1d; --ink:#f1e9ec; --muted:#ab9aa0; --line:#3d3236;
+  --accent:#ec5a83; --accent-soft:#3a1d27; --warn:#f0a443; --warn-soft:#3a2a14; --ok:#6cc792;
+  --band:#1d1619; --quote:#4cc4b6; --quote-soft:#13302d; color-scheme:dark }
+
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7}
+.wrap{max-width:1200px;margin:0 auto;padding-block:40px 64px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:40px}
+header{display:grid;gap:12px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;color:var(--accent)}
+h1{font-family:var(--f-display);font-weight:900;font-size:clamp(30px,5vw,46px);line-height:1.2;margin:0;text-wrap:balance}
+.lede{margin:0;max-width:62ch;color:var(--muted);font-size:16px}
+.facts{display:flex;flex-wrap:wrap;gap:8px 24px;margin:4px 0 0;padding:0;list-style:none;font-size:13px}
+.facts b{font-weight:500;color:var(--muted);margin-right:6px}
+.facts code{font-family:var(--f-mono);font-size:12.5px}
+
+.figure{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.figure-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 24px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.figure-head h2{margin:0;font-size:16px;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted);align-items:center}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px;border:1.5px solid var(--line)}
+.sw.data{background:var(--accent-soft);border-color:var(--accent)}
+.sw.warn{background:var(--warn-soft);border-color:var(--warn)}
+.sw.person{background:transparent;border-style:dashed;border-color:var(--muted)}
+.scroller{overflow-x:auto}
+.scroller svg{display:block;width:100%;min-width:980px;height:auto}
+.hint{display:none;font-size:12px;color:var(--muted);padding:8px 18px 0}
+@media (max-width:760px){.hint{display:block}}
+
+svg .colhead{font:700 13px var(--f-body);fill:var(--muted);letter-spacing:.04em}
+svg .band{fill:var(--band)}
+svg .bandlabel{font:700 13px var(--f-body);fill:var(--accent)}
+svg .node{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+svg .node.person{fill:transparent;stroke:var(--muted);stroke-dasharray:4 3}
+svg .node.data{fill:var(--accent-soft);stroke:var(--accent)}
+svg .node.warn{fill:var(--warn-soft);stroke:var(--warn)}
+svg .t{font:500 14px var(--f-body);fill:var(--ink)}
+svg .s{font:400 11px var(--f-mono);fill:var(--muted)}
+svg .s.zh{font-family:var(--f-body);font-size:11.5px}
+svg .s.alert{fill:var(--warn)}
+svg .edge{fill:none;stroke:var(--muted);stroke-width:1.4}
+svg .edge.dash{stroke-dasharray:5 4}
+svg .edge.hot{stroke:var(--accent);stroke-width:1.8}
+svg .elabel{font:400 11.5px var(--f-body);fill:var(--muted)}
+svg .ahead{fill:var(--muted)}
+svg .ahead.hot{fill:var(--accent)}
+
+.bridge-intro{margin:0;padding:14px 18px 0;color:var(--muted);font-size:13.5px;max-width:80ch}
+.bhead,.brow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:center}
+.bhead{padding:14px 18px 8px;font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+.bhead .q{color:var(--quote)} .bhead .c{color:var(--accent)}
+.bitem{border-top:1px solid var(--line);padding:16px 18px;display:grid;gap:10px}
+.bitem h3{margin:0;font-size:15px;font-weight:700}
+.side{border:1.5px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:10px 12px;display:grid;gap:2px;min-width:0}
+.side.quote{border-color:var(--quote);background:var(--quote-soft)}
+.side b{font-weight:500}
+.side small{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);overflow-wrap:anywhere}
+.flow{display:grid;gap:6px;justify-items:center;text-align:center;font-size:13px;min-width:0}
+.arrow{display:flex;align-items:center;width:100%}
+.arrow i{flex:1;height:0;border-top:1.6px solid var(--muted)}
+.arrow::after{content:"";border:6px solid transparent;border-left:9px solid var(--muted);border-right:0}
+.arrow.left{flex-direction:row-reverse}
+.arrow.left::after{border-left:0;border-right:9px solid var(--muted)}
+.freq{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--band);color:var(--muted)}
+.care{margin:0;font-size:13px;color:var(--muted)}
+.care b{color:var(--ink);font-weight:500}
+.dirlabel{display:none;font-size:12px;font-weight:700;color:var(--muted)}
+@media (max-width:760px){
+  .bhead{display:none}
+  .brow{grid-template-columns:minmax(0,1fr);gap:8px}
+  .arrow{display:none}
+  .dirlabel{display:block}
+}
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
+section h2{font-family:var(--f-display);font-size:20px;margin:0 0 4px}
+section .sub{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+.list{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.list li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:baseline}
+.time{font-family:var(--f-mono);font-size:13px;font-weight:500;color:var(--accent);font-variant-numeric:tabular-nums;min-width:4.6em}
+.tag{font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.tag.lock{background:var(--accent-soft);color:var(--accent)}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.tag.rule{background:var(--band);color:var(--muted)}
+code{font-family:var(--f-mono);font-size:.88em}
+footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">findit-contract ・ 更新到 2026-10-19</div>
+    <h1>線上合約系統地圖</h1>
+    <p class="lede">合約系統裡有兩條簽署線：客人簽旅遊合約、領隊簽出團文件。兩條線共用同一個上了鎖的資料庫，簽好的 PDF 每 10 分鐘由公司常駐機搬回 NAS。</p>
+    <ul class="facts">
+      <li><b>網址</b><code>findit-contract.vercel.app</code></li>
+      <li><b>資料庫</b><code>discovered-contract</code>（已上鎖）</li>
+      <li><b>本機資料夾</b><code>Documents\findit-contract</code></li>
+      <li><b>領隊開發分支</b><code>Documents\領隊簽署</code></li>
+    </ul>
+  </header>
+
+  <div class="figure">
+    <div class="figure-head">
+      <h2>資料怎麼流動</h2>
+      <div class="legend">
+        <span><i class="sw person"></i>人</span>
+        <span><i class="sw"></i>網頁／程式</span>
+        <span><i class="sw data"></i>存資料的地方</span>
+        <span><i class="sw warn"></i>目前卡住</span>
+      </div>
+    </div>
+    <p class="hint">圖比較寬，可以左右滑動。</p>
+    <div class="scroller">
+<svg viewBox="0 0 1180 690" role="img" aria-label="合約系統架構圖：旅遊合約與領隊文件兩條流程">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahead" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahead hot" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+
+  <text class="colhead" x="16" y="26">誰在用</text>
+  <text class="colhead" x="184" y="26">網頁</text>
+  <text class="colhead" x="400" y="26">後端程式（Vercel）</text>
+  <text class="colhead" x="636" y="26">資料庫（Firebase）</text>
+  <text class="colhead" x="872" y="26">其他系統</text>
+
+  <!-- 第一條：旅遊合約 -->
+  <rect class="band" x="0" y="40" width="1180" height="316"/>
+  <text class="bandlabel" x="16" y="62">旅遊合約（客人簽）</text>
+
+  <!-- 線 -->
+  <path class="edge" d="M144,100 L184,90" marker-end="url(#ar)"/>
+  <path class="edge" d="M144,168 L184,108" marker-end="url(#ar)"/>
+  <path class="edge" d="M144,174 L184,160" marker-end="url(#ar)"/>
+  <path class="edge" d="M144,180 L184,220" marker-end="url(#ar)"/>
+  <path class="edge dash" d="M80,198 L80,262" marker-end="url(#ar)"/>
+  <text class="elabel" x="88" y="236">傳簽署連結</text>
+  <path class="edge" d="M144,286 L184,286" marker-end="url(#ar)"/>
+  <path class="edge" d="M360,100 L400,122" marker-end="url(#ar)"/>
+  <path class="edge" d="M360,160 L400,138" marker-end="url(#ar)"/>
+  <path class="edge" d="M596,130 L636,130" marker-end="url(#ar)"/>
+  <path class="edge hot" d="M360,286 L400,286" marker-end="url(#arh)"/>
+  <path class="edge hot" d="M596,284 L616,284 L616,146 L636,146" marker-end="url(#arh)"/>
+  <path class="edge hot" d="M596,266 L636,266" marker-end="url(#arh)"/>
+  <path class="edge" d="M498,252 L498,234" marker-end="url(#ar)"/>
+  <path class="edge" d="M596,208 L862,208 L862,100 L872,100" marker-end="url(#ar)"/>
+  <path class="edge" d="M832,256 L848,256 L848,192 L872,192" marker-end="url(#ar)"/>
+  <path class="edge" d="M1018,216 L1018,240" marker-end="url(#ar)"/>
+
+  <!-- 人 -->
+  <rect class="node" x="16" y="76" width="128" height="48" rx="8"/>
+  <text class="t" x="28" y="97">動態查詢 D1</text><text class="s zh" x="28" y="114">點團號「建立合約」</text>
+  <rect class="node person" x="16" y="150" width="128" height="48" rx="8"/>
+  <text class="t" x="28" y="171">業務</text><text class="s zh" x="28" y="188">用公佈欄帳號登入</text>
+  <rect class="node person" x="16" y="262" width="128" height="48" rx="8"/>
+  <text class="t" x="28" y="283">客人</text><text class="s zh" x="28" y="300">不用帳號，手機開</text>
+
+  <!-- 網頁 -->
+  <rect class="node" x="184" y="76" width="176" height="48" rx="8"/>
+  <text class="t" x="196" y="97">建立合約</text><text class="s" x="196" y="114">index.html</text>
+  <rect class="node" x="184" y="136" width="176" height="48" rx="8"/>
+  <text class="t" x="196" y="157">合約列表</text><text class="s" x="196" y="174">list.html</text>
+  <rect class="node" x="184" y="196" width="176" height="48" rx="8"/>
+  <text class="t" x="196" y="217">同業請款單</text><text class="s" x="196" y="234">invoice.html</text>
+  <rect class="node" x="184" y="262" width="176" height="48" rx="8"/>
+  <text class="t" x="196" y="283">合約簽署頁</text><text class="s" x="196" y="300">sign.html</text>
+
+  <!-- 後端 -->
+  <rect class="node" x="400" y="106" width="196" height="48" rx="8"/>
+  <text class="t" x="412" y="127">門禁換證</text><text class="s" x="412" y="144">/api/session</text>
+  <rect class="node" x="400" y="184" width="196" height="48" rx="8"/>
+  <text class="t" x="412" y="205">簽完通知業務</text><text class="s" x="412" y="222">/api/notify</text>
+  <rect class="node" x="400" y="252" width="196" height="48" rx="8"/>
+  <text class="t" x="412" y="273">客人專用窗口</text><text class="s" x="412" y="290">/api/sign</text>
+
+  <!-- 資料 -->
+  <rect class="node data" x="636" y="106" width="196" height="48" rx="8"/>
+  <text class="t" x="648" y="127">合約資料（上鎖）</text><text class="s" x="648" y="144">Firestore contracts</text>
+  <rect class="node data" x="636" y="240" width="196" height="48" rx="8"/>
+  <text class="t" x="648" y="261">簽好的合約 PDF</text><text class="s" x="648" y="278">Storage</text>
+
+  <!-- 其他系統 -->
+  <rect class="node" x="872" y="76" width="292" height="48" rx="8"/>
+  <text class="t" x="884" y="97">LINE 阿D</text><text class="s zh" x="884" y="114">業務收「客人簽好了」</text>
+  <rect class="node" x="872" y="168" width="292" height="48" rx="8"/>
+  <text class="t" x="884" y="189">常駐機合約歸檔器（每 10 分）</text><text class="s zh" x="884" y="206">也把歸檔狀態抄給估價平台「我的團」</text>
+  <rect class="node data" x="872" y="240" width="292" height="48" rx="8"/>
+  <text class="t" x="884" y="261">公司 NAS・已簽合約存放區</text><text class="s zh" x="884" y="278">依線路／年份／團號分資料夾</text>
+
+  <!-- 第二條：領隊文件 -->
+  <rect class="band" x="0" y="368" width="1180" height="306"/>
+  <text class="bandlabel" x="16" y="390">領隊文件（領隊簽）</text>
+
+  <path class="edge" d="M144,424 L380,424 L380,496 L400,496" marker-end="url(#ar)"/>
+  <text class="elabel" x="190" y="416">每天更新誰帶哪一團</text>
+  <path class="edge" d="M144,490 L184,490" marker-end="url(#ar)"/>
+  <path class="edge" d="M360,490 L400,512" marker-end="url(#ar)"/>
+  <path class="edge hot" d="M144,590 L184,590" marker-end="url(#arh)"/>
+  <path class="edge hot" d="M360,590 L400,532" marker-end="url(#arh)"/>
+  <path class="edge" d="M596,500 L636,470" marker-end="url(#ar)"/>
+  <path class="edge hot" d="M560,538 L560,580 L636,580" marker-end="url(#arh)"/>
+  <path class="edge" d="M596,524 L862,524 L862,614 L872,614" marker-end="url(#ar)"/>
+  <path class="edge dash" d="M832,570 L848,570 L848,424 L872,424" marker-end="url(#ar)"/>
+  <path class="edge dash" d="M1018,448 L1018,472" marker-end="url(#ar)"/>
+  <path class="edge" d="M1018,638 L1018,664 L80,664 L80,616" marker-end="url(#ar)"/>
+  <text class="elabel" x="420" y="658">LINE 把簽署連結傳給領隊（出團前一天早上自動發）</text>
+
+  <rect class="node" x="16" y="400" width="128" height="48" rx="8"/>
+  <text class="t" x="28" y="421">漢書帶團名單</text><text class="s zh" x="28" y="438">常駐機每天上傳</text>
+  <rect class="node person" x="16" y="466" width="128" height="48" rx="8"/>
+  <text class="t" x="28" y="487">OP／產品部</text><text class="s zh" x="28" y="504">後台獨立密碼</text>
+  <rect class="node person" x="16" y="566" width="128" height="48" rx="8"/>
+  <text class="t" x="28" y="587">領隊</text><text class="s zh" x="28" y="604">手機開連結簽名</text>
+
+  <rect class="node" x="184" y="466" width="176" height="48" rx="8"/>
+  <text class="t" x="196" y="487">領隊文件後台</text><text class="s" x="196" y="504">leader-admin.html</text>
+  <rect class="node" x="184" y="566" width="176" height="48" rx="8"/>
+  <text class="t" x="196" y="587">領隊簽署頁</text><text class="s" x="196" y="604">leader-sign.html</text>
+
+  <rect class="node" x="400" y="490" width="196" height="48" rx="8"/>
+  <text class="t" x="412" y="511">領隊總機</text><text class="s" x="412" y="528">/api/leader</text>
+
+  <rect class="node data" x="636" y="440" width="196" height="48" rx="8"/>
+  <text class="t" x="648" y="461">領隊文件資料（上鎖）</text><text class="s" x="648" y="478">Firestore leader_docs</text>
+  <rect class="node data" x="636" y="556" width="196" height="48" rx="8"/>
+  <text class="t" x="648" y="577">簽好的 PDF＋證件</text><text class="s" x="648" y="594">Storage</text>
+
+  <rect class="node warn" x="872" y="400" width="292" height="48" rx="8"/>
+  <text class="t" x="884" y="421">常駐機領隊文件歸檔器</text><text class="s zh alert" x="884" y="438">暫停中（截至 10/11 紀錄）</text>
+  <rect class="node warn" x="872" y="472" width="292" height="48" rx="8"/>
+  <text class="t" x="884" y="493">公司 NAS・領隊文件存放區</text><text class="s zh alert" x="884" y="510">寫入權限還沒開</text>
+  <rect class="node" x="872" y="590" width="292" height="48" rx="8"/>
+  <text class="t" x="884" y="611">LINE 領隊出團小幫手</text><text class="s" x="884" y="628">discovered-line-bot</text>
+</svg>
+    </div>
+  </div>
+
+  <div class="figure">
+    <div class="figure-head">
+      <h2>跟估價平台的接點</h2>
+      <div class="legend">
+        <span><i class="sw data"></i>合約系統</span>
+        <span><i class="sw" style="background:var(--quote-soft);border-color:var(--quote)"></i>估價平台</span>
+      </div>
+    </div>
+    <p class="bridge-intro">兩套系統的資料庫是分開的：估價平台用 <code>findit-quote</code>（規則全開），合約系統用 <code>discovered-contract</code>（上鎖）。客人和領隊的個資都不會跨過來，過來的只有份數、狀態和畫面。</p>
+    <div class="bhead"><span class="c">合約系統這邊</span><span style="text-align:center">傳什麼</span><span class="q">估價平台那邊</span></div>
+
+    <div class="bitem">
+      <h3>電子合約狀態</h3>
+      <div class="brow">
+        <div class="side"><b>常駐機合約歸檔器</b><small>/api/pending-archives?mirror=1</small></div>
+        <div class="flow">
+          <span class="dirlabel">合約系統 → 估價平台</span>
+          <span>每團每位業務：已簽幾份、已歸檔幾份</span>
+          <span class="arrow"><i></i></span>
+          <span class="freq">每 10 分</span>
+        </div>
+        <div class="side quote"><b>我的團・歸檔欄</b><small>contract_status/summary</small></div>
+      </div>
+      <p class="care"><b>改的時候注意：</b>業務只看得到自己的份數，主管看本組的團也一樣（9/16 隱私修正）。改這段要保留「依業務分開」的格式。</p>
+    </div>
+
+    <div class="bitem">
+      <h3>紙本合約掃描</h3>
+      <div class="brow">
+        <div class="side"><b>同一支常駐機合約歸檔器</b><small>搬到 NAS 已簽合約存放區</small></div>
+        <div class="flow">
+          <span class="dirlabel">估價平台 → 合約系統的歸檔器</span>
+          <span>業務上傳的掃描檔或手機照片，搬完回寫「已歸檔」</span>
+          <span class="arrow left"><i></i></span>
+          <span class="freq">每 10 分</span>
+        </div>
+        <div class="side quote"><b>我的團・歸檔合約按鈕</b><small>archive_scans＋contract_scans/</small></div>
+      </div>
+      <p class="care"><b>改的時候注意：</b>檔案存在估價平台，搬檔的卻是合約系統的歸檔器。歸檔器一停，估價平台這邊就會一直顯示「歸檔中」。</p>
+    </div>
+
+    <div class="bitem">
+      <h3>領隊文件後台</h3>
+      <div class="brow">
+        <div class="side"><b>領隊文件後台</b><small>leader-admin.html?embed=1</small></div>
+        <div class="flow">
+          <span class="dirlabel">合約系統 → 估價平台</span>
+          <span>整個後台畫面直接嵌進來，資料不落地</span>
+          <span class="arrow"><i></i></span>
+          <span class="freq">打開分頁時</span>
+        </div>
+        <div class="side quote"><b>導覽列・領隊文件分頁</b><small>產品部／產品主管／管理部</small></div>
+      </div>
+      <p class="care"><b>改的時候注意：</b>報酬、身分證、銀行帳號都留在合約系統，估價平台只是開了一扇窗。登入用的是後台自己的密碼，跟估價平台密碼無關。</p>
+    </div>
+
+    <div class="bitem">
+      <h3>領隊文件狀態</h3>
+      <div class="brow">
+        <div class="side"><b>領隊總機</b><small>/api/leader?r=status</small></div>
+        <div class="flow">
+          <span class="dirlabel">合約系統 → 估價平台</span>
+          <span>每團「文件已簽／未簽」，不含金額</span>
+          <span class="arrow"><i></i></span>
+          <span class="freq">打開頁面時</span>
+        </div>
+        <div class="side quote"><b>領隊群表・狀態標籤</b><small>點標籤跳到領隊文件分頁</small></div>
+      </div>
+      <p class="care"><b>改的時候注意：</b>合約系統連不上時，標籤只會不顯示，估價平台其他功能照常。改這支 API 的回傳格式，要同步改估價平台的標籤。</p>
+    </div>
+  </div>
+
+  <div class="cols">
+    <section>
+      <h2>每天自動發生的事</h2>
+      <p class="sub">沒有人按按鈕，時間到就跑。</p>
+      <ul class="list">
+        <li><span class="time">每 10 分</span><span>常駐機歸檔器把新簽好的合約 PDF 存進公司 NAS，順便把歸檔狀態抄給估價平台「我的團」。</span></li>
+        <li><span class="time">08:00</span><span>領隊總機自動發隔天出團的領隊文件，並提醒還沒簽的領隊。長線和日韓郵輪不自動發，由 OP 手動發。</span></li>
+        <li><span class="time">09:00</span><span>巡邏未簽合約：連結 36 小時沒簽先催業務，72 小時失效再通知重發。出團前整團還沒建合約的 D1 業務也會收到 LINE。</span></li>
+        <li><span class="time">23:00</span><span>常駐機上傳隔天要檢查的出團名單，給 09:00 的出團前檢查用。</span></li>
+        <li><span class="time">每天</span><span>Google 自動備份合約資料庫，保留 7 天；週日那一份保留 14 週。</span></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>幾道安全門</h2>
+      <p class="sub">合約裡有身分證、住址和簽名，所以門比估價平台多。</p>
+      <ul class="list">
+        <li><span class="tag lock">上鎖</span><span>資料庫只讓登入公佈欄的員工讀寫。客人沒有帳號，一律經過「客人專用窗口」，每次都重新核對連結。</span></li>
+        <li><span class="tag lock">核對</span><span>已簽好的合約要輸入身分證後 4 碼才能下載副本，避免群組裡的人互看（10/15 上線）。</span></li>
+        <li><span class="tag lock">遮蔽</span><span>領隊的身分證、銀行帳號只存在後端，網頁上只顯示遮住的版本。</span></li>
+        <li><span class="tag lock">分線</span><span>領隊文件後台依線別分權限：南線、北線、長線各看各的，主管可以管自己線的帳號。</span></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>改之前先看</h2>
+      <p class="sub">以前踩過的雷，跟目前卡住的地方。</p>
+      <ul class="list">
+        <li><span class="tag warn">卡住</span><span>領隊文件存不進 NAS：歸檔用的 NAS 帳號沒有寫入權限。10/11 歸檔器反覆重抓檔案，把 Vercel 流量衝爆，之後就暫停了。等 IT 開好權限，刪掉 <code>.PAUSED</code> 檔就會恢復。</span></li>
+        <li><span class="tag rule">上限</span><span>Vercel 一個專案最多 12 支 API，現在用了 11 支。再加新功能要先把檔案合併。</span></li>
+        <li><span class="tag rule">規則</span><span>新增資料表要回來補一條門禁規則，不然一律被擋。8/13 LINE 小助手查不到收訂就是這個原因。</span></li>
+        <li><span class="tag rule">規則</span><span>門禁不能寫成「有登入就放行」。系統開了匿名登入，任何人都拿得到身分。</span></li>
+        <li><span class="tag rule">後端</span><span>後端程式讀合約一定要帶服務帳號。8/14 曾因為少帶，簽完通知 4 天都沒發出去。</span></li>
+        <li><span class="tag rule">備份</span><span>每日備份只有文字資料，不含 PDF 檔。PDF 的第二份要靠 NAS。</span></li>
+      </ul>
+    </section>
+  </div>
+
+  <footer>依 findit-contract 程式碼（api／archiver 資料夾、vercel.json 排程）、估價平台 index.html 的接點程式與歷次工作紀錄整理。另外 D1 動態查詢的「我的團」也會透過 <code>/api/tour-contract-status</code> 查合約狀態，那是 D1 系統的接點，不在估價平台。「卡住」的狀態以最後一次紀錄為準，實際情況請以常駐機和 NAS 為主。</footer>
+</div>
+
+</body>
+</html>

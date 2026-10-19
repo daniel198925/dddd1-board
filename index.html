@@ -162,6 +162,13 @@
         .mon-state.ok  { color: #006300; }
         .mon-state.bad { color: #d03b3b; }
         .mon-detail { font-size: 13px; color: #6E6E73; margin-top: 2px; line-height: 1.5; }
+        .mon-seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: #F2F2F4; }
+        .mon-seg button { padding: 6px 14px; border-radius: 9px; font-size: 13px; font-weight: 700; color: #6E6E73; }
+        .mon-seg button.on { background: #fff; color: #1D1D1F; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+        #mon-map-frame { width: 100%; height: 900px; border: 0; border-radius: 16px; display: block; }
+        html.dark .mon-seg { background: #1c2333; }
+        html.dark .mon-seg button { color: #8b93a7; }
+        html.dark .mon-seg button.on { background: #2a3347; color: #f1f3f7; }
         html.dark .mon-banner.ok   { background: rgba(12,163,12,0.12);  color: #0ca30c; }
         html.dark .mon-banner.bad  { background: rgba(208,59,59,0.15);  color: #e06060; }
         html.dark .mon-banner.warn { background: rgba(250,178,25,0.12); color: #fab219; }
@@ -558,7 +565,16 @@
                 <div class="flex items-baseline gap-3 flex-wrap">
                     <h2 class="text-2xl font-extrabold tracking-tight text-gray-900">系統監視</h2>
                     <span id="mon-stamp" class="text-xs text-gray-500"></span>
+                    <div class="mon-seg ml-auto" role="tablist">
+                        <button id="mon-seg-live" class="on" onclick="monShow('live')">即時狀態</button>
+                        <button id="mon-seg-map" onclick="monShow('map')">系統地圖</button>
+                    </div>
                 </div>
+                <!-- 系統地圖：system-map.html（架構圖），第一次點才載入 -->
+                <div id="mon-map" class="hidden">
+                    <iframe id="mon-map-frame" title="系統地圖"></iframe>
+                </div>
+                <div id="mon-live">
                 <div id="mon-body">
                     <div class="apple-card p-10 text-center text-gray-500 text-sm">
                         <i class="fas fa-circle-notch fa-spin mr-2"></i> 讀取中…
@@ -568,6 +584,7 @@
                     監視器在辦公室電腦上每 10 分鐘自動巡邏一次；本頁每 60 秒自動更新。<br>
                     「最後巡邏」時間停超過 30 分鐘，代表監視器本身（或辦公室電腦）停了。
                 </p>
+                </div>
             </div>
 
             <!-- 4. 小組管理 -->
@@ -1194,6 +1211,25 @@
             }
         }
 
+        // ── 系統地圖（system-map.html 嵌在系統監視分頁） ──
+        const monTheme = () => document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        window.monShow = (which) => {
+            const map = which === 'map';
+            document.getElementById('mon-map').classList.toggle('hidden', !map);
+            document.getElementById('mon-live').classList.toggle('hidden', map);
+            document.getElementById('mon-stamp').classList.toggle('hidden', map);
+            document.getElementById('mon-seg-map').classList.toggle('on', map);
+            document.getElementById('mon-seg-live').classList.toggle('on', !map);
+            const fr = document.getElementById('mon-map-frame');
+            if (map && !fr.getAttribute('src')) fr.src = 'system-map.html?theme=' + monTheme();
+        };
+        // 地圖頁回報自己的高度 → iframe 跟著長高（只收同網域的訊息）
+        window.addEventListener('message', (e) => {
+            if (e.origin !== location.origin || !e.data || e.data.type !== 'sysmap-height') return;
+            const h = Math.max(400, Math.min(Number(e.data.h) || 0, 20000));
+            document.getElementById('mon-map-frame').style.height = h + 'px';
+        });
+
         async function loadHanshu() {
             try {
                 const snap = await getDoc(doc(db, "private_reports", "hanshu"));
@@ -1351,7 +1387,11 @@
         };
         // 切換深淺色時色條要重畫（顏色是寫在 style 屬性裡的）
         const _hsToggle = window.toggleTheme;
-        window.toggleTheme = () => { _hsToggle(); if (hsData) renderHanshu(); };
+        window.toggleTheme = () => {
+            _hsToggle(); if (hsData) renderHanshu();
+            const fr = document.getElementById('mon-map-frame');
+            if (fr && fr.contentWindow && fr.getAttribute('src')) fr.contentWindow.postMessage({ type: 'sysmap-theme', theme: monTheme() }, location.origin);
+        };
 
         window.switchTab = (id) => {
             document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
