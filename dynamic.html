@@ -1962,8 +1962,21 @@ function pickTarget() {
   const r = rows.find(r => groupKey(r) === FILEPICK_GK) || rows[0];
   // 業務切了團型 → 相關行程要照切換後的團型評分（使用者 2026-10-14：京阪切玩雪，價格變了、星星還在京阪合掌村）
   const p = TTPICK[groupKey(r)];
-  return p && r.alt && r.alt.some(a => a[0] === p) && p !== r.tt ? { ...r, tt: p } : r;
+  if (!(p && r.alt && r.alt.some(a => a[0] === p) && p !== r.tt)) return r;
+  // 確認表的 cf 是照原團型確認的，換團型就不算數（使用者 2026-10-28：峴港精彩切豪華，星星還卡在精彩）
+  //   → 找同套路、本來就是新團型的兄弟團借它的確認檔；借不到就清掉，退回即時配對（照新團型評分）
+  //   兄弟團確認的檔不一致（季節分檔／過年限定）就不借——即時配對會看出發日，比借別天的檔準
+  const t = { ...r, tt: p, cf: null, cfs: null };
+  const key = comboKey(t);
+  const sibs = LINES.map(l => l.row).filter(s => s && s.tt === p && s.cf && (s.cfs === 'auto' || s.cfs === 'confirmed') && comboKey(s) === key);
+  if (sibs.length && sibs.every(s => s.cf === sibs[0].cf)) {
+    t.cf = sibs[0].cf;
+    t.cfs = sibs.some(s => s.cfs === 'confirmed') ? 'confirmed' : 'auto';
+  }
+  return t;
 }
+// 套路鍵：要跟後端 findit-hanshu/confirm.mjs 的 COMBO_KEY 一字不差（改那邊這裡也要改）
+const comboKey = t => `${t.ln}|${t.p || ''}|${t.ds || ''}|${t.tt || ''}|${t.dy || ''}|${t.al || ''}|${t.op || ''}|${t.fl || t.wf || ''}|${t.dp || '台北'}|${(t.c || '').match(/^[A-Z]{2,3}/)?.[0] || ''}`;
 async function openFiles() {
   if (!selRows().length) return;
   $('files-modal').classList.remove('hidden');
