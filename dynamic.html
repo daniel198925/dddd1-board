@@ -39,6 +39,7 @@
     --raw-bg:#000; --raw-fg:#cfd6e4;
     --sec-bg:#0e1626; --sec-fg:#fff;
     --hover:#122544; --sel-bg:#7a5c00; --sel-fg:#fff;
+    --hol-bg:rgba(244,63,94,.18); --hol-fg:#fda4af;
     --code-fg:#8ec2ff; --code-bg:#0d2c5e; --sel-code-bg:#a37b00;
     --promo:#ff8ab5; --price:#fcd34d;
   }
@@ -49,6 +50,7 @@
     --raw-bg:#fff; --raw-fg:#1e293b;
     --sec-bg:#e2e8f0; --sec-fg:#0f172a;
     --hover:#dbeafe; --sel-bg:#fde68a; --sel-fg:#111;
+    --hol-bg:rgba(225,29,72,.10); --hol-fg:#be123c;
     --code-fg:#1d4ed8; --code-bg:#dbeafe; --sel-code-bg:#f59e0b;
     --promo:#db2777; --price:#b45309;
   }
@@ -136,6 +138,11 @@
   .flatpickr-months, .flatpickr-month, .flatpickr-current-month, .flatpickr-monthDropdown-months { background:var(--surface); color:var(--fg); fill:var(--fg); }
   .flatpickr-weekdays, span.flatpickr-weekday { background:var(--surface); color:var(--m2); }   /* 要 span 才蓋得過 flatpickr 內建的黑字 */
   .flatpickr-day { color:var(--m1); border-color:transparent; }
+  /* 連續假期：放在 hover／選取規則前面，選取時要被蓋過 */
+  .flatpickr-day.hol { background:var(--hol-bg); color:var(--hol-fg); border-radius:8px; line-height:30px; }
+  .flatpickr-day.hol.prevMonthDay, .flatpickr-day.hol.nextMonthDay { opacity:.45; }
+  .hol-tag { position:absolute; left:0; right:0; bottom:2px; font-size:10px; line-height:11px; text-align:center; pointer-events:none; }
+  .hol-legend { padding:6px 10px 8px; border-top:1px solid var(--bd); font-size:12px; line-height:1.6; color:var(--hol-fg); text-align:left; }
   .flatpickr-day:hover { background:var(--hover); border-color:var(--hover); }
   .flatpickr-day.today { border-color:var(--m3); }
   .flatpickr-day.flatpickr-disabled, .flatpickr-day.prevMonthDay, .flatpickr-day.nextMonthDay { color:var(--m4); }
@@ -1324,8 +1331,54 @@ const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')
 //    ⚠ 星期一定要用 new Date(y, m-1, d) 從數字組，不能 new Date('2026-08-14')（UTC 解讀會差一天）
 const WDSEL = new Set();
 const wdOf = iso => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d).getDay(); };
+// ── 日曆標連續假期（使用者 2026-11-02）──
+//    資料來源：行政院人事行政總處「政府行政機關辦公日曆表」的連續假期一覽表（3 天以上）。
+//    ⚠ 總處每年約 5~6 月公告隔年的，要手動補進來；沒補的年份就是不標，不會報錯
+const HOLIDAYS = [
+  ['2026-02-14', '2026-02-22', '春節'], ['2026-02-27', '2026-03-01', '228'],
+  ['2026-04-03', '2026-04-06', '清明'], ['2026-05-01', '2026-05-03', '勞動'],
+  ['2026-06-19', '2026-06-21', '端午'], ['2026-09-25', '2026-09-28', '中秋'],
+  ['2026-10-09', '2026-10-11', '國慶'], ['2026-10-24', '2026-10-26', '光復'],
+  ['2026-12-25', '2026-12-27', '行憲'],
+  ['2027-01-01', '2027-01-03', '元旦'], ['2027-02-04', '2027-02-10', '春節'],
+  ['2027-02-27', '2027-03-01', '228'], ['2027-04-03', '2027-04-06', '清明'],
+  ['2027-04-30', '2027-05-02', '勞動'], ['2027-10-09', '2027-10-11', '國慶'],
+  ['2027-10-23', '2027-10-25', '光復'], ['2027-12-24', '2027-12-26', '行憲'],
+  ['2027-12-31', '2028-01-02', '元旦'],
+];
+const holDay = iso => `${+iso.slice(5, 7)}/${+iso.slice(8)}(${WD[wdOf(iso)]})`;
+function holDesc([from, to, name]) {
+  const utc = iso => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  return `${name}連假 ${holDay(from)}～${holDay(to)} ${(utc(to) - utc(from)) / 864e5 + 1}天`;
+}
+// 日曆底下列出這個月碰到的連假（格子太小只放得下兩個字）
+function holLegend(fp) {
+  const box = fp.calendarContainer;
+  let el = box.querySelector('.hol-legend');
+  if (!el) { el = document.createElement('div'); el.className = 'hol-legend'; box.appendChild(el); }
+  const ym = `${fp.currentYear}-${String(fp.currentMonth + 1).padStart(2, '0')}`;
+  const list = HOLIDAYS.filter(h => h[0].slice(0, 7) <= ym && ym <= h[1].slice(0, 7));
+  el.textContent = '';
+  list.forEach(h => { const row = document.createElement('div'); row.textContent = holDesc(h); el.appendChild(row); });
+  el.style.display = list.length ? '' : 'none';
+}
+const holHooks = {
+  onDayCreate(_d, _s, _fp, el) {
+    const h = HOLIDAYS.find(h => { const iso = ymd(el.dateObj); return iso >= h[0] && iso <= h[1]; });
+    if (!h) return;
+    el.classList.add('hol');
+    el.title = holDesc(h);
+    const tag = document.createElement('span');
+    tag.className = 'hol-tag'; tag.textContent = h[2];
+    el.appendChild(tag);
+  },
+  onReady(_d, _s, fp) { holLegend(fp); },
+  onOpen(_d, _s, fp) { holLegend(fp); },   // clear() 跳回本月不會觸發 onMonthChange
+  onMonthChange(_d, _s, fp) { holLegend(fp); },
+  onYearChange(_d, _s, fp) { holLegend(fp); },
+};
 const fpDate = flatpickr('#f-date', {
-  mode: 'range', dateFormat: 'Y-m-d', locale: 'zh_tw',
+  mode: 'range', dateFormat: 'Y-m-d', locale: 'zh_tw', ...holHooks,
   onChange(sel) {
     DATERANGE = sel.length === 2 ? [ymd(sel[0]), ymd(sel[1])]
               : sel.length === 1 ? [ymd(sel[0]), ymd(sel[0])] : ['', ''];
@@ -2778,7 +2831,7 @@ let FDLINES = new Set();           // 勾選的線（空＝全部）
 let FDSORT = 'dt';                 // dt=出發日排序｜pr=價格排序
 let FDRANGE = ['', ''];
 const fpFd = flatpickr('#fd-date', {
-  mode: 'range', dateFormat: 'Y-m-d', locale: 'zh_tw',
+  mode: 'range', dateFormat: 'Y-m-d', locale: 'zh_tw', ...holHooks,
   onChange(sel) {
     FDRANGE = sel.length === 2 ? [ymd(sel[0]), ymd(sel[1])]
             : sel.length === 1 ? [ymd(sel[0]), ymd(sel[0])] : ['', ''];
