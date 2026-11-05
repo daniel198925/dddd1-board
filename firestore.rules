@@ -49,8 +49,10 @@ service cloud.firestore {
     // =============================================
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if canManageContent();
-      allow update: if isSignedIn() && (request.auth.uid == userId || canManageContent());
+      // 2026-11-05 收緊：只有 admin 能改 users（角色、組別）。前端只有 admin 的帳號管理會寫這裡；
+      //   新增帳號走 Cloud Function（Admin SDK 不受規則限制）。原本本人可改自己的 role，等於能自升 admin。
+      allow create: if isAdmin();
+      allow update: if isAdmin();
       allow delete: if isSignedIn() && (
         getUserRole(request.auth.uid) == 'admin' || getUserRole(request.auth.uid) == 'assistant'
       );
