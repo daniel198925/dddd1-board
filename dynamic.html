@@ -690,7 +690,7 @@
 <!-- 滑鼠指到團號列時跟著游標的小提示：出發日全年份＋星期（團號裡只有 MMDD 看不出年份/星期）-->
 <div id="hovertip" class="hidden fixed z-[70] pointer-events-none surface border bd rounded-lg shadow-xl px-2.5 py-1 text-xs font-bold whitespace-nowrap"></div>
 
-<script src="./match.js?v=10"></script>
+<script src="./match.js?v=11"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -2173,9 +2173,13 @@ function renderFiles() {
   const fcTag = fc => {
     if (!fc || fc.st === 'weak') return '';
     const title = `漢書 ${fc.mine.join('/')}｜PDF ${fc.file.join('/')}${fc.nopt > 1 ? `（PDF 列 ${fc.nopt} 套，取最接近的第 ${fc.opt} 套）` : ''}`;
-    const [cls, txt] = fc.st === 'ok' ? ['text-emerald-300 border-emerald-400/40', '✓ 航班相符']
-      : fc.st === 'part' ? ['text-amber-300 border-amber-400/40', '△ 航班部分相符']
-      : ['text-rose-300 border-rose-400/40', '✗ 航班疑似不符'];
+    //   2026-11-09 分級：業務一眼看出是哪種差異，班機差異只提醒，不代表行程選錯
+    const [cls, txt] = fc.st === 'ok' ? ['text-emerald-300 border-emerald-400/40', fc.kind === 'alias' ? '✓ 航班相符（聯營）' : '✓ 航班相符']
+      : fc.kind === 'short' ? ['text-amber-300 border-amber-400/40', '△ PDF 只列部分航段']
+      : fc.kind === 'alt' ? ['text-amber-300 border-amber-400/40', '△ 班機是同區另一組']
+      : fc.st === 'part' ? ['text-amber-300 border-amber-400/40', '△ 部分班號不同']
+      : fc.kind === 'other' ? ['text-rose-300 border-rose-400/40', '✗ 別家航空班機']
+      : ['text-rose-300 border-rose-400/40', '✗ 班機與漢書不同'];
     return `<span class="text-[.65rem] font-bold ${cls} border rounded px-1 whitespace-nowrap cursor-help" title="${esc(title)}">${txt}</span>`;
   };
   // hl＝這份是系統挑出來的；tie＝同分太多分不出來（標 ○ 而不是 ⭐，提醒業務自己確認）；fc＝航班核對結果
@@ -2225,6 +2229,9 @@ function renderFiles() {
       const fcOf = id => bestIds.fc && bestIds.fc[id];
       const fcAllOk = bestIds.size > 0 && [...bestIds].every(id => fcOf(id) && fcOf(id).st === 'ok');
       const fcNone = bestIds.size > 0 && [...bestIds].some(id => !fcOf(id) || fcOf(id).st === 'weak');
+      // 只有一顆星且班機整套不同：把兩邊班號講在最上面，免得業務傳出去才發現（行程本身可能還是對的）
+      const fcSole = bestIds.size === 1 ? fcOf([...bestIds][0]) : null;
+      const fcWarn = fcSole && FC_WARN_KINDS.has(fcSole.kind) ? `<br><span class="text-amber-300">⚠ 這份行程表寫 ${esc(fcSole.file.join('/'))}，漢書寫 ${esc(fcSole.mine.join('/'))}，傳給客人前請確認班機</span>` : '';
       // 配對結果一律講清楚，不要沉默——業務才知道是「系統挑好了」還是「要自己挑」（使用者 2026-07-30）
       const hint =
         t.sp        ? '，請自行挑選'
@@ -2233,7 +2240,7 @@ function renderFiles() {
       : bestIds.size ? `，⭐ 是系統判斷跟這團最相符的${fcAllOk ? '<span class="text-emerald-300">（航班已核對 ✓）</span>' : fcNone ? '<span class="m4">（航班無資料、未核對）</span>' : ''}`
       : `<br><span class="text-amber-300">⚠ 這團沒有自動配到行程（常見原因：檔名沒寫團型或天數、行程還沒上傳）→ 請自行挑選</span>`;
       $('files-tree').innerHTML =
-        `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${hint}</div>` +
+        `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${hint}${fcWarn}</div>` +
         node(folder, 0, !t.sp, bestIds);
     }
   } else {
@@ -2348,6 +2355,40 @@ $('agent-save').onclick = async () => {
   } catch (e) { toast('儲存失敗：' + e.message); }
 };
 
+// ── 班機提醒（2026-11-09 會診）：行程 PDF 跟漢書整套班機不同時，轉連結前列出團號與兩邊班號 ──
+const FC_WARN_KINDS = new Set(['alt', 'set', 'other']);
+let FC_WARN_OK = null;   // 使用者已按「仍要轉換」的那組提醒內容
+function flightWarnings(byFile, rows) {
+  const m = new Map();
+  for (const { file, codes } of byFile.values()) for (const r of rows) {
+    if (!codes.includes(r.c)) continue;
+    const fc = flightCheck(r, file.id);
+    if (!fc || !FC_WARN_KINDS.has(fc.kind)) continue;
+    const k = `${file.id}|${fc.mine.join('/')}|${fc.file.join('/')}`;
+    if (!m.has(k)) m.set(k, { file: file.n.replace(/\.(pdf|docx?)$/i, ''), mine: fc.mine.join('/'), pdf: fc.file.join('/'), codes: [] });
+    m.get(k).codes.push(r.c);
+  }
+  return [...m.values()];
+}
+function showFlightWarn(list, key) {
+  $('fc-warn-modal')?.remove();
+  const d = document.createElement('div');
+  d.id = 'fc-warn-modal';
+  d.className = 'fixed inset-0 bg-black/70 z-[70] flex items-center justify-center p-4';
+  d.innerHTML = `<div class="max-w-md w-full rounded-xl p-4 text-sm" style="background:var(--surface);border:1px solid var(--bd)">
+    <div class="font-bold text-amber-300 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>行程表的班機跟漢書不同</div>
+    <div class="m3 text-xs mb-3">行程內容可能是對的，但客人看到的班機會跟漢書不一樣，傳出去前請確認。</div>
+    ${list.map(x => `<div class="mb-3 text-xs m1"><div class="font-bold">${esc(x.file)}</div><div>漢書：${esc(x.mine)}</div><div>行程表：${esc(x.pdf)}</div><div class="m3 break-all">團號：${esc(x.codes.join('、'))}</div></div>`).join('')}
+    <div class="flex justify-end gap-2 mt-2">
+      <button id="fc-warn-pick" class="px-3 py-1.5 rounded-lg text-xs m2 border" style="border-color:var(--bd)">換一份行程</button>
+      <button id="fc-warn-go" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white">仍要轉換</button>
+    </div></div>`;
+  document.body.appendChild(d);
+  d.onclick = e => { if (e.target === d) d.remove(); };
+  $('fc-warn-pick').onclick = () => { d.remove(); FILEPICK_GK = null; openFiles(); };
+  $('fc-warn-go').onclick = () => { FC_WARN_OK = key; d.remove(); $('convert-btn').onclick(); };   // 這一下點擊就是複製需要的手勢
+}
+
 // ── 轉換連結（一鍵：直接產生短網址＋複製「報價＋短網址」，不再開第二層視窗）──
 $('convert-btn').onclick = async () => {
   const rows = selRows();
@@ -2372,6 +2413,12 @@ $('convert-btn').onclick = async () => {
   if (noFile.length) {           // 有團還沒有行程 → 先挑共同行程
     toast('請先選擇行程'); FILEPICK_GK = null; openFiles(); return;
   }
+  // 行程表班機跟漢書整套不同 → 先提醒一次，業務按「仍要轉換」才繼續（不擋單）。
+  //   ⚠ 不能用 await 跳窗：iOS 複製要保住點擊手勢，所以這次先結束，靠提醒窗那一下點擊重新進來
+  const fcWarns = flightWarnings(byFile, rows);
+  const fcKey = JSON.stringify(fcWarns);
+  if (fcWarns.length && FC_WARN_OK !== fcKey) { showFlightWarn(fcWarns, fcKey); return; }
+  FC_WARN_OK = null;
 
   const btn = $('convert-btn'), orig = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';

@@ -136,12 +136,14 @@ function bestMatchIds(folder, t) {
   const sub = !!(pw && cw && pw !== cw);
   // 選星（useFc＝分數含不含航班核對的加減分；兩種都算一次，下面決定採哪個）
   const select = useFc => {
-    const S = scored.map(s => ({ ...s, dh: s.dh, sc: useFc ? s.sc : s.sc - (s.fc ? FC_SCORE[s.fc.st] || 0 : 0) }));
+    const S = scored.map(s => ({ ...s, dh: s.dh, sc: useFc ? s.sc : s.sc - fcPts(s.fc) }));
     let best = -1;
     //   每道篩選都要「篩完還有夠分(≥18)的檔」才採用，否則退回原狀——產品詞偶爾解析成較粗的字
     //   （峴＋河 團 p=越南、ds=峴港：只留「越南」夾會把真正的「峴港+北越7日」篩掉）
     const ok = s => s.dh && !s.alBad;
-    const narrow = keep => { if (!S.some(s => ok(s) && keep(s) && s.sc >= 18)) return false; for (const s of S) s.dh = s.dh && keep(s); return true; };
+    // 及格線 18 分是航班還是 +8 時訂的。航班降權後，班號對得上的檔補回原本的分數，免得只因降權就掉到無星（2026-11-09 全量比對：東歐克斯、歐洲河輪）
+    const pass = s => s.sc + (useFc && s.fc ? (s.fc.st === 'ok' ? 4 : s.fc.st === 'part' ? 3 : 0) : 0) >= 18;
+    const narrow = keep => { if (!S.some(s => ok(s) && keep(s) && pass(s))) return false; for (const s of S) s.dh = s.dh && keep(s); return true; };
     if (sub) {
       if (narrow(s => s.ph)) {
         narrow(s => s.ph && s.dy);
@@ -156,7 +158,8 @@ function bestMatchIds(folder, t) {
     for (const s of S) if (s.sc > best && ok(s)) best = s.sc;   // 沒過目的地/航空關卡的不參與「最高分」，免得墊高門檻（Codex 審查 #1）
     // 分數夠高「且最佳檔真的對到目的地、航空也沒衝突」才標
     //   （擋掉靠團型/天數亂配：美西 vs 紐西蘭都叫國家公園；JX 星宇團被配到 AK 亞航八日）
-    const tops = best >= 18 ? S.filter(s => s.sc === best && ok(s)) : [];
+    const atBest = S.filter(s => s.sc === best && ok(s));
+    const tops = atBest.some(pass) ? atBest : [];
     let pool = tops;
     if (sub && pool.some(s => s.ch) && pool.some(s => !s.ch)) pool = pool.filter(s => s.ch);
     //   一般航空團同分時：同一行程有「正航」版和廉航版，選正航版（只當決勝，不加分，免得雜項檔跨過門檻）
@@ -214,7 +217,13 @@ const _dayIdx = md => (Math.floor(md / 100) - 1) * 31 + (md % 100);          // 
 const _within = (from, to) => ((to - from) % 372 + 372) % 372 < 186;          // from 之後半年內 ＝ to 算在期間裡
 function periodInfo(nm, dt) {
   if (!dt) return null;
-  const n = half(nm);
+  // 「限定(0403)」＝限0403；「02月4.5.6」＝限 2/4、2/5、2/6（2026-11-09 釜山：4～5 月的團曾被配到這兩種限定檔）
+  const n = half(nm).replace(/限定?\s*[（(]\s*(\d{4})\s*[)）]/, '限$1');
+  const monDays = n.match(/(?<!\d)(\d{1,2})月\s*(\d{1,2}(?:\s*[.、,]\s*\d{1,2})+)(?!\s*[月~～\-])/);
+  if (monDays && +monDays[1] >= 1 && +monDays[1] <= 12) {
+    const mo = +monDays[1], list = monDays[2].match(/\d+/g).map(d => mo * 100 + +d), v = +dt.slice(5, 7) * 100 + +dt.slice(8, 10);
+    return { ok: list.includes(v), hard: true, lim: true };
+  }
   const Y = +dt.slice(0, 4), md = +dt.slice(5, 7) * 100 + +dt.slice(8, 10), ymd = Y * 10000 + md;
   let m;
   // 1) 寫了年份：2026.11~2027.03、2026.10.31前、2027.4月後
@@ -318,6 +327,9 @@ function airlineConflict(t, fnN, pathN) {
 //     兩邊任一邊只有一段資料太少不敢說不符＝weak（不加不扣）；班號全不同但去程起飛＋回程抵達時間都一樣＝△（換班號、行程沒變）
 //   會診共識：先不硬排除（PDF 可能列兩套「或」、聯營班號、換季改號、PDF 沒更新），用加減分＋畫面標籤，跑一陣子再看
 const FLIGHTS = {};
+// 聯營視為同一家：上海航空(FM)是東方航空(MU)旗下，MU801／FM801 是同一班
+const AL_GROUP = { FM: 'MU' };
+const flNorm = f => { const m = String(f || '').match(/^([A-Z0-9]{2})(.+)$/); return m ? (AL_GROUP[m[1]] || m[1]) + m[2] : f; };
 const unpackOpt = s => (s || '').split(',').filter(Boolean).map(x => { const [d, f, dep, arr] = x.split(':'); return { d, f, dep, arr }; });
 function flightCheck(t, fileId) {
   const opts = FLIGHTS[fileId];
@@ -326,24 +338,33 @@ function flightCheck(t, fileId) {
   if (!my.length) return null;
   let best = null;
   opts.forEach((o, i) => {
-    const legs = unpackOpt(o), set = new Set(legs.map(l => l.f));
-    const hit = my.filter(c => set.has(c)).length;
-    if (!best || hit > best.hit) best = { hit, i, legs, n: set.size };
+    const legs = unpackOpt(o), raw = [...new Set(legs.map(l => l.f))], set = new Set(raw.map(flNorm));
+    const hit = my.filter(c => set.has(flNorm(c))).length, exact = my.filter(c => raw.includes(c)).length;
+    if (!best || hit > best.hit) best = { hit, exact, i, legs, n: set.size, set };
   });
-  let st;
-  if (best.hit === my.length) st = 'ok';
-  else if (best.hit > 0) st = 'part';
+  const alOf = f => flNorm(f).slice(0, 2);
+  let st, kind;
+  if (best.hit === my.length) { st = 'ok'; kind = best.exact === my.length ? 'ok' : 'alias'; }
   else {
-    const last = a => a[a.length - 1];
-    const timeSame = mine[0].dep && mine[0].dep === best.legs[0].dep && last(mine).arr && last(mine).arr === last(best.legs).arr;
-    st = timeSame ? 'part' : (my.length >= 2 && best.n >= 2 ? 'bad' : 'weak');
+    // PDF 對上同區塊另一組班機（漢書摘要右欄是整區清單，同列團型只是剛好）→ 不算整套不符，但仍提醒
+    const altHit = (t.fa || []).map(unpackOpt).map(a => [...new Set(a.map(l => l.f))]).find(fs => fs.length && opts.some(o => { const s = new Set(unpackOpt(o).map(l => flNorm(l.f))); return fs.every(f => s.has(flNorm(f))); }));
+    if (altHit) { st = 'part'; kind = 'alt'; }
+    else if (best.hit > 0) { st = 'part'; kind = best.hit === best.n ? 'short' : 'changed'; }
+    else {
+      const last = a => a[a.length - 1];
+      const timeSame = mine[0].dep && mine[0].dep === best.legs[0].dep && last(mine).arr && last(mine).arr === last(best.legs).arr;
+      if (timeSame) { st = 'part'; kind = 'changed'; }
+      else if (my.length >= 2 && best.n >= 2) { st = 'bad'; kind = my.some(f => [...best.set].some(x => alOf(x) === alOf(f))) ? 'set' : 'other'; }
+      else { st = 'weak'; kind = 'weak'; }
+    }
   }
   const tm = !!(mine[0].dep && best.legs[0] && mine[0].dep === best.legs[0].dep);   // 去程第一段起飛時間也一樣（同班號不同時段的決勝）
-  return { st, mine: my, file: [...new Set(best.legs.map(l => l.f))], opt: best.i + 1, nopt: opts.length, tm };
+  return { st, kind, mine: my, file: [...new Set(best.legs.map(l => l.f))], opt: best.i + 1, nopt: opts.length, tm };
 }
-// 加減分要比團型(+10)／天數(+8)小：航班相符是「決勝」不是「推翻」（2026-10-15 全量比對：+20 時東京樹冰團被星到航班相符的櫻花祭檔）；
-//   不符扣 12＝跟「標了別家航空」同等級，仍會讓它輸給同分的對手
-const FC_SCORE = { ok: 6, part: 3, bad: -12, weak: 0 };
+// 航班只在「同一個商品的不同版本」之間決勝，推翻不了團型(+10)／天數(+8)（2026-11-09 三方會診；原本 +8／−12 一來一往差 20 分）。
+//   ok／alias 全對、short PDF 只列部分航段、alt 對上同區塊另一組、changed 同航空部分班號不同、set 同航空整套不同、other 別家航空
+const FC_SCORE = { ok: 3, alias: 3, short: 2, alt: 0, changed: 0, set: -3, other: -6, weak: 0 };
+const fcPts = fc => fc ? (FC_SCORE[fc.kind] || 0) : 0;
 function dayHit(t, nm) {
   if (!t.dy) return false;
   return new RegExp(`(?:^|\\D)(?:${t.dy}\\s*(?:日|天|D\\s*\\d+\\s*N)|${dayCN(t.dy)}(?:日|天))`).test(nm);
@@ -441,7 +462,8 @@ function scoreFile(t, f, path, hasDash) {
   // 出發地：台北是預設（檔名多半不寫）；高雄/台中出發的檔案會明寫「高出」「高／」「亞航高出」
   const OTHER_DEP = /高雄|高出|高／|高\/|台中|中出/;
   if (t.dp && t.dp !== '台北') {
-    if (hay.includes(t.dp) || (t.dp === '高雄' && /高出|高／|高\//.test(hay))) s += 5;
+    // 資料夾寫「6.中=釜山」「高澳／桂林」也算（fileDeps）：航班降權後，這是台中／高雄團分辨版本的主要依據（2026-11-09 PUS7JX0116R5）
+    if (hay.includes(t.dp) || (t.dp === '高雄' && /高出|高／|高\//.test(hay)) || fileDeps(nz(nm), nz(path || '')).includes(t.dp)) s += 5;
   } else if (OTHER_DEP.test(hay)) s -= 12;   // 台北的團配到「高雄出發」→ 明確不符，壓下去
   else s += 2;
   // 松山／桃園（2026-10-16）：團號前 3 碼 SHA＝松山飛虹橋、PVG＝桃園飛浦東；檔名寫「(松松MU)」「(桃桃MU)」「松山進出」「桃園進出」
@@ -464,7 +486,7 @@ function scoreFile(t, f, path, hasDash) {
   // 航班核對：PDF 航班表 vs 漢書航班（瑞士 10 天：(１) 班號全對 +20、(２) 回程 CA950 不同 −20、德瑞全不同 −20）
   //   限定日期剛好對上的檔（限0204.0205.0206）不因航班不符扣分：特定日期的團常用特別班機，PDF 表格還是印標準班機（2026-10-15 全量比對：河內限0204 五日被扣到輸給一般六日檔）
   const fc = flightCheck(t, f.id);
-  if (fc && !(fc.st === 'bad' && p && p.lim && p.ok)) s += (FC_SCORE[fc.st] || 0) + (fc.st === 'ok' && fc.tm ? 2 : 0);   // 班號對＋去程起飛時間也對：再 +2（河內 (-----) 0810 vs (午午) 1140 同班號不同時段）
+  if (fc && !(fc.st === 'bad' && p && p.lim && p.ok)) s += fcPts(fc) + (fc.st === 'ok' && fc.tm ? 1 : 0);   // 班號對＋去程起飛時間也對：再 +1（河內 (-----) 0810 vs (午午) 1140 同班號不同時段）
   return s;
 }
 
