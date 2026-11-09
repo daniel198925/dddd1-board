@@ -2052,7 +2052,9 @@ let filesMode = 'related';   // related=只列相關｜all=瀏覽全樹
 function pickTarget() {
   const rows = selRows();
   if (!rows.length) return null;
-  const r = rows.find(r => groupKey(r) === FILEPICK_GK) || rows[0];
+  return targetOfRow(rows.find(r => groupKey(r) === FILEPICK_GK) || rows[0]);
+}
+function targetOfRow(r) {
   // 業務切了團型 → 相關行程要照切換後的團型評分（使用者 2026-10-14：京阪切玩雪，價格變了、星星還在京阪合掌村）
   const p = TTPICK[groupKey(r)];
   if (!(p && r.alt && r.alt.some(a => a[0] === p) && p !== r.tt)) return r;
@@ -2067,6 +2069,35 @@ function pickTarget() {
     t.cfs = sibs.some(s => s.cfs === 'confirmed') ? 'confirmed' : 'auto';
   }
   return t;
+}
+// 同時選了不同航空：共同行程不能整包套用（使用者 2026-11-09：FD＋TR 一起選，TR 被帶上 FD 的行程）。
+//   這份行程標了別家航空的組 → 自動改用它自己的星號行程；系統挑不出唯一一份就回傳 need，請業務幫那組選。
+function findFileInTree(id, n = FILETREE, path = FILETREE?.name || '') {
+  const f = (n?.files || []).find(x => x.id === id);
+  if (f) return { f, path };
+  for (const c of n?.children || []) { const hit = findFileInTree(id, c, path + '/' + c.name); if (hit) return hit; }
+  return null;
+}
+function splitSharedByAirline() {
+  const moved = [];
+  if (!SHAREDFILE || !FILETREE) return { moved, need: null };
+  const path = findFileInTree(SHAREDFILE.id)?.path || '';
+  const seen = new Set();
+  for (const row of selRows()) {
+    const gk = groupKey(row);
+    if (seen.has(gk)) continue;
+    seen.add(gk);
+    if (CHOSENFILES[gk] || row.sp || !airlineConflict(row, nz(SHAREDFILE.n), nz(path))) continue;
+    const t = targetOfRow(row);
+    const folder = findLineFolder(FILETREE, t.ln);
+    const best = folder ? bestMatchIds(folder, t) : new Set();
+    const id = t.cf && (t.cfs === 'auto' || t.cfs === 'confirmed') ? t.cf : (best.size === 1 && !best.tie ? [...best][0] : null);
+    const hit = id && findFileInTree(id);
+    if (!hit) return { moved, need: { gk, an: row.an } };
+    CHOSENFILES[gk] = { id: hit.f.id, n: hit.f.n };
+    moved.push(`${row.an}：${hit.f.n.replace(/\.(pdf|docx?)$/i, '')}`);
+  }
+  return { moved, need: null };
 }
 // 套路鍵：要跟後端 findit-hanshu/confirm.mjs 的 COMBO_KEY 一字不差（改那邊這裡也要改）
 const comboKey = t => `${t.ln}|${t.p || ''}|${t.ds || ''}|${t.tt || ''}|${t.dy || ''}|${t.al || ''}|${t.op || ''}|${t.fl || t.wf || ''}|${t.dp || '台北'}|${(t.c || '').match(/^[A-Z]{2,3}/)?.[0] || ''}`;
@@ -2094,7 +2125,7 @@ async function openFiles() {
   $('files-search').value = '';
   const r0 = pickTarget();
   $('files-for').textContent = r0
-    ? `　${r0.p}${r0.tt ? ' ' + r0.tt : ''}${r0.dy ? ' ' + r0.dy + '天' : ''}${r0.fl ? '（' + r0.fl + '班）' : ''}`
+    ? `　${r0.p}${r0.tt ? ' ' + r0.tt : ''}${r0.dy ? ' ' + r0.dy + '天' : ''}${r0.fl ? '（' + r0.fl + '班）' : ''}${new Set(selRows().map(x => x.al)).size > 1 ? `｜${r0.an}這組` : ''}`
     : '';
   renderFiles();
 }
@@ -2240,7 +2271,7 @@ function renderFiles() {
       : bestIds.size ? `，⭐ 是系統判斷跟這團最相符的${fcAllOk ? '<span class="text-emerald-300">（航班已核對 ✓）</span>' : fcNone ? '<span class="m4">（航班無資料、未核對）</span>' : ''}`
       : `<br><span class="text-amber-300">⚠ 這團沒有自動配到行程（常見原因：檔名沒寫團型或天數、行程還沒上傳）→ 請自行挑選</span>`;
       $('files-tree').innerHTML =
-        `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${hint}${fcWarn}</div>` +
+        `<div class="m3 text-xs mb-2">已展開「${esc(t.ln)}」的行程${hint}${fcWarn}${!FILEPICK_GK && new Set(selRows().map(x => x.al)).size > 1 ? `<br><span class="text-amber-300">⚠ 這次選了不同航空，⭐ 只看「${esc(t.an)}」這組；選完後，別家航空的組會自動換成自己的行程</span>` : ''}</div>` +
         node(folder, 0, !t.sp, bestIds);
     }
   } else {
@@ -2252,9 +2283,15 @@ function renderFiles() {
     const f = { id: btn.dataset.id, n: btn.dataset.n };
     if (FILEPICK_GK) CHOSENFILES[FILEPICK_GK] = f;   // 某一組單獨改
     else SHAREDFILE = f;                              // 共同行程（套用全部）
+    const split = splitSharedByAirline();
     showDetail();
+    if (split.need) {                                 // 別家航空那組系統挑不出唯一一份 → 接著請業務幫那組選
+      FILEPICK_GK = split.need.gk; openFiles();
+      toast(`請再幫「${split.need.an}」那組選行程`);
+      return;
+    }
     $('files-modal').classList.add('hidden');
-    toast('已選取：' + btn.dataset.n);
+    toast('已選取：' + btn.dataset.n + (split.moved.length ? `；${split.moved.join('、')}` : ''));
   });
 
   // 相關行程模式：自動捲到星號那個檔案（檔案多時不用一直往下滑）
@@ -2394,6 +2431,10 @@ $('convert-btn').onclick = async () => {
   const rows = selRows();
   if (!rows.length) return;
   if (!AGENT.name) { toast('請先完成業務設定（至少填姓名）'); $('agent-btn').onclick(); return; }
+  // 先選行程、後加別家航空的團也要擋：共同行程標了別家航空的組要換成自己的（不能 await，iOS 要保住點擊手勢）
+  const fileSplit = splitSharedByAirline();
+  if (fileSplit.need) { toast(`請先幫「${fileSplit.need.an}」那組選行程`); FILEPICK_GK = fileSplit.need.gk; openFiles(); return; }
+  if (fileSplit.moved.length) showDetail();
 
   // 按「實際用的行程檔案」分桶：同一份行程的團全部放進一條連結（常態＝一條）。
   //   只有某些組單獨換了行程（早班/午班）才會有第二條。（使用者 2026-07-21：同行程別拆多條）
