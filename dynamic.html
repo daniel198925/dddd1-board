@@ -200,6 +200,7 @@
   .hl-tour.is-mine::before { content:'\f005'; left:.3rem; color:#fbbf24; }
   .hl-tour.is-fol::after   { content:'\f0f3'; left:.95rem; color:#93c5fd; }
   .hl-tour.is-fol:not(.is-mine)::after { left:.3rem; }
+  .web-dot { margin-left:.5rem; font-size:.7em; opacity:.7; }   /* 官網已上線小燈（2026-11-09） */
   /* 高度 0：浮在原文上面，出現／消失都不會把原文往下推（不然捲動時畫面會跳一下） */
   #sec-sticky { position:sticky; top:0; left:0; z-index:5; height:0; overflow:visible; }
   #sec-sticky .ss { display:none; position:absolute; left:0; top:0; min-width:100%; padding:.28rem 1rem .28rem 1.7rem; background:var(--sec-bg); color:var(--sec-fg); font-family:'Noto Sans TC',sans-serif; font-size:.8rem; font-weight:700; white-space:nowrap; border-bottom:1px solid var(--bd); box-shadow:0 4px 10px rgba(0,0,0,.25); }
@@ -513,6 +514,7 @@
       <!-- 快速篩選（開關型，按下去變亮）-->
       <button id="f-promo" class="filter-btn input-style whitespace-nowrap"><i class="fa-solid fa-tag mr-1"></i>促銷</button>
       <button id="f-avail" class="filter-btn input-style whitespace-nowrap"><i class="fa-solid fa-chair mr-1"></i>有位</button>
+      <button id="f-web" class="filter-btn input-style whitespace-nowrap" title="只看官網還沒上線的團（沒行程表或目的地隱藏中）；🌐＝官網已上線"><i class="fa-solid fa-globe mr-1"></i>未上線</button>
       <!-- 瀏覽行程庫：不用先選團也能開（郵輪/國旅沒有可選團，靠這個看行程）-->
       <button id="browse-btn" class="input-style whitespace-nowrap hover:text-blue-400" title="瀏覽公司雲行程檔"><i class="fa-regular fa-folder-open mr-1"></i>行程</button>
       <span id="count-badge" class="chip surface2 m2"></span>
@@ -729,6 +731,8 @@ async function loadFlights(lineName) {
 }
 let UID = null;               // 登入者 uid
 let AGENT = {};               // 目前使用中的名片（= AG_CARDS[AG_ACTIVE]，下游轉換連結都讀這個）
+let WEB = null;               // 官網上線對照（discoveredtrip.com/api/daren-tour?what=codes）：{codes:{團號:[目的地,key]}, why:{團號:'nopdf'|'hidden'}}（2026-11-09）
+let MYREF = '';               // 我在官網的業務推薦碼（有＝複製官網連結時帶上，客人報名算我的）
 let AG_CARDS = [], AG_ACTIVE = 0;   // 多張名片＋目前選中第幾張（dt_agent/{uid} 存 {cards,active}）
 // 行程檔案（使用者 2026-07-21 修正過度拆分）：
 //   SHAREDFILE＝共同行程，套用「全部選取」＝一條連結（常態：同行程不同日期）。
@@ -828,6 +832,7 @@ onAuthStateChanged(auth, async user => {
     ME = snap.data();                       // 「我的團」要用暱稱（全名）反查漢書業務簡稱
     $('user-name').textContent = ME.nickname || ME.account || '';
     $('user-avatar').textContent = String(ME.nickname || ME.account || 'D').trim().slice(-1);
+    loadWeb(); loadMyRef();   // 官網上線對照＋我的推薦碼（背景抓，抓不到也不影響動態表）
     showPage('main-page');
     // 業務設定（轉換連結名片）——多張分頁：{cards:[...], active}
     const ag = await pAgent; const ad = ag && ag.exists() ? ag.data() : {};
@@ -1424,13 +1429,14 @@ function render() {
   //   業務才看得到上下區塊的前後文（使用者 2026-07-30）。跳位邏輯在 scrollToRegion()
   const promoOn = $('f-promo').classList.contains('on');
   const availOn = $('f-avail').classList.contains('on');
-  const filtering = !!(q || promoOn || availOn || from || to || WDSEL.size);   // 日期/星期也算篩選（空掉的分區要收起來）
+  const webOn = $('f-web').classList.contains('on');   // 只看官網未上線（對照表還沒載入時全部先當未知，不藏）
+  const filtering = !!(q || promoOn || availOn || webOn || from || to || WDSEL.size);   // 日期/星期也算篩選（空掉的分區要收起來）
 
   // 這一團過不過篩選
   const rowPass = r =>
     !(from && r.dt && r.dt < from) && !(to && r.dt && r.dt > to) &&
     !(WDSEL.size && !(r.dt && WDSEL.has(wdOf(r.dt)))) &&   // 沒出發日的團在篩星期時一律不留
-    !(promoOn && !r.pm) && !(availOn && !(r.r > 0));
+    !(promoOn && !r.pm) && !(availOn && !(r.r > 0)) && !(webOn && WEB && webOf(r.c));
 
   // 先掃一遍：哪些團留下來、各分區底下還有沒有團
   //（有篩選時要把空掉的分區標題也藏起來，不然畫面一堆標題沒東西）
@@ -1462,7 +1468,8 @@ function render() {
       const seat = l.row.sp || typeof rm !== 'number' ? '' : rm <= 0 ? ' seat-full' : rm <= 3 ? ' seat-low' : '';
       // 左邊窄邊標示（2026-10-07）：★＝我名下有報名、🔔＝我追蹤中。只加 class，原文一個字都不動
       const mark = (myAbbr && (l.row.bs || []).some(b => b[0] === myAbbr) ? ' is-mine' : '') + (FOLLOWS[followKey(l.row)] ? ' is-fol' : '');
-      out.push(`<div class="hl hl-tour${seat}${mark} ${SELLINES.includes(l.i) ? 'sel' : ''}" data-i="${l.i}">${h}</div>`);
+      const web = webOf(l.row.c) ? '<span class="web-dot" title="官網已上線">🌐</span>' : '';   // 官網上線小燈（2026-11-09）
+      out.push(`<div class="hl hl-tour${seat}${mark} ${SELLINES.includes(l.i) ? 'sel' : ''}" data-i="${l.i}">${h}${web}</div>`);
     } else if (l.isSec) {
       if (filtering && !secHasRow.has(l.i)) continue;   // 這區沒有符合的團就整個不顯示
       out.push(`<div class="hl hl-sec" data-i="${l.i}">${esc(l.text)}</div>`);
@@ -1707,6 +1714,11 @@ function groupBlock(g, multi) {
   if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt, !!dshow.wk)}</span>`).join('')}</span>`));
   if (dshow.dy) parts.push(line('天數', r0.dy ? r0.dy + '天' : '--'));
   if (dshow.p)  parts.push(line('產品', `${esc(r0.p)}${r0.gw !== '直飛' ? '｜' + esc(r0.gw) : ''}${r0.dp !== '台北' ? '｜' + esc(r0.dp) + '出發' : ''}`));
+  // 官網（2026-11-09 Daniel）：已上線＝一鍵複製官網團頁連結（有推薦碼就帶上）；沒上線寫原因
+  { const w = webOf(r0.c);
+    parts.push(line('官網', w
+      ? `<button class="web-copy text-blue-400 hover:underline" data-c="${esc(r0.c)}" data-one="${g.length === 1 ? 1 : 0}" title="複製官網團頁連結${MYREF ? '（帶你的推薦碼，客人報名算你的）' : '（你還沒有推薦碼，複製的是一般連結）'}"><i class="fa-solid fa-globe mr-1"></i>已上線・複製連結</button>`
+      : `<span class="m3 font-normal text-xs">${WEB ? '未上線<span class="m4 ml-1">' + esc(webWhy(r0.c)) + '</span>' : '…'}</span>`)); }
 
   const cols = PERTOUR.filter(f => dshow[f.k]);
   if (cols.length) {
@@ -1812,6 +1824,12 @@ function showDetail() {
       showDetail();
     };
     sel.onpointerdown = e => e.stopPropagation();
+  });
+  // 官網連結：複製（手機 Safari 要同步寫剪貼簿，不先 await）
+  $('detail-body').querySelectorAll('.web-copy').forEach(btn => {
+    btn.onpointerdown = e => e.stopPropagation();
+    btn.onclick = e => { e.stopPropagation(); const u = webUrl(btn.dataset.c, btn.dataset.one === '1'); if (!u) return;
+      try { navigator.clipboard.writeText(u).then(() => toast(MYREF ? '已複製官網連結（帶你的推薦碼）' : '已複製官網連結'), () => prompt('複製這段：', u)); } catch (err) { prompt('複製這段：', u); } };
   });
   // 同班機其他目的地：點了跳到那一列
   $('detail-body').querySelectorAll('.sf-jump').forEach(btn => {
@@ -1940,6 +1958,22 @@ function buildQuoteText(linkByFileId) {
 // 複製到剪貼簿（跨手機/桌機）。buildText 可能含 fetch（轉換要先產短網址）。
 //   iOS Safari 規定：await 之後再 writeText 會被擋（「not allowed by user agent」，使用者 2026-07-22 手機回報）。
 //   解法：手勢當下就用 ClipboardItem 帶 Promise「預約」，網址晚點算好再填進去，手勢不會斷。
+/* ── 官網整合（2026-11-09）：哪些團已在 discoveredtrip.com/daren 上線、複製帶推薦碼的團頁連結 ── */
+async function loadWeb(){
+  try { const r = await fetch(`${ITIN_BASE}/api/daren-tour?what=codes`, { cache: 'no-store' }); if (!r.ok) return; WEB = await r.json(); if (LINES.length) render(); if (SELLINES.length) showDetail(); }
+  catch (e) { /* 官網讀不到就不標，動態表照常 */ }
+}
+async function loadMyRef(){
+  try { const name = (ME && ME.nickname) || ''; if (!name || !auth.currentUser) return;
+    const idToken = await auth.currentUser.getIdToken();
+    const r = await fetch(`${ITIN_BASE}/api/order`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'mycode', idToken, name }) });   // text/plain 免預檢
+    if (r.ok) { const j = await r.json(); MYREF = String(j.code || ''); } }
+  catch (e) {}
+}
+const webOf = c => (WEB && WEB.codes && c && WEB.codes[c]) || null;
+const webWhy = c => !WEB ? '' : webOf(c) ? '' : (WEB.why || {})[c] === 'hidden' ? '目的地在官網隱藏中' : (WEB.why || {})[c] === 'nopdf' ? '沒有行程表' : '官網團庫沒有這團';
+function webUrl(c, withDate){ const w = webOf(c); if (!w) return ''; return `${ITIN_BASE}/daren/${MYREF ? '?r=' + MYREF : ''}#/t/${encodeURIComponent(w[0])}/${encodeURIComponent(w[1])}${withDate ? '?c=' + encodeURIComponent(c) : ''}`; }
+
 async function copyText(buildText) {
   const p = Promise.resolve().then(buildText);   // 只跑一次（含 fetch）
   p.catch(() => {});                             // 避免 unhandled rejection
@@ -2807,7 +2841,7 @@ async function jumpToTour(fno, row) {
   $('finder-modal').classList.add('hidden');
   $('follow-modal').classList.add('hidden');
   $('f-search').value = '';
-  ['f-promo', 'f-avail'].forEach(id => { $(id).classList.remove('on'); localStorage.setItem('d1dt_' + id, '0'); });
+  ['f-promo', 'f-avail', 'f-web'].forEach(id => { $(id).classList.remove('on'); localStorage.setItem('d1dt_' + id, '0'); });
   fpDate.clear(); DATERANGE = ['', '']; $('f-date-clear').classList.add('hidden');
   WDSEL.clear(); renderWd();
   if ($('f-line').value !== fno) { $('f-line').value = fno; await loadFile(); }
@@ -3068,7 +3102,7 @@ renderWd();
 $('f-search').oninput = render;
 
 // 快速篩選（促銷／有位）：開關型，狀態記住，下次打開還在
-['f-promo', 'f-avail'].forEach(id => {
+['f-promo', 'f-avail', 'f-web'].forEach(id => {
   if (localStorage.getItem('d1dt_' + id) === '1') $(id).classList.add('on');
   $(id).onclick = () => {
     const on = $(id).classList.toggle('on');
