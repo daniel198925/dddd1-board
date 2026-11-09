@@ -122,6 +122,7 @@ function bestMatchIds(folder, t) {
     const per = periodInfo(x.f.n, t.dt);
     const alBad = airlineConflict(t, fnN, pathN) || depConflict(t, fnN, pathN)   // 標了別家航空／別的出發地＝不能配（硬條件）
       || (per && per.hard && !per.ok)                                            // 限定日／寫了年份的期間不含出發日＝不能配
+      || dayFar(t, x.f.n)                                                          // 檔名天數跟這團差 3 天以上＝別的商品
       || (isLCC(t) && /正航/.test(fnN + '/' + pathN));                           // 廉航團不配「正航」（一般航空）的行程
     return { id: x.f.id, sc, dh, ph, dy: dayHit(t, x.f.n), ch: !!(cw && (fnS.includes(cw) || pathS.includes(cw))), pp: !!(pw && pathS.includes(pw)), zh: /正航/.test(fnN + '/' + pathN), alBad, fc: flightCheck(t, x.f.id) };
   });
@@ -347,6 +348,25 @@ function dayHit(t, nm) {
   if (!t.dy) return false;
   return new RegExp(`(?:^|\\D)(?:${t.dy}\\s*(?:日|天|D\\s*\\d+\\s*N)|${dayCN(t.dy)}(?:日|天))`).test(nm);
 }
+// 檔名明寫的天數（可能不只一個：「含環球一日遊八日」「六&七日」）。
+//   「1/5日」「12月3日」是日期、「四日市／十日町／三日月」是地名，不算天數
+function fileDays(nm) {
+  const cn = x => { if (x === '十') return 10; const m = x.match(/^([二三四五六七八九]?)(十?)([一二三四五六七八九]?)$/); if (!m) return 0; const v = c => _CN.indexOf(c); return m[2] ? (m[1] ? v(m[1]) : 1) * 10 + (m[3] ? v(m[3]) : 0) : v(m[3] || m[1]); };
+  const out = [];
+  for (const m of nm.matchAll(/(?<![\d/／月.\-])(\d{1,2})\s*(?:日|天|D\s*\d+\s*N)(?![市町月])|(?<![月])([一二三四五六七八九十]{1,3})(?:日|天)(?![市町月])/g)) {
+    const n = m[1] ? +m[1] : cn(m[2]);
+    if (n) out.push(n);
+  }
+  return out;
+}
+// 天數差 3 天以上＝不同商品，不能配（2026-11-09 SPK7JX0113A5：玩雪 5 天被星到玩雪八日，因為八日檔航班相符 +8、五日檔航班不符 −12，
+//   一來一往蓋過天數 +8）。差 1～2 天不算：漢書天數常跟檔名差一兩天（2026-10-01 全量比對）
+//   ⚠ 團號末碼只有個位：t.dy 是 1、2 多半是 11、12 天被截斷（巴爾幹 A1、昆大麗 A2），個位相同的（9 vs 19）也可能是同一團 → 都不算衝突
+function dayFar(t, nm) {
+  if (!t.dy || t.dy < 3) return false;
+  const ds = fileDays(nm);
+  return ds.length > 0 && ds.every(d => Math.abs(d - t.dy) >= 3 && d % 10 !== t.dy % 10);
+}
 function scoreFile(t, f, path, hasDash) {
   let s = 0; const nm = f.n;
   const hay = nz(nm + ' ' + (path || ''));   // 檔名＋所在資料夾（時段常在資料夾名）；全形正規化對得上「雪+墨」
@@ -450,7 +470,7 @@ function scoreFile(t, f, path, hasDash) {
 
 const MATCH = { nz, half, pNorm, ttNorm, dayCN, inFilePeriod, isNoiseFolder, isNoiseFile, fKind, fBase, itinFiles,
   TT_ALIAS, LINE_FOLDER_ALIAS, findFolderDeep, findLineFolder, AL_SHORT, AMBIG_AIRLINE, alCodeRe, periodInfo, isLCC, airlineConflict, fileDeps, depConflict, scoreFile, bestMatchIds,
-  FLIGHTS, flightCheck, unpackOpt, dayHit };
+  FLIGHTS, flightCheck, unpackOpt, dayHit, fileDays, dayFar };
 Object.assign(g, MATCH);
 if (typeof module !== 'undefined' && module.exports) module.exports = MATCH;
 })(typeof window !== 'undefined' ? window : globalThis);
