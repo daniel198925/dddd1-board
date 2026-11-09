@@ -514,6 +514,7 @@
       </div>
       <!-- 快速篩選（開關型，按下去變亮）-->
       <button id="f-promo" class="filter-btn input-style whitespace-nowrap"><i class="fa-solid fa-tag mr-1"></i>促銷</button>
+      <button id="f-eb" class="filter-btn input-style whitespace-nowrap" title="只看早鳥還沒截止的團"><i class="fa-solid fa-dove mr-1"></i>早鳥</button>
       <button id="f-avail" class="filter-btn input-style whitespace-nowrap"><i class="fa-solid fa-chair mr-1"></i>有位</button>
       <button id="f-web" class="filter-btn input-style whitespace-nowrap" title="只看官網還沒上線的團（沒行程表或目的地隱藏中）；🌐＝官網已上線"><i class="fa-solid fa-globe mr-1"></i>未上線</button>
       <!-- 瀏覽行程庫：不用先選團也能開（郵輪/國旅沒有可選團，靠這個看行程）-->
@@ -658,6 +659,7 @@
         <input id="fd-budget" type="number" min="0" step="1000" class="input-style w-28" placeholder="上限（元）">
         <label class="chip surface2 m2 cursor-pointer select-none"><input type="checkbox" id="fd-avail" class="mr-1 accent-blue-500" checked>只看有位</label>
         <label class="chip surface2 m2 cursor-pointer select-none"><input type="checkbox" id="fd-promo" class="mr-1 accent-pink-500">只看促銷</label>
+        <label class="chip surface2 m2 cursor-pointer select-none"><input type="checkbox" id="fd-eb" class="mr-1 accent-pink-500">只看早鳥</label>
       </div>
       <div id="fd-lines" class="flex flex-wrap gap-1.5"></div>
       <div class="flex flex-wrap items-center gap-2">
@@ -1430,15 +1432,16 @@ function render() {
   // 地區不再是「篩選」而是「跳位」：整份還是全部顯示，只把畫面捲到那一區，
   //   業務才看得到上下區塊的前後文（使用者 2026-07-30）。跳位邏輯在 scrollToRegion()
   const promoOn = $('f-promo').classList.contains('on');
+  const ebOn = $('f-eb').classList.contains('on');
   const availOn = $('f-avail').classList.contains('on');
   const webOn = $('f-web').classList.contains('on');   // 只看官網未上線（對照表還沒載入時全部先當未知，不藏）
-  const filtering = !!(q || promoOn || availOn || webOn || from || to || WDSEL.size);   // 日期/星期也算篩選（空掉的分區要收起來）
+  const filtering = !!(q || promoOn || ebOn || availOn || webOn || from || to || WDSEL.size);   // 日期/星期也算篩選（空掉的分區要收起來）
 
   // 這一團過不過篩選
   const rowPass = r =>
     !(from && r.dt && r.dt < from) && !(to && r.dt && r.dt > to) &&
     !(WDSEL.size && !(r.dt && WDSEL.has(wdOf(r.dt)))) &&   // 沒出發日的團在篩星期時一律不留
-    !(promoOn && !r.pm) && !(availOn && !(r.r > 0)) && !(webOn && WEB && webOf(r.c));
+    !(promoOn && !r.pm) && !(ebOn && !ebOf(r)) && !(availOn && !(r.r > 0)) && !(webOn && WEB && webOf(r.c));
 
   // 先掃一遍：哪些團留下來、各分區底下還有沒有團
   //（有篩選時要把空掉的分區標題也藏起來，不然畫面一堆標題沒東西）
@@ -1463,7 +1466,7 @@ function render() {
       // 團號上色（跟舊系統一樣把團號標成藍色塊）
       // 只標團號裡的日期四碼（跟舊系統一樣），不是整串團號
       h = h.replace(/([A-Z]{2,3}\d[A-Z0-9]{2}|[=＝]{4,})(\d{4})(?=[A-Z]\d)/, (m, pre, dt) => `${pre}<span class="code">${dt}</span>`);
-      h = h.replace(/(&quot;促銷&quot;)/g, '<span class="promo">$1</span>');
+      h = h.replace(/(&quot;促銷&quot;|&quot;\d{1,2}\/\d{1,2}早鳥&quot;)/g, '<span class="promo">$1</span>');
       // 餘位提示（使用者 2026-07-30）：快滿的要主動催客人、已滿的別再推。
       //   只有解析得出餘位的團才標；國旅/郵輪(sp)沒有餘位欄，不標
       const rm = l.row.r;
@@ -1677,11 +1680,15 @@ const PERTOUR = [
   { k: 'r', name: '剩餘', get: r => `<span class="${r.r === 0 ? 'text-red-400' : r.r <= 5 ? 'text-amber-300' : 'text-emerald-400'}">${r.r === 0 ? '滿' : r.r}</span>` },
 ];
 
+// 漢書綠字 "12/31早鳥"（Daniel 2026-11-10）：只寫月日沒年份，取「今天往前 90 天起第一個該月日」當截止日；過期、或截止日不在出發日之前就不顯示，內勤沒清也不會掛著過期標籤
+function ebOf(r){ const m = r && r.eb && String(r.eb).match(/^(\d{1,2})\/(\d{1,2})$/); if (!m || !r.dt) return null; const tw = Date.now() + 8 * 3600 * 1000, today = new Date(tw).toISOString().slice(0, 10), floor = new Date(tw - 90 * 864e5).toISOString().slice(0, 10), md = m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0'); let dl = floor.slice(0, 4) + '-' + md; if (dl < floor) dl = (+floor.slice(0, 4) + 1) + '-' + md; return dl >= today && dl < r.dt ? {dl, tx: '早鳥至 ' + (+m[1]) + '/' + (+m[2])} : null; }
+
 function groupBlock(g, multi) {
   const r0 = g[0];
   const line = (k, v) => `<div class="dline flex justify-between py-1.5 border-b bd2 gap-3"><span class="m3 shrink-0">${k}</span><span class="font-bold text-right">${v}</span></div>`;
   const parts = [];
   if (g.some(r => r.pm)) parts.push(`<div class="mb-1.5"><span class="chip bg-pink-900/60 text-pink-300">促銷</span></div>`);
+  { const e = g.map(ebOf).filter(Boolean).sort((a, b) => a.dl.localeCompare(b.dl))[0]; if (e) parts.push(`<div class="mb-1.5"><span class="chip bg-pink-900/60 text-pink-300">${e.tx}</span></div>`); }
 
   // ── 團費（可切換團型）──
   //   漢書上的售價 = 該團型定價 + 本團特價（例：精彩 25,900 −2,000 = 23,900）
@@ -2576,7 +2583,7 @@ $('similar-btn').onclick = () => {
   $('fd-dmin').value = r.dy ? Math.max(1, r.dy - 1) : '';
   $('fd-dmax').value = r.dy ? r.dy + 1 : '';
   $('fd-budget').value = ''; $('fd-q').value = '';
-  $('fd-avail').checked = true; $('fd-promo').checked = false;
+  $('fd-avail').checked = true; $('fd-promo').checked = false; $('fd-eb').checked = false;
   fpFd.setDate([from, to], true);          // true＝觸發 onChange，FDRANGE 跟著更新
   $('finder-btn').onclick();
   toast(`找類似團：${r.ln || '同一條線'}、${fmtDt(ymd(from), false)}～${fmtDt(ymd(to), false)}、${r.dy ? (r.dy - 1) + '～' + (r.dy + 1) + ' 天' : '不限天數'}`);
@@ -2986,7 +2993,7 @@ async function jumpToTour(fno, row) {
   $('finder-modal').classList.add('hidden');
   $('follow-modal').classList.add('hidden');
   $('f-search').value = '';
-  ['f-promo', 'f-avail', 'f-web'].forEach(id => { $(id).classList.remove('on'); localStorage.setItem('d1dt_' + id, '0'); });
+  ['f-promo', 'f-eb', 'f-avail', 'f-web'].forEach(id => { $(id).classList.remove('on'); localStorage.setItem('d1dt_' + id, '0'); });
   fpDate.clear(); DATERANGE = ['', '']; $('f-date-clear').classList.add('hidden');
   WDSEL.clear(); renderWd();
   if ($('f-line').value !== fno) { $('f-line').value = fno; await loadFile(); }
@@ -3041,7 +3048,7 @@ function finderRender() {
   const [from, to] = FDRANGE;
   const dmin = +$('fd-dmin').value || 0, dmax = +$('fd-dmax').value || 0;
   const budget = +$('fd-budget').value || 0;
-  const availOn = $('fd-avail').checked, promoOn = $('fd-promo').checked;
+  const availOn = $('fd-avail').checked, promoOn = $('fd-promo').checked, ebOn = $('fd-eb').checked;
   const q = $('fd-q').value.trim().toUpperCase();
   $('fd-sort-dt').className = 'px-3 py-1.5 ' + (FDSORT === 'dt' ? 'bg-blue-600 text-white' : 'm2');
   $('fd-sort-pr').className = 'px-3 py-1.5 ' + (FDSORT === 'pr' ? 'bg-blue-600 text-white' : 'm2');
@@ -3057,6 +3064,7 @@ function finderRender() {
     if (budget && !(r.pr && r.pr <= budget)) return false;
     if (availOn && !(r.r > 0)) return false;
     if (promoOn && !r.pm) return false;
+    if (ebOn && !ebOf(r)) return false;
     if (q) {
       const hay = [r.c, r.p, r.tt, r.ln, r.an, r.ds].filter(Boolean).join(' ').toUpperCase();
       if (!hay.includes(q)) return false;
@@ -3082,7 +3090,7 @@ function finderRender() {
         <tbody>${show.map(({ f, r }, i) => `<tr class="fd-row border-t bd2 cursor-pointer hover:bg-[var(--hover)]" data-i="${i}">
           <td class="py-1.5 whitespace-nowrap">${fmtDt(r.dt, true)}</td>
           <td class="px-2 whitespace-nowrap m2">${esc(r.ln || '')}</td>
-          <td class="px-2">${r.pm ? '<span class="promo font-bold">促</span> ' : ''}${esc(r.p || '')}${r.tt ? ' ' + esc(r.tt) : ''}${r.gw && r.gw !== '直飛' ? `<span class="m4">｜${esc(r.gw)}</span>` : ''}${r.dp && r.dp !== '台北' ? `<span class="m4">｜${esc(r.dp)}出發</span>` : ''}</td>
+          <td class="px-2">${r.pm ? '<span class="promo font-bold">促</span> ' : ''}${ebOf(r) ? `<span class="promo font-bold">${ebOf(r).tx}</span> ` : ''}${esc(r.p || '')}${r.tt ? ' ' + esc(r.tt) : ''}${r.gw && r.gw !== '直飛' ? `<span class="m4">｜${esc(r.gw)}</span>` : ''}${r.dp && r.dp !== '台北' ? `<span class="m4">｜${esc(r.dp)}出發</span>` : ''}</td>
           <td class="px-2 text-right whitespace-nowrap">${r.dy ? r.dy + '天' : '--'}</td>
           <td class="px-2 whitespace-nowrap m2">${esc(r.an || '--')}${r.fl ? `（${esc(r.fl)}）` : ''}</td>
           <td class="px-2 text-right whitespace-nowrap price font-bold">${fmt$(r.pr)}</td>
@@ -3109,7 +3117,7 @@ $('finder-btn').onclick = async () => {
 $('finder-close').onclick = () => $('finder-modal').classList.add('hidden');
 $('finder-modal').onclick = e => { if (e.target === $('finder-modal')) $('finder-modal').classList.add('hidden'); };
 ['fd-dmin', 'fd-dmax', 'fd-budget', 'fd-q'].forEach(id => $(id).oninput = finderRender);
-['fd-avail', 'fd-promo'].forEach(id => $(id).onchange = finderRender);
+['fd-avail', 'fd-promo', 'fd-eb'].forEach(id => $(id).onchange = finderRender);
 $('fd-sort-dt').onclick = () => { FDSORT = 'dt'; finderRender(); };
 $('fd-sort-pr').onclick = () => { FDSORT = 'pr'; finderRender(); };
 
@@ -3246,8 +3254,8 @@ document.addEventListener('click', () => $('f-wd-panel').classList.add('hidden')
 renderWd();
 $('f-search').oninput = render;
 
-// 快速篩選（促銷／有位）：開關型，狀態記住，下次打開還在
-['f-promo', 'f-avail', 'f-web'].forEach(id => {
+// 快速篩選（促銷／早鳥／有位）：開關型，狀態記住，下次打開還在
+['f-promo', 'f-eb', 'f-avail', 'f-web'].forEach(id => {
   if (localStorage.getItem('d1dt_' + id) === '1') $(id).classList.add('on');
   $(id).onclick = () => {
     const on = $(id).classList.toggle('on');
