@@ -84,6 +84,7 @@ svg .node{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
 svg .node.person{fill:transparent;stroke:var(--muted);stroke-dasharray:4 3}
 svg .node.data{fill:var(--accent-soft);stroke:var(--accent)}
 svg .node.warn{fill:var(--warn-soft);stroke:var(--warn)}
+svg .node.quote{fill:var(--quote-soft);stroke:var(--quote)}
 svg .t{font:500 14px var(--f-body);fill:var(--ink)}
 svg .s{font:400 11px var(--f-mono);fill:var(--muted)}
 svg .s.zh{font-family:var(--f-body);font-size:11.5px}
@@ -132,6 +133,8 @@ section .sub{margin:0 0 14px;color:var(--muted);font-size:13.5px}
 .tag.lock{background:var(--accent-soft);color:var(--accent)}
 .tag.warn{background:var(--warn-soft);color:var(--warn)}
 .tag.rule{background:var(--band);color:var(--muted)}
+.list.two{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 32px}
+@media (max-width:900px){.list.two{grid-template-columns:minmax(0,1fr)}}
 code{font-family:var(--f-mono);font-size:.88em}
 footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
 </style>
@@ -140,14 +143,15 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">findit-contract ・ 更新到 2026-10-19</div>
+    <div class="eyebrow">findit-contract ・ 更新到 2026-11-09</div>
     <h1>線上合約系統地圖</h1>
-    <p class="lede">合約系統裡有兩條簽署線：客人簽旅遊合約、領隊簽出團文件。兩條線共用同一個上了鎖的資料庫，簽好的 PDF 每 10 分鐘由公司常駐機搬回 NAS。</p>
+    <p class="lede">合約系統裡有兩條簽署線：客人簽旅遊合約、領隊簽出團文件。兩條線共用同一個上了鎖的資料庫，簽好的 PDF 每 10 分鐘由公司常駐機搬回 NAS。另外還有一條通知線：開群連結和客人下單，都由 D1小助手私訊給 D1 業務。</p>
     <ul class="facts">
       <li><b>網址</b><code>findit-contract.vercel.app</code></li>
       <li><b>資料庫</b><code>discovered-contract</code>（已上鎖）</li>
       <li><b>本機資料夾</b><code>Documents\findit-contract</code></li>
       <li><b>領隊開發分支</b><code>Documents\領隊簽署</code></li>
+      <li><b>合約種類</b>國外團體、國外個別、國內（10/29 新增）、MSC 與麗星郵輪、取消同意書、和解書</li>
     </ul>
   </header>
 
@@ -158,12 +162,13 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
         <span><i class="sw person"></i>人</span>
         <span><i class="sw"></i>網頁／程式</span>
         <span><i class="sw data"></i>存資料的地方</span>
+        <span><i class="sw" style="background:var(--quote-soft);border-color:var(--quote)"></i>估價平台的資料</span>
         <span><i class="sw warn"></i>目前卡住</span>
       </div>
     </div>
     <p class="hint">圖比較寬，可以左右滑動。</p>
     <div class="scroller">
-<svg viewBox="0 0 1180 690" role="img" aria-label="合約系統架構圖：旅遊合約與領隊文件兩條流程">
+<svg viewBox="0 0 1180 914" role="img" aria-label="合約系統架構圖：旅遊合約、領隊文件與 D1 業務通知三條流程">
   <defs>
     <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahead" d="M0,0 L10,5 L0,10 z"/></marker>
     <marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahead hot" d="M0,0 L10,5 L0,10 z"/></marker>
@@ -232,7 +237,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
 
   <!-- 其他系統 -->
   <rect class="node" x="872" y="76" width="292" height="48" rx="8"/>
-  <text class="t" x="884" y="97">LINE 阿D</text><text class="s zh" x="884" y="114">業務收「客人簽好了」</text>
+  <text class="t" x="884" y="97">LINE D1小助手（阿D）</text><text class="s zh" x="884" y="114">業務收「客人簽好了」</text>
   <rect class="node" x="872" y="168" width="292" height="48" rx="8"/>
   <text class="t" x="884" y="189">常駐機合約歸檔器（每 10 分）</text><text class="s zh" x="884" y="206">也把歸檔狀態抄給估價平台「我的團」</text>
   <rect class="node data" x="872" y="240" width="292" height="48" rx="8"/>
@@ -277,11 +282,53 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
   <text class="t" x="648" y="577">簽好的 PDF＋證件</text><text class="s" x="648" y="594">Storage</text>
 
   <rect class="node warn" x="872" y="400" width="292" height="48" rx="8"/>
-  <text class="t" x="884" y="421">常駐機領隊文件歸檔器</text><text class="s zh alert" x="884" y="438">暫停中（截至 10/11 紀錄）</text>
+  <text class="t" x="884" y="421">常駐機領隊文件歸檔器</text><text class="s zh alert" x="884" y="438">暫停中（11/09 查過，仍未恢復）</text>
   <rect class="node warn" x="872" y="472" width="292" height="48" rx="8"/>
   <text class="t" x="884" y="493">公司 NAS・領隊文件存放區</text><text class="s zh alert" x="884" y="510">寫入權限還沒開</text>
   <rect class="node" x="872" y="590" width="292" height="48" rx="8"/>
   <text class="t" x="884" y="611">LINE 領隊出團小幫手</text><text class="s" x="884" y="628">discovered-line-bot</text>
+
+  <!-- 第三條：D1 業務通知 -->
+  <rect class="band" x="0" y="686" width="1180" height="216"/>
+  <text class="bandlabel" x="16" y="708">D1 業務通知（LINE 私訊）</text>
+
+  <path class="edge" d="M144,746 L184,746" marker-end="url(#ar)"/>
+  <path class="edge" d="M144,806 L184,806" marker-end="url(#ar)"/>
+  <path class="edge" d="M144,866 L184,866" marker-end="url(#ar)"/>
+  <path class="edge" d="M360,746 L380,746 L380,790 L400,790" marker-end="url(#ar)"/>
+  <path class="edge" d="M360,806 L400,806" marker-end="url(#ar)"/>
+  <path class="edge" d="M360,866 L380,866 L380,822 L400,822" marker-end="url(#ar)"/>
+  <path class="edge" d="M596,790 L616,790 L616,746 L636,746" marker-end="url(#ar)"/>
+  <path class="edge" d="M636,866 L616,866 L616,822 L596,822" marker-end="url(#ar)"/>
+  <path class="edge hot" d="M596,806 L872,806" marker-end="url(#arh)"/>
+  <text class="elabel" x="400" y="772">每小時巡一次（9～21 點）</text>
+  <text class="elabel" x="400" y="848">客人下單時馬上叫</text>
+  <text class="elabel" x="648" y="798">私訊給該團收客的業務</text>
+
+  <rect class="node person" x="16" y="722" width="128" height="48" rx="8"/>
+  <text class="t" x="28" y="743">領隊</text><text class="s zh" x="28" y="760">填 LINE 群組連結</text>
+  <rect class="node" x="16" y="782" width="128" height="48" rx="8"/>
+  <text class="t" x="28" y="803">漢書同步</text><text class="s zh" x="28" y="820">常駐機寫入</text>
+  <rect class="node person" x="16" y="842" width="128" height="48" rx="8"/>
+  <text class="t" x="28" y="863">客人</text><text class="s zh" x="28" y="880">帶業務推薦碼下單</text>
+
+  <rect class="node quote" x="184" y="722" width="176" height="48" rx="8"/>
+  <text class="t" x="196" y="743">領隊群表</text><text class="s" x="196" y="760">leader_groups</text>
+  <rect class="node quote" x="184" y="782" width="176" height="48" rx="8"/>
+  <text class="t" x="196" y="803">收客名單摘要</text><text class="s" x="196" y="820">upcoming_tours/summary</text>
+  <rect class="node" x="184" y="842" width="176" height="48" rx="8"/>
+  <text class="t" x="196" y="863">找到了旅遊網站下單</text><text class="s zh" x="196" y="880">官網 /api/order</text>
+
+  <rect class="node" x="400" y="782" width="196" height="48" rx="8"/>
+  <text class="t" x="412" y="803">D1 通知總機</text><text class="s" x="412" y="820">/api/d1-notify</text>
+
+  <rect class="node data" x="636" y="722" width="196" height="48" rx="8"/>
+  <text class="t" x="648" y="743">發過哪些（上鎖）</text><text class="s" x="648" y="760">Firestore d1_group_notify</text>
+  <rect class="node data" x="636" y="842" width="196" height="48" rx="8"/>
+  <text class="t" x="648" y="863">業務的 LINE 綁定</text><text class="s" x="648" y="880">Firestore line_bindings</text>
+
+  <rect class="node" x="872" y="782" width="292" height="48" rx="8"/>
+  <text class="t" x="884" y="803">LINE D1小助手（阿D）</text><text class="s zh" x="884" y="820">業務收開群連結、客人下單通知</text>
 </svg>
     </div>
   </div>
@@ -294,7 +341,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
         <span><i class="sw" style="background:var(--quote-soft);border-color:var(--quote)"></i>估價平台</span>
       </div>
     </div>
-    <p class="bridge-intro">兩套系統的資料庫是分開的：估價平台用 <code>findit-quote</code>（規則全開），合約系統用 <code>discovered-contract</code>（上鎖）。客人和領隊的個資都不會跨過來，過來的只有份數、狀態和畫面。</p>
+    <p class="bridge-intro">兩套系統的資料庫是分開的：估價平台用 <code>findit-quote</code>（規則全開），合約系統用 <code>discovered-contract</code>（上鎖）。客人和領隊的個資都不會跨到估價平台，那邊只看得到份數、狀態和畫面。反過來，合約系統會讀估價平台的領隊群連結和收客名單，用來發開群通知。</p>
     <div class="bhead"><span class="c">合約系統這邊</span><span style="text-align:center">傳什麼</span><span class="q">估價平台那邊</span></div>
 
     <div class="bitem">
@@ -356,7 +403,39 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
       </div>
       <p class="care"><b>改的時候注意：</b>合約系統連不上時，標籤只會不顯示，估價平台其他功能照常。改這支 API 的回傳格式，要同步改估價平台的標籤。</p>
     </div>
+
+    <div class="bitem">
+      <h3>開群連結和收客名單</h3>
+      <div class="brow">
+        <div class="side"><b>D1 通知總機</b><small>/api/d1-notify</small></div>
+        <div class="flow">
+          <span class="dirlabel">估價平台 → 合約系統</span>
+          <span>領隊填的群組連結、每團有哪些業務收客</span>
+          <span class="arrow left"><i></i></span>
+          <span class="freq">每小時（9～21 點）</span>
+        </div>
+        <div class="side quote"><b>領隊群表＋漢書摘要</b><small>leader_groups、upcoming_tours/summary</small></div>
+      </div>
+      <p class="care"><b>改的時候注意：</b>訊息格式跟「我的團」的複製傳送一樣，改一邊要對照另一邊。改 <code>leader_groups</code> 或 <code>upcoming_tours</code> 的欄位，這裡會跟著受影響。漢書同步超過 2 天沒更新會自動停發，並通知管理者。</p>
+    </div>
   </div>
+
+  <section>
+    <h2>10/19 之後新增</h2>
+    <p class="sub">上次畫圖以後加上去的功能，新的在前面。</p>
+    <ul class="list two">
+      <li><span class="time">11/05</span><span>客人從官網下單，D1小助手馬上私訊推薦的業務。</span></li>
+      <li><span class="time">11/04</span><span>領隊文件後台可依出發日篩選，上方數字跟著變。</span></li>
+      <li><span class="time">11/03</span><span>合約列表搜團號時，會到資料庫補抓被 1000 筆上限擠掉的舊合約。</span></li>
+      <li><span class="time">11/02</span><span>D1 開群通知正式發給業務（10/30 起先預覽）。</span></li>
+      <li><span class="time">10/29</span><span>新增國內旅遊定型化契約。</span></li>
+      <li><span class="time">10/29</span><span>領隊對團流程不必全勾，沒勾的項目在文件上留空格。</span></li>
+      <li><span class="time">10/26</span><span>合約副本改成直接分享或存 PDF 檔，檔名帶出發日和團名。</span></li>
+      <li><span class="time">10/23</span><span>領隊文件後台可手動更換領隊；漢書之後改成別人，以漢書為準。</span></li>
+      <li><span class="time">10/21</span><span>同業請款單的尾款日期可調整。</span></li>
+      <li><span class="time">10/21</span><span>外籍領款人下載勞報單副本，可改核對居留證或護照後 4 碼。</span></li>
+    </ul>
+  </section>
 
   <div class="cols">
     <section>
@@ -364,6 +443,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
       <p class="sub">沒有人按按鈕，時間到就跑。</p>
       <ul class="list">
         <li><span class="time">每 10 分</span><span>常駐機歸檔器把新簽好的合約 PDF 存進公司 NAS，順便把歸檔狀態抄給估價平台「我的團」。</span></li>
+        <li><span class="time">每小時</span><span>台灣 9～21 點巡查 30 天內出發的團：領隊填好群組連結，就私訊該團收客的 D1 業務。換連結或換領隊會再發一則更新，發過的不重發。</span></li>
         <li><span class="time">08:00</span><span>領隊總機自動發隔天出團的領隊文件，並提醒還沒簽的領隊。長線和日韓郵輪不自動發，由 OP 手動發。</span></li>
         <li><span class="time">09:00</span><span>巡邏未簽合約：連結 36 小時沒簽先催業務，72 小時失效再通知重發。出團前整團還沒建合約的 D1 業務也會收到 LINE。</span></li>
         <li><span class="time">23:00</span><span>常駐機上傳隔天要檢查的出團名單，給 09:00 的出團前檢查用。</span></li>
@@ -376,9 +456,11 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
       <p class="sub">合約裡有身分證、住址和簽名，所以門比估價平台多。</p>
       <ul class="list">
         <li><span class="tag lock">上鎖</span><span>資料庫只讓登入公佈欄的員工讀寫。客人沒有帳號，一律經過「客人專用窗口」，每次都重新核對連結。</span></li>
-        <li><span class="tag lock">核對</span><span>已簽好的合約要輸入身分證後 4 碼才能下載副本，避免群組裡的人互看（10/15 上線）。</span></li>
+        <li><span class="tag lock">核對</span><span>已簽好的合約要輸入身分證後 4 碼才能下載副本，避免群組裡的人互看（10/15 上線）。10/26 起手機直接分享 PDF 檔，電腦直接下載，不必再傳網址（LINE 內建瀏覽器除外）。</span></li>
         <li><span class="tag lock">遮蔽</span><span>領隊的身分證、銀行帳號只存在後端，網頁上只顯示遮住的版本。</span></li>
         <li><span class="tag lock">分線</span><span>領隊文件後台依線別分權限：南線、北線、長線各看各的，主管可以管自己線的帳號。</span></li>
+        <li><span class="tag lock">密碼</span><span>D1 通知總機只接受排程本身，或帶共用密碼的系統，其他人打進來一律擋掉。發送紀錄只有後端碰得到。</span></li>
+        <li><span class="tag lock">保險絲</span><span>開群通知一輪要發超過 40 次，就整輪不發、先通知管理者，避免程式出錯時燒掉 LINE 額度。</span></li>
       </ul>
     </section>
 
@@ -386,12 +468,14 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
       <h2>改之前先看</h2>
       <p class="sub">以前踩過的雷，跟目前卡住的地方。</p>
       <ul class="list">
-        <li><span class="tag warn">卡住</span><span>領隊文件存不進 NAS：歸檔用的 NAS 帳號沒有寫入權限。10/11 歸檔器反覆重抓檔案，把 Vercel 流量衝爆，之後就暫停了。等 IT 開好權限，刪掉 <code>.PAUSED</code> 檔就會恢復。</span></li>
-        <li><span class="tag rule">上限</span><span>Vercel 一個專案最多 12 支 API，現在用了 11 支。再加新功能要先把檔案合併。</span></li>
+        <li><span class="tag warn">卡住</span><span>領隊文件存不進 NAS：歸檔用的 NAS 帳號沒有寫入權限。10/11 歸檔器反覆重抓檔案，把 Vercel 流量衝爆，之後就暫停了。11/09 查過常駐機，暫停檔還在。等 IT 開好權限，刪掉 <code>.PAUSED</code> 檔就會恢復。</span></li>
+        <li><span class="tag rule">上限</span><span>API 已經 12 支，是當初記下的 Vercel 上限。公司 10/11 升級 Pro 後這條限制還要不要守，加第 13 支前先確認，不行就把檔案合併。</span></li>
         <li><span class="tag rule">規則</span><span>新增資料表要回來補一條門禁規則，不然一律被擋。8/13 LINE 小助手查不到收訂就是這個原因。</span></li>
         <li><span class="tag rule">規則</span><span>門禁不能寫成「有登入就放行」。系統開了匿名登入，任何人都拿得到身分。</span></li>
         <li><span class="tag rule">後端</span><span>後端程式讀合約一定要帶服務帳號。8/14 曾因為少帶，簽完通知 4 天都沒發出去。</span></li>
         <li><span class="tag rule">備份</span><span>每日備份只有文字資料，不含 PDF 檔。PDF 的第二份要靠 NAS。</span></li>
+        <li><span class="tag rule">名單</span><span>D1 來新人，開群通知和下單通知的名單要跟漢書那份一起加，兩邊是分開存的。沒加或沒綁 D1小助手就收不到。</span></li>
+        <li><span class="tag rule">密碼</span><span>下單通知靠官網和合約系統各存一份共用密碼，兩邊要一樣，改了兩邊都要重新部署。</span></li>
       </ul>
     </section>
   </div>
