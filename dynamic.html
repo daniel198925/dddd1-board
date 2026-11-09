@@ -464,6 +464,7 @@
         <button id="finder-btn" title="跨線找團：日期＋天數＋預算一次掃全部線"><i class="fa-solid fa-magnifying-glass-location"></i><span class="mobile-hide">找團</span></button>
         <button id="mine-btn" title="我名下的團：收訂進度、待開票"><i class="fa-solid fa-user-check"></i><span class="mobile-hide">我的團</span><span id="mine-badge" class="hidden nbadge"></span></button>
         <button id="follow-list-btn" title="追蹤中的團：餘位/價格有變動會 LINE 通知"><i class="fa-regular fa-bell"></i><span class="mobile-hide">追蹤</span><span id="follow-badge" class="hidden nbadge blue"></span></button>
+        <button id="post-btn" title="貼文產生器：選團一鍵產 FB／IG／LINE 文案、圖片與短網址（另開官網業務頁，第一次要再登入一次）"><i class="fa-solid fa-bullhorn"></i><span class="mobile-hide">貼文</span></button>
       </nav>
       <div class="relative">
         <button id="umenu-btn" class="ubtn"><span id="user-avatar" class="avatar">D</span><span id="user-name" class="mobile-hide"></span><i class="fa-solid fa-chevron-down text-[.6rem] m3"></i></button>
@@ -550,6 +551,7 @@
     <button id="copy-btn" title="複製報價文案" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-regular fa-copy"></i><span class="btn-txt ml-1">複製文案</span></button>
     <button id="files-btn" title="選擇行程（套用全部選取）" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-regular fa-folder-open"></i><span class="btn-txt ml-1">行程</span></button>
     <button id="contract-btn" title="建立合約（帶團號＋團費開合約系統）" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-solid fa-file-signature"></i><span class="btn-txt ml-1">建立合約</span></button>
+    <button id="post-gen-btn" title="做貼文：帶這團開貼文產生器（FB／IG／LINE 文案＋圖片＋短網址）" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-solid fa-bullhorn"></i><span class="btn-txt ml-1">做貼文</span></button>
     <button id="similar-btn" title="找類似團：同一條線、出發日前後 7 天、天數相近" class="py-1.5 rounded-lg text-[.72rem] transition"><i class="fa-solid fa-shuffle"></i><span class="btn-txt ml-1">找類似團</span></button>
   </div>
 </div>
@@ -1858,6 +1860,10 @@ function showDetail() {
   cbtn.style.opacity = one ? '' : '.4';
   cbtn.style.cursor = one ? '' : 'not-allowed';
   cbtn.title = one ? '建立合約（帶團號＋團費開合約系統）' : '合約一次一團，請只選一筆';
+  // 做貼文（2026-11-09）：一次一團＋官網已上線才能按；官網沒這團就反灰並說原因
+  const pbtn = $('post-gen-btn'), pok = one && !!webOf(rows[0].c);
+  pbtn.disabled = !pok; pbtn.style.opacity = pok ? '' : '.4'; pbtn.style.cursor = pok ? '' : 'not-allowed';
+  pbtn.title = !one ? '貼文一次一團，請只選一筆' : pok ? '做貼文：帶這團開貼文產生器（FB／IG／LINE 文案＋圖片＋短網址）' : '這團官網還沒上線（' + (webWhy(rows[0].c) || '對照表載入中') + '），貼文連結會連不到';
   updateFollowBtn();
   showCard();
 }
@@ -2410,6 +2416,13 @@ $('convert-btn').onclick = async () => {
 
 // ── 建立合約：帶團號＋團費開合約系統（findit-contract 會自動解析團號選範本、算費用×人數）──
 //   合約系統有自己的登入門禁（跟舊外掛同一批白名單帳號），這裡只負責把資料帶過去。
+// ── 貼文產生器入口（Daniel 2026-11-09）：頂欄＝從零開始；選取卡＝帶團號直達（官網業務頁 sales.html?post=1&c=團號，同一組 D1 員編登入） ──
+$('post-btn').onclick = () => { window.open(`${ITIN_BASE}/daren/sales.html?post=1`, '_blank', 'noopener'); };
+$('post-gen-btn').onclick = () => {
+  const rows = selRows(); if (rows.length !== 1 || !webOf(rows[0].c)) return;
+  window.open(`${ITIN_BASE}/daren/sales.html?post=1&c=${encodeURIComponent(rows[0].c)}`, '_blank', 'noopener');
+  toast('已開啟貼文產生器，帶入 ' + rows[0].c);
+};
 $('contract-btn').onclick = () => {
   const rows = selRows();
   if (rows.length !== 1) return;            // 一團一份（按鈕已反灰，這裡再擋一層）
