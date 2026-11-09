@@ -2407,6 +2407,43 @@ function flightWarnings(byFile, rows) {
   }
   return [...m.values()];
 }
+// ── 玩法提醒（2026-11-09 會診）：行程檔名寫的是別的玩法（破冰船行程配到玩雪的團）時，轉連結前問一次 ──
+//   只看檔名、只比同班機的另一種玩法：檔名寫了另一種、又沒寫這一種才提醒。檔名沒寫玩法就不提醒，不亂指控；只提醒不擋單。
+let TT_WARN_OK = null;   // 使用者已按「仍要轉換」的那組提醒內容
+function typeWarnings(byFile, rows) {
+  const names = n => (typeof TT_ALIAS !== 'undefined' && TT_ALIAS[n]) || [n];
+  const inFile = (fn, n) => names(n).some(w => fn.includes(w));
+  const m = new Map();
+  for (const { file, codes } of byFile.values()) for (const r of rows) {
+    if (!codes.includes(r.c)) continue;
+    const mine = priceOfRow(r).tt;
+    if (!mine || inFile(file.n, mine)) continue;
+    const other = LINES.filter(l => l.row?.c === r.c).map(l => l.row.tt).find(n => n && n !== mine && inFile(file.n, n));   // 只比同班機真的在賣的玩法：比整張表頭會把「精彩小東歐」「瀘沽湖」這種檔名誤報
+    if (!other) continue;
+    const k = `${file.id}|${mine}|${other}`;
+    if (!m.has(k)) m.set(k, { file: file.n.replace(/\.(pdf|docx?)$/i, ''), mine, other, codes: [] });
+    m.get(k).codes.push(r.c);
+  }
+  return [...m.values()];
+}
+function showTypeWarn(list, key) {
+  $('tt-warn-modal')?.remove();
+  const d = document.createElement('div');
+  d.id = 'tt-warn-modal';
+  d.className = 'fixed inset-0 bg-black/70 z-[70] flex items-center justify-center p-4';
+  d.innerHTML = `<div class="max-w-md w-full rounded-xl p-4 text-sm" style="background:var(--surface);border:1px solid var(--bd)">
+    <div class="font-bold text-amber-300 mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i>行程和選的玩法不一樣</div>
+    <div class="m3 text-xs mb-3">客人會看到這份行程，價格卻是另一種玩法的，傳出去前請確認。</div>
+    ${list.map(x => `<div class="mb-3 text-xs m1"><div class="font-bold">${esc(x.file)}</div><div>行程是：${esc(x.other)}</div><div>您選的班次是：${esc(x.mine)}</div><div class="m3 break-all">團號：${esc(x.codes.join('、'))}</div></div>`).join('')}
+    <div class="flex justify-end gap-2 mt-2">
+      <button id="tt-warn-pick" class="px-3 py-1.5 rounded-lg text-xs m2 border" style="border-color:var(--bd)">換一份行程</button>
+      <button id="tt-warn-go" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white">仍要轉換</button>
+    </div></div>`;
+  document.body.appendChild(d);
+  d.onclick = e => { if (e.target === d) d.remove(); };
+  $('tt-warn-pick').onclick = () => { d.remove(); FILEPICK_GK = null; openFiles(); };
+  $('tt-warn-go').onclick = () => { TT_WARN_OK = key; d.remove(); $('convert-btn').onclick(); };   // 這一下點擊就是複製需要的手勢
+}
 function showFlightWarn(list, key) {
   $('fc-warn-modal')?.remove();
   const d = document.createElement('div');
@@ -2443,23 +2480,29 @@ $('convert-btn').onclick = async () => {
   for (const r of rows) {
     const f = effFile(groupKey(r));
     if (!f) { noFile.push(r); continue; }
-    if (!byFile.has(f.id)) byFile.set(f.id, { file: f, codes: [], pv: [], prods: new Set() });
+    if (!byFile.has(f.id)) byFile.set(f.id, { file: f, codes: [], pv: [], picks: [], prods: new Set() });
     byFile.get(f.id).codes.push(r.c);
     byFile.get(f.id).prods.add(r.p || '');
     // 業務切了團型 → 客人頁的價格要跟著切換後的價（使用者 2026-07-30 回報：切尊爵，客人頁還是顯示原團型價）。
     //   客人頁的班期價來自 NAS travel_bot 那條線，不知道動態系統的團型切換，所以把覆蓋價帶在網址上。
     const pv = priceOfRow(r);
     if (pv.tt !== r.tt && pv.price != null) byFile.get(f.id).pv.push(`${r.c}:${pv.price}`);
+    // 同班機賣多種玩法 → 連結記住業務選的那種，客人頁才不會把另一種也列出來（只篩選、不覆蓋價格；2026-11-09 會診）
+    if (LINES.filter(l => l.row?.c === r.c).length > 1) byFile.get(f.id).picks.push(`${r.c}:${String(pv.tt || '').replace(/[:,]/g, '')}:${pv.price ?? r.pr ?? ''}`);
   }
   if (noFile.length) {           // 有團還沒有行程 → 先挑共同行程
     toast('請先選擇行程'); FILEPICK_GK = null; openFiles(); return;
   }
+  // 行程檔名寫的玩法跟選的不同 → 先提醒。要排在班機提醒前面：兩個提醒都按過之後重新進來才不會又跳一次
+  const ttWarns = typeWarnings(byFile, rows);
+  const ttKey = JSON.stringify(ttWarns);
+  if (ttWarns.length && TT_WARN_OK !== ttKey) { showTypeWarn(ttWarns, ttKey); return; }
   // 行程表班機跟漢書整套不同 → 先提醒一次，業務按「仍要轉換」才繼續（不擋單）。
   //   ⚠ 不能用 await 跳窗：iOS 複製要保住點擊手勢，所以這次先結束，靠提醒窗那一下點擊重新進來
   const fcWarns = flightWarnings(byFile, rows);
   const fcKey = JSON.stringify(fcWarns);
   if (fcWarns.length && FC_WARN_OK !== fcKey) { showFlightWarn(fcWarns, fcKey); return; }
-  FC_WARN_OK = null;
+  FC_WARN_OK = null; TT_WARN_OK = null;
 
   const btn = $('convert-btn'), orig = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -2469,7 +2512,7 @@ $('convert-btn').onclick = async () => {
     await copyText(async () => {
       const idToken = await auth.currentUser.getIdToken();
       const links = {};
-      for (const { file, codes, pv, prods } of byFile.values()) {
+      for (const { file, codes, pv, picks, prods } of byFile.values()) {
         let longUrl = `${ITIN_BASE}/?id=${file.id}&n=${encodeURIComponent(AGENT.name)}`;
         if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
         if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
@@ -2478,6 +2521,7 @@ $('convert-btn').onclick = async () => {
         if (AGENT.lg && AGENT.lgpw) longUrl += `&lgpw=${encodeURIComponent(AGENT.lgpw)}`;   // 有社群才帶密碼
         longUrl += `&codes=${encodeURIComponent(codes.join(','))}`;   // 這份行程涵蓋的所有團號
         if (pv.length) longUrl += `&pv=${encodeURIComponent(pv.join(','))}`;   // 切團型後的覆蓋價（團號:價格）
+        if (picks.length) longUrl += `&pick=${encodeURIComponent(picks.join(','))}`;   // 業務選的玩法（團號:玩法:價格，只篩選）
         // 產品名帶去客人頁當標題（「桂林 出發日期」）——一機多用的同團號在客人端只有一筆資料，
         //   可能是另一個目的地的；帶名字至少讓客人頁講清楚賣的是哪裡（2026-09-04 會診定案，僅顯示用）
         const pset = [...new Set([...prods].map(p => String(p || '').trim()).filter(Boolean))];   // 去空白再判唯一（Codex 審查）
