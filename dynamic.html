@@ -1681,7 +1681,7 @@ const PERTOUR = [
 ];
 
 // 漢書綠字 "12/31早鳥"（Daniel 2026-11-10）：只寫月日沒年份，取「今天往前 90 天起第一個該月日」當截止日；過期、或截止日不在出發日之前就不顯示，內勤沒清也不會掛著過期標籤
-function ebOf(r){ const m = r && r.eb && String(r.eb).match(/^(\d{1,2})\/(\d{1,2})$/); if (!m || !r.dt) return null; const tw = Date.now() + 8 * 3600 * 1000, today = new Date(tw).toISOString().slice(0, 10), floor = new Date(tw - 90 * 864e5).toISOString().slice(0, 10), md = m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0'); let dl = floor.slice(0, 4) + '-' + md; if (dl < floor) dl = (+floor.slice(0, 4) + 1) + '-' + md; return dl >= today && dl < r.dt ? {dl, tx: '早鳥至 ' + (+m[1]) + '/' + (+m[2])} : null; }
+function ebOf(r){ const m = r && r.eb && String(r.eb).match(/^(\d{1,2})\/(\d{1,2})$/); if (!m || !r.dt) return null; const tw = Date.now() + 8 * 3600 * 1000, today = new Date(tw).toISOString().slice(0, 10), floor = new Date(tw - 90 * 864e5).toISOString().slice(0, 10), md = m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0'); let dl = floor.slice(0, 4) + '-' + md; if (dl < floor) dl = (+floor.slice(0, 4) + 1) + '-' + md; return dl >= today && dl < r.dt ? {dl, off: r.eo || 0, tx: (r.eo ? '早鳥省 ' + Number(r.eo).toLocaleString('en-US') + '・' : '早鳥') + '至 ' + (+m[1]) + '/' + (+m[2])} : null; }   // eo＝牌價−售價（parse.mjs listPrice，Daniel 2026-11-10）；算不出就只寫截止日
 
 function groupBlock(g, multi) {
   const r0 = g[0];
