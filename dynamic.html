@@ -1726,7 +1726,7 @@ function groupBlock(g, multi) {
   // 官網（2026-11-09 Daniel）：已上線＝一鍵複製官網團頁連結（有推薦碼就帶上）；沒上線寫原因
   { const w = webOf(r0.c);
     parts.push(line('官網', w
-      ? `<button class="web-copy text-blue-400 hover:underline" data-c="${esc(r0.c)}" data-one="${g.length === 1 ? 1 : 0}" title="複製官網團頁連結${MYREF ? '（帶你的推薦碼，客人報名算你的）' : '（你還沒有推薦碼，複製的是一般連結）'}"><i class="fa-solid fa-globe mr-1"></i>已上線・複製連結</button>`
+      ? `<button class="web-copy text-blue-400 hover:underline" data-c="${esc(r0.c)}" title="複製官網團頁連結${MYREF ? '（帶你的推薦碼，客人報名算你的）' : '（你還沒有推薦碼，複製的是一般連結）'}"><i class="fa-solid fa-globe mr-1"></i>已上線・複製連結</button>`
       : `<span class="m3 font-normal text-xs">${WEB ? '未上線<span class="m4 ml-1">' + esc(webWhy(r0.c)) + '</span>' : '…'}</span>`)); }
 
   const cols = PERTOUR.filter(f => dshow[f.k]);
@@ -1837,7 +1837,7 @@ function showDetail() {
   // 官網連結：複製（手機 Safari 要同步寫剪貼簿，不先 await）
   $('detail-body').querySelectorAll('.web-copy').forEach(btn => {
     btn.onpointerdown = e => e.stopPropagation();
-    btn.onclick = e => { e.stopPropagation(); const u = webUrl(btn.dataset.c, btn.dataset.one === '1'); if (!u) return;
+    btn.onclick = e => { e.stopPropagation(); const u = webUrl(btn.dataset.c); if (!u) return;
       try { navigator.clipboard.writeText(u).then(() => toast(MYREF ? '已複製官網連結（帶你的推薦碼）' : '已複製官網連結'), () => prompt('複製這段：', u)); } catch (err) { prompt('複製這段：', u); } };
   });
   // 同班機其他目的地：點了跳到那一列
@@ -1985,7 +1985,7 @@ async function loadMyRef(){
 }
 const webOf = c => (WEB && WEB.codes && c && WEB.codes[c]) || null;
 const webWhy = c => !WEB ? '' : webOf(c) ? '' : (WEB.why || {})[c] === 'hidden' ? '目的地在官網隱藏中' : (WEB.why || {})[c] === 'nopdf' ? '沒有行程表' : '官網團庫沒有這團';
-function webUrl(c, withDate){ const w = webOf(c); if (!w) return ''; return `${ITIN_BASE}/daren/${MYREF ? '?r=' + MYREF : ''}#/t/${encodeURIComponent(w[0])}/${encodeURIComponent(w[1])}${withDate ? '?c=' + encodeURIComponent(c) : ''}`; }
+function webUrl(c){ if (!webOf(c)) return ''; return `${ITIN_BASE}/api/go/${encodeURIComponent(c)}${MYREF ? '?r=' + MYREF : ''}`; }   // 短網址（Daniel 2026-11-10）：只放團號＋推薦碼，api/go 點下去才查團頁；對照表裡的團都在賣場快照，轉得到
 
 async function copyText(buildText) {
   const p = Promise.resolve().then(buildText);   // 只跑一次（含 fetch）
