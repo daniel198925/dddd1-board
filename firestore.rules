@@ -168,6 +168,18 @@ service cloud.firestore {
                    && (!('by' in request.resource.data) || request.resource.data.by.size() <= 40);
     }
 
+    // itin_pick_log：confirm.html 每點一次留一筆（含改選），給大仁哥看「助理工作紀錄」（2026-11-12）
+    //   只能新增、不能改不能刪，欄位固定
+    match /itin_pick_log/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['g', 'v', 'by', 'at'])
+                    && request.resource.data.g is string && request.resource.data.g.size() <= 80
+                    && request.resource.data.v is string && request.resource.data.v.size() <= 64
+                    && request.resource.data.by is string && request.resource.data.by.size() <= 40
+                    && request.resource.data.at is string && request.resource.data.at.size() <= 40;
+      allow update, delete: if false;
+    }
+
     // dt_agent：動態查詢的業務個人設定（轉換連結用的名片資料），只能讀寫自己的
     match /dt_agent/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId && !isRecorder();

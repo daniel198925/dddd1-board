@@ -137,6 +137,14 @@ kbd{font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--line);b
 .miss{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-size:14px}
 .miss th,.miss td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
 .miss th{font-size:12.5px;color:var(--muted);font-weight:500}
+.wk{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin:0 0 14px}
+.wk .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.wk h3{margin:0 0 6px;font-size:16px}
+.wk dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0;font-size:13.5px}
+.wk dt{color:var(--muted)} .wk dd{margin:0;font-variant-numeric:tabular-nums}
+.wk .flag{color:var(--bad);font-weight:600}
+.miss td.when{white-space:nowrap;font-variant-numeric:tabular-nums}
+.miss tr.redo td{background:var(--warn-soft)}
 .miss td.codes{font-family:var(--font-mono);font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .tblwrap{overflow-x:auto}
 </style>
@@ -173,6 +181,7 @@ kbd{font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--line);b
       <button data-m="page" aria-pressed="true">整頁漢書</button>
       <button data-m="card" aria-pressed="false">卡片</button>
       <button data-m="miss" aria-pressed="false">產品部補檔清單</button>
+      <button data-m="log" aria-pressed="false">助理工作紀錄</button>
     </div>
     <div class="filters" role="group" aria-label="出發日" id="wins">
       <span class="lb">出發</span>
@@ -221,6 +230,7 @@ const db = firebase.firestore();
   if (![0, 45, 90].includes(win)) win = 45;
   const drafts = {}, timers = {}, savedAt = {};
   const pages = {};   // 檔號 → itin_pages 文件（整頁漢書）
+  let logs = [];     // itin_pick_log
   let sel = null;     // 整頁模式選中的套路 id
 
   const pad = n => String(n).padStart(2, '0');
@@ -321,6 +331,7 @@ const db = firebase.firestore();
     $('filters').hidden = mode !== 'card';
     renderLines();
     if (mode === 'miss') return renderMiss();
+    if (mode === 'log') return renderLog();
     if (!line) { $('main').innerHTML = '<div class="empty">先點上面一條產品線（跟漢書分檔一樣）。數字是 ' + esc(winLabel()) + '要出發、還沒確認的組數。</div>'; return; }
     if (mode === 'page') return renderPage();
     const list = live().filter(d => d.ln === line && inWin(d))
@@ -437,6 +448,65 @@ const db = firebase.firestore();
     $('main').dataset.copy = '行程表缺檔清單（' + winLabel() + '出發）\n' + txt;
   }
 
+  // ── 助理工作紀錄（2026-11-12 大仁哥要監督助理有沒有認真配）──
+  //    來源：itin_pick_log（每次點選都留一筆，含改選）＋ itin_pick_answers（每組目前的答案；紀錄表開始前點的只看得到最後一次）
+  let logWho = '', logDay = 'today';
+  const hm = t => { const d = new Date(t); return String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  function pickInfo(d, v){
+    if (v === 'none') return { txt: '資料夾裡沒有', kind: 'none' };
+    if (v === 'unsure') return { txt: '看不出來', kind: 'unsure' };
+    const cs = (d && d.cands) || [], i = cs.findIndex(c => c.id === v), c = cs[i];
+    return { txt: c ? c.n : (d && d.fileId === v ? (d.fileName || v) : v), kind: 'file', rank: i, fc: c ? c.fc : null };
+  }
+  function logEvents(){
+    const ev = [], seen = new Set();
+    for (const x of logs) { seen.add(x.g + '|' + x.at); ev.push({ g: x.g, v: x.v, by: x.by || '（沒填名字）', at: x.at }); }
+    for (const [g, a] of Object.entries(answers)) if (a && a.v && a.at && !seen.has(g + '|' + a.at)) ev.push({ g, v: a.v, by: a.by || '（沒填名字）', at: a.at, old: true });
+    ev.sort((a, b) => a.at < b.at ? -1 : 1);
+    // 同一組被改選：前一筆標「後來改了」
+    const lastOf = {}; ev.forEach((e, i) => { if (lastOf[e.g] !== undefined) ev[lastOf[e.g]].redo = true; lastOf[e.g] = i; });
+    return ev;
+  }
+  function renderLog(){
+    const all = logEvents(), today = ymd(new Date()), cut7 = Date.now() - 7 * 864e5;
+    const inDay = e => logDay === 'all' ? true : logDay === '7' ? new Date(e.at).getTime() >= cut7 : ymd(new Date(e.at)) === today;
+    const ev = all.filter(inDay);
+    const people = [...new Set(all.map(e => e.by))].sort();
+    const byP = {}; for (const e of ev) (byP[e.by] = byP[e.by] || []).push(e);
+    const docOf = Object.fromEntries(docs.map(d => [d.id, d]));
+    const cards = Object.entries(byP).sort((a, b) => b[1].length - a[1].length).map(([who, es]) => {
+      const groups = new Set(es.map(e => e.g)), tours = [...groups].reduce((n, g) => n + ((docOf[g] || {}).n || 0), 0);
+      let file = 0, none = 0, unsure = 0, first = 0, firstOf = 0, bad = 0;
+      for (const e of es) { const pi = pickInfo(docOf[e.g], e.v); if (pi.kind === 'none') none++; else if (pi.kind === 'unsure') unsure++; else { file++; if (pi.rank >= 0 && ((docOf[e.g] || {}).cands || []).length > 1) { firstOf++; if (pi.rank === 0) first++; } if (pi.fc === 'bad') bad++; } }
+      const gaps = []; for (let i = 1; i < es.length; i++) { const s = (new Date(es[i].at) - new Date(es[i - 1].at)) / 1000; if (s < 600) gaps.push(s); }
+      const fast = gaps.filter(s => s < 4).length, avg = gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null;
+      return '<div class="card"><h3>' + esc(who) + '</h3><dl>'
+        + '<dt>確認組數</dt><dd>' + groups.size + ' 組（' + tours + ' 團）</dd>'
+        + '<dt>點選次數</dt><dd>' + es.length + ' 次（選檔 ' + file + '、沒有 ' + none + '、看不出來 ' + unsure + '）</dd>'
+        + '<dt>時段</dt><dd>' + esc(hm(es[0].at)) + ' ～ ' + esc(hm(es[es.length - 1].at)) + '</dd>'
+        + '<dt>平均每組</dt><dd>' + (avg === null ? '—' : avg + ' 秒') + '</dd>'
+        + '<dt>4 秒內連點</dt><dd' + (fast && fast >= gaps.length / 3 ? ' class="flag"' : '') + '>' + fast + ' 次</dd>'
+        + '<dt>選第一個候選</dt><dd>' + (firstOf ? Math.round(first / firstOf * 100) + '%（' + first + '/' + firstOf + '）' : '—') + '</dd>'
+        + '<dt>選了航班不符</dt><dd' + (bad ? ' class="flag"' : '') + '>' + bad + ' 次</dd>'
+        + '</dl></div>';
+    }).join('');
+    const rows = ev.filter(e => !logWho || e.by === logWho).slice().reverse().slice(0, 400);
+    const btn = (k, v, t, cur) => '<button data-' + k + '="' + esc(v) + '" aria-pressed="' + (cur === v) + '">' + esc(t) + '</button>';
+    $('main').innerHTML = '<div class="list">'
+      + '<p class="q">每位助理在這頁點的每一筆都會記下來（誰、幾點、哪一組、選了哪份）。紅字是要留意的：連點太快（三分之一以上 4 秒內點完），或選了「✗ 航班不符」的檔。點「抽查」會跳到那一組，自己看選得對不對。</p>'
+      + '<div class="nav filters">' + btn('lday', 'today', '今天', logDay) + btn('lday', '7', '近 7 天', logDay) + btn('lday', 'all', '全部', logDay)
+      + '<span class="lb" style="margin-left:12px">助理</span>' + btn('lwho', '', '全部', logWho) + people.map(p => btn('lwho', p, p, logWho)).join('') + '</div>'
+      + (cards ? '<div class="wk">' + cards + '</div>' : '<div class="empty">這段期間還沒有人點選。</div>')
+      + (rows.length ? '<div class="tblwrap"><table class="miss"><thead><tr><th>時間</th><th>助理</th><th>產品線</th><th>產品／團型／天數／航空</th><th>選了</th><th>團數</th><th>備註</th><th></th></tr></thead><tbody>'
+        + rows.map(e => { const d = docOf[e.g] || {}, pi = pickInfo(d, e.v), a = answers[e.g] || {};
+            return '<tr' + (e.redo ? ' class="redo" title="這一筆後來被改選了"' : '') + '><td class="when">' + esc(hm(e.at)) + '</td><td>' + esc(e.by) + '</td><td class="when">' + esc(d.ln || '') + '</td><td>' + esc(d.p || e.g) + '<br><span class="num">' + esc(factsOf(d).join('・')) + '</span></td>'
+              + '<td>' + esc(pi.txt) + (pi.kind === 'file' && pi.rank >= 0 ? ' <span class="num">（第 ' + (pi.rank + 1) + ' 個候選）</span>' : '') + ' ' + fcTag(pi.fc) + (e.redo ? ' <span class="num">← 後來改了</span>' : '') + '</td>'
+              + '<td>' + (d.n || 0) + '</td><td>' + esc(!e.redo && a.at === e.at ? (a.note || '') : '') + '</td>'
+              + '<td class="when">' + (docOf[e.g] && d.n ? '<button data-goto="' + esc(e.g) + '">抽查</button>' : '') + '</td></tr>'; }).join('')
+        + '</tbody></table></div>' + (logs.length ? '' : '<p class="q">※ 紀錄表剛開，之前點的只看得到每組最後一次的選擇。</p>') : '')
+      + '</div>';
+  }
+
   async function save(id, patch){
     const d = docs.find(x => x.id === id); if (!d) return;
     const cur = answers[id] || {};
@@ -447,6 +517,7 @@ const db = firebase.firestore();
     answers[id] = next;
     try { if (!MOCK) await db.collection('itin_pick_answers').doc(id).set(next); savedAt[id] = Date.now(); notice(''); }
     catch (e) { notice('存檔失敗：' + e.message + '（可能是權限還沒開）'); }
+    if (wasPick) { const L = { g: id, v: next.v, by: next.by || '', at: next.at }; logs.push(L); if (!MOCK) db.collection('itin_pick_log').add(L).catch(() => {}); }
     if (mode === 'page' && document.querySelector('.sheet')) {
       stats(); renderLines(); refreshPageClasses();
       if (wasPick && next.v !== 'unsure') step(1); else renderSide();
@@ -454,11 +525,13 @@ const db = firebase.firestore();
   }
   document.addEventListener('click', e => {
     if (e.target.closest('[data-stop]')) return;
+    const ld = e.target.closest('[data-lday]'); if (ld) { logDay = ld.dataset.lday; renderLog(); return; }
+    const lw = e.target.closest('[data-lwho]'); if (lw) { logWho = lw.dataset.lwho; renderLog(); return; }
     const m = e.target.closest('#modes button'); if (m) { mode = m.dataset.m; lsSet('confirmMode', mode); render(); return; }
     const w = e.target.closest('#wins button'); if (w) { win = +w.dataset.w; lsSet('confirmWin', String(win)); render(); return; }
     const f = e.target.closest('#filters button'); if (f) { filter = f.dataset.f; render(); return; }
     const l = e.target.closest('#lines .tile'); if (l) { line = l.dataset.l; sel = null; lsSet('confirmLine', line); if (mode === 'miss') mode = 'page'; render(); return; }
-    const gt = e.target.closest('[data-goto]'); if (gt) { mode = 'page'; lsSet('confirmMode', mode); sel = gt.dataset.goto; render(); setTimeout(() => sel && select(sel, true), 60); return; }
+    const gt = e.target.closest('[data-goto]'); if (gt) { mode = 'page'; lsSet('confirmMode', mode); sel = gt.dataset.goto; const gd = docs.find(x => x.id === sel); if (gd) { line = gd.ln; if (!inWin(gd)) win = 0; } render(); setTimeout(() => sel && select(sel, true), 60); return; }
     const nv = e.target.closest('[data-nav]'); if (nv) { step(nv.dataset.nav === 'prev' ? -1 : 1); return; }
     const cp = e.target.closest('[data-copy]'); if (cp) { navigator.clipboard.writeText($('main').dataset.copy || '').then(() => { cp.textContent = '已複製'; }, () => notice('複製失敗，請手動選取表格')); return; }
     const g = e.target.closest('.sheet .l.g'); if (g) { select(g.dataset.g, false); return; }
@@ -495,6 +568,7 @@ const db = firebase.firestore();
         const [cs, as] = await Promise.all([db.collection('itin_confirm').get(), db.collection('itin_pick_answers').get()]);
         docs = []; cs.forEach(x => { if (x.id === '_meta') meta = x.data(); else docs.push({ id: x.id, ...x.data() }); });
         as.forEach(x => { answers[x.id] = x.data(); });
+        try { (await db.collection('itin_pick_log').orderBy('at', 'desc').limit(3000).get()).forEach(x => logs.push(x.data())); } catch (e) { /* 規則還沒開就只看 answers */ }
         if (!meta) meta = { stamp: '' };
       }
       if (line && !docs.some(d => d.n && d.ln === line)) line = '';
