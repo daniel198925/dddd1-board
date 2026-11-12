@@ -455,7 +455,7 @@
     <!-- 頂欄只留每天用的三顆（找團／我的團／追蹤），其餘收進右邊姓名選單（2026-10-07 模擬圖定案）-->
     <div class="hdr-top">
       <h1 id="brand-home" class="text-[17px] font-black whitespace-nowrap cursor-pointer" title="回首頁"><i class="fa-solid fa-bolt text-blue-500 mr-1"></i>D1<span class="mobile-hide"> 動態查詢</span></h1>
-      <span id="stamp-badge" class="fresh" title="每小時更新"><span class="fresh-dot"></span>載入中…</span>
+      <span id="stamp-badge" class="fresh" title="漢書改完約 5～10 分鐘內更新"><span class="fresh-dot"></span>載入中…</span>
       <!-- LINE 本月用量（主管才看得到；2026-10-07 使用者要監看流量）-->
       <span id="line-quota" class="hidden lq"></span>
       <div class="flex-1"></div>
@@ -865,7 +865,7 @@ function stampBadge() {
   const stale = ageMin > 150, warn = ageMin > 90;
   const ago = ageMin < 1 ? '剛剛' : ageMin < 60 ? `${Math.round(ageMin)} 分鐘前` : `${Math.round(ageMin / 60)} 小時前`;
   $('stamp-badge').className = 'fresh' + (stale ? ' bad' : warn ? ' warn' : '');
-  $('stamp-badge').title = `資料時間 ${META.stamp}（每小時更新）`;
+  $('stamp-badge').title = `資料時間 ${META.stamp}（漢書改完約 5～10 分鐘內更新）`;
   $('stamp-badge').innerHTML = `<span class="fresh-dot"></span><span class="mobile-hide">資料 </span>${esc(META.stamp.slice(5))}<span class="mobile-hide">・${ago}${stale ? '　⚠ 同步可能卡住' : ''}</span>`;
 }
 
@@ -874,8 +874,13 @@ function stampBadge() {
 //    業務可能拿過時餘位去報價。做法：只重抓 _meta（約1KB）比對時間戳，
 //    真的換版才清快取重載，沒換就只更新徽章——不打擾正在選團的人。
 let LASTCHECK = 0;
+let PENDING_RELOAD = '';   // 選團中錯過的換版：選取清空後下一次檢查補重載（同一條線才補）
 async function refreshIfStale() {
   if (document.visibilityState !== 'visible' || !META) return;
+  if (PENDING_RELOAD && !SELLINES.length) {
+    const p = PENDING_RELOAD; PENDING_RELOAD = '';
+    if ($('f-line').value === p) { try { await loadFile(); toast('動態資料已更新'); } catch {} }
+  }
   if (Date.now() - LASTCHECK < 60000) return;        // 一分鐘內不重複查
   LASTCHECK = Date.now();
   try {
@@ -883,14 +888,21 @@ async function refreshIfStale() {
     if (!m.exists()) return;
     const fresh = m.data();
     if (fresh.stamp === META.stamp) { stampBadge(); return; }   // 沒換版 → 只重算「已超過幾小時」
+    // 2026-11-12 起常駐機每 5 分鐘快速同步，只上傳有變的線；_meta.files[].s＝那條線最後一次變動時間。
+    //   只丟「真的換版」的線的快取，正在看的線沒變就不重載、不跳提示（不然每 5 分鐘被打擾一次）。
+    //   舊版 _meta 沒有 s → 當成全部換版（跟以前一樣）
+    const oldS = {}; for (const f of META.files || []) oldS[f.f] = f.s;
+    const changed = new Set((fresh.files || []).filter(f => !f.s || f.s !== oldS[f.f]).map(f => f.f));
     META = fresh;
     stampBadge();
-    for (const k of Object.keys(RAWCACHE)) delete RAWCACHE[k];   // 換版了，快取全部失效
-    for (const k of Object.keys(ROWCACHE)) delete ROWCACHE[k];
+    for (const k of Object.keys(RAWCACHE)) if (changed.has(k)) delete RAWCACHE[k];
+    for (const k of Object.keys(ROWCACHE)) if (changed.has(k)) delete ROWCACHE[k];
+    const cur = $('f-line').value;
+    if (!cur || !changed.has(cur)) return;
     // 正在選團就先不重載——重載會清掉選取，業務報價報到一半會很錯愕。
     //   等他關掉選取卡再更新（下次檢查時 SELLINES 已空）
-    if (SELLINES.length) { toast('有新的動態資料，關閉選取後會更新'); return; }
-    if ($('f-line').value) await loadFile();
+    if (SELLINES.length) { PENDING_RELOAD = cur; toast('有新的動態資料，關閉選取後會更新'); return; }
+    await loadFile();
     toast('動態資料已更新');
   } catch { /* 網路不通就等下次 */ }
 }
@@ -1874,7 +1886,7 @@ function showDetail() {
   updateFollowBtn();
   showCard();
 }
-$('detail-close').onclick = () => { hideCard(); SELLINES = []; ANCHOR = -1; SELBASE = []; SHAREDFILE = null; CHOSENFILES = {}; $('dcol-menu').classList.add('hidden'); render(); };
+$('detail-close').onclick = () => { hideCard(); SELLINES = []; ANCHOR = -1; SELBASE = []; SHAREDFILE = null; CHOSENFILES = {}; $('dcol-menu').classList.add('hidden'); render(); if (PENDING_RELOAD) refreshIfStale(); };
 
 // ── 明細卡：顯示／隱藏（顯示要用 flex，且顯示後重新校正位置把整張卡拉回畫面內，
 //    確保底部按鈕不會掉出畫面被切掉）──
