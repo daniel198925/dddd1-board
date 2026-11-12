@@ -67,8 +67,8 @@
   .input-style:focus { border-color:#3b82f6; outline:none; }
   ::-webkit-scrollbar { width:9px; height:9px; } ::-webkit-scrollbar-thumb { background:var(--bd); border-radius:5px; }
   .chip { font-size:.7rem; padding:.1rem .45rem; border-radius:.5rem; font-weight:700; white-space:nowrap; }
-  #toast { position:fixed; left:50%; bottom:2rem; transform:translateX(-50%) translateY(20px); opacity:0; transition:.25s; z-index:90; pointer-events:none; }
-  #toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+  #toast { position:fixed; left:50%; bottom:2rem; transform:translateX(-50%) translateY(20px) scale(.92); opacity:0; transition:opacity .2s, transform .45s cubic-bezier(.34,1.56,.64,1); z-index:90; pointer-events:none; }
+  #toast.show { transform:translateX(-50%) translateY(0) scale(1); opacity:1; }
 
   /* ── 漢書原始排版區 ─────────────────────────── */
   #raw-view {
@@ -427,6 +427,30 @@
     #detail-actions button.pri { grid-column:auto; order:0; padding-top:.375rem; padding-bottom:.375rem; }
     #detail-actions #similar-btn { grid-column:auto; }
     #detail-actions { grid-template-columns: repeat(5, 1fr) !important; }
+  }
+
+  /* ── 微互動（2026-11-12 大仁哥要跟官網一樣的絲滑感；只動畫，不改功能）── */
+  @media (prefers-reduced-motion: no-preference) {
+    /* 選取卡：出現時從右下滑上來 */
+    #detail-card { transition: opacity .22s ease, transform .42s cubic-bezier(.34,1.3,.64,1); }
+    @starting-style { #detail-card { opacity:0; transform: translateY(14px) scale(.97); } }
+    /* 姓名選單、顯示欄位選單：打開時輕輕彈出 */
+    .umenu, #dcol-menu { transform-origin: top right; transition: opacity .18s ease, transform .3s cubic-bezier(.34,1.4,.64,1); }
+    @starting-style { .umenu, #dcol-menu { opacity:0; transform: scale(.94) translateY(-6px); } }
+    /* 所有黑底彈窗（我的團、追蹤、找類似團、業務設定…）：底色淡入、內容彈出 */
+    .fixed.inset-0.bg-black\/70 { transition: opacity .2s ease; }
+    .fixed.inset-0.bg-black\/70 > div { transition: opacity .22s ease, transform .42s cubic-bezier(.34,1.3,.64,1); }
+    @starting-style {
+      .fixed.inset-0.bg-black\/70 { opacity:0; }
+      .fixed.inset-0.bg-black\/70 > div { opacity:0; transform: scale(.95) translateY(10px); }
+    }
+    /* 漢書原文：滑過的行淡淡變色、剛選到的那行金黃色淡入 */
+    .hl-tour { transition: background-color .15s ease; }
+    .hl-tour.sel-in { animation: d1SelIn .32s ease-out; }
+    @keyframes d1SelIn { from { background-color: transparent; color: inherit; } }
+    /* 按鈕按下去輕縮（本來就有縮放／位移效果的不加） */
+    button:not([class*="scale"]):not([class*="translate"]):not(:disabled):active { transform: scale(.96); }
+    button { transition-property: color, background-color, border-color, opacity, box-shadow, transform; transition-duration: .15s; }
   }
 </style>
 </head>
@@ -3296,6 +3320,13 @@ document.addEventListener('keydown', e => {
   else if (!$('agent-modal').classList.contains('hidden')) $('agent-modal').classList.add('hidden');
   else if (!$('detail-card').classList.contains('hidden')) $('detail-close').onclick();
 });
+
+// 微互動（2026-11-12）：選一行會整頁重畫，剛選到的那行補一個淡入
+document.addEventListener('click', e => {
+  const r = e.target.closest('.hl-tour'); if (!r || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const i = r.dataset.i;
+  requestAnimationFrame(() => { const n = document.querySelector('.hl-tour.sel[data-i="' + i + '"]'); if (n) { n.classList.remove('sel-in'); void n.offsetWidth; n.classList.add('sel-in'); } });
+}, true);
 </script>
 </body>
 </html>
