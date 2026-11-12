@@ -153,6 +153,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    // itin_pages：確認表的「整頁漢書」（confirm.mjs 每小時寫；一條線一份，業務代號／領隊／利潤已拿掉）→ 跟 itin_confirm 一樣開放讀（2026-11-12）
+    match /itin_pages/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
     // itin_pick_answers：產品部在 confirm.html 點的答案（一套路一份），不登入可寫；sync 下一輪合併進 itin_confirm
     //   只收固定幾個欄位、字數有限，避免被當成任意儲存空間
     match /itin_pick_answers/{docId} {

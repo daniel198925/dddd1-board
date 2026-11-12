@@ -11,41 +11,61 @@
 <style>
 /* 行程確認表（2026-10-16 三方會診定案）：把「每團猜一次行程」改成「每種套路確認一次、新團自動沿用」。
    資料來源 itin_confirm（sync.mjs 每小時算）；產品部在這裡點正確行程 → itin_pick_answers/{套路id}，下一輪同步合併。
-   不需登入（產品部沒有動態系統帳號）。 */
+   不需登入（產品部沒有動態系統帳號）。
+   2026-11-12 四方會診改版（Daniel「動態我們都要看整頁才清楚」）：先選產品線、預設只看 45 天內出發、照漢書順序排、
+   卡片帶區塊標題＋航班時刻＋整組團；新增「整頁漢書」（左邊整頁、右邊選檔）與「產品部補檔清單」。整頁資料在 itin_pages。 */
 :root{
   --bg:#f6f4f4; --surface:#ffffff; --fg:#231a1d; --muted:#6f6467; --line:#e4dcde;
   --accent:#b81846; --accent-soft:#f8e3ea;
-  --ok:#1f7a4d; --ok-soft:#e1f2e8; --bad:#b3261e; --bad-soft:#fbe4e2; --warn:#8a5a00; --warn-soft:#fbefd6;
+  --ok:#1f7a4d; --ok-soft:#e1f2e8; --bad:#b3261e; --bad-soft:#fbe4e2; --warn:#8a5a00; --warn-soft:#fbefd6; --warn-line:#e7b54a;
   --font-body:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif;
   --font-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --font-sheet:"MingLiU","細明體","PMingLiU",ui-monospace,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){:root{
   --bg:#171214; --surface:#211a1d; --fg:#f1e9eb; --muted:#ab9ea2; --line:#3a2f33;
   --accent:#ec5c86; --accent-soft:#3d1a26;
-  --ok:#5cc58f; --ok-soft:#173326; --bad:#f08178; --bad-soft:#3d1c1a; --warn:#e3b45a; --warn-soft:#382a10; color-scheme:dark}}
+  --ok:#5cc58f; --ok-soft:#173326; --bad:#f08178; --bad-soft:#3d1c1a; --warn:#e3b45a; --warn-soft:#382a10; --warn-line:#8a6a20; color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.6}
 [hidden]{display:none!important}
-.wrap{max-width:1040px;margin:0 auto;padding:20px 16px 60px;display:flex;flex-direction:column;gap:16px}
+.wrap{max-width:1040px;margin:0 auto;padding:20px 16px 60px;display:flex;flex-direction:column;gap:14px}
+body.pagemode .wrap{max-width:1500px}
 h1{font-size:24px;margin:0}
-.lede{color:var(--muted);margin:4px 0 0;max-width:70ch}
-.how{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:6px}
+.lede{color:var(--muted);margin:4px 0 0;max-width:75ch}
+.how{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:grid;gap:4px;font-size:14px}
 .how b{color:var(--accent)}
-.me{background:var(--accent-soft);border-radius:10px;padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.how summary{cursor:pointer;font-weight:500}
+.me{background:var(--accent-soft);border-radius:10px;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .me input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface);color:var(--fg);flex:1 1 200px;min-width:0}
 .me .hint{flex-basis:100%;font-size:13px;color:var(--muted);margin:0}
-.stats{background:var(--bg);padding-block:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid var(--line)}
-@media (min-height:760px){.stats{position:sticky;top:0;z-index:5}}
+.stats{background:var(--bg);padding-block:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid var(--line)}
 .stat{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px 12px;min-width:86px}
 .stat span{font-size:12px;color:var(--muted)} .stat strong{font-size:19px;font-variant-numeric:tabular-nums}
 .stat.big strong{color:var(--accent)}
 .bar{flex:1 1 140px;height:8px;background:var(--line);border-radius:4px;overflow:hidden;min-width:100px}
 .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
-.filters{display:flex;gap:6px;flex-wrap:wrap}
+.ctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.filters .lb{font-size:13px;color:var(--muted);margin-right:2px}
 .filters button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:4px 12px;cursor:pointer}
 .filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.tile{font:inherit;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.tile:hover{border-color:var(--accent)}
+.tile[aria-pressed="true"]{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+.tile b{font-size:16px}
+.tile .n{font-size:13px;color:var(--warn)} .tile .n.zero{color:var(--ok)}
+.tile .m{font-size:12px;color:var(--muted)}
+/* 整頁模式：產品線縮成一排小按鈕，把高度讓給漢書 */
+body.pagemode .tiles{display:flex;flex-wrap:wrap;gap:4px}
+body.pagemode .tile{flex-direction:row;align-items:baseline;gap:6px;padding:3px 10px;border-radius:999px}
+body.pagemode .tile b{font-size:14px} body.pagemode .tile .m{display:none} body.pagemode .tile .n{font-size:12px}
+body.pagemode .tile .n .w{display:none}
 .list{display:flex;flex-direction:column;gap:14px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.blk{font-size:15px;margin:10px 0 -4px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line);padding-bottom:2px}
+.blk b{color:var(--fg);font-size:17px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .card.done{border-left:4px solid var(--ok)}
 .card.review{border-left:4px solid var(--warn)}
 .card .top{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
@@ -57,11 +77,10 @@ h1{font-size:24px;margin:0}
 .facts{display:flex;flex-wrap:wrap;gap:4px}
 .chip{font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 8px}
 .chip.hi{background:var(--accent-soft);border-color:transparent}
-.codes{font-family:var(--font-mono);font-size:12.5px;color:var(--muted)}
-.rawbtn{align-self:flex-start;font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:3px 12px;cursor:pointer}
-.rawbtn[aria-expanded="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
-.raw{margin:0;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;font-family:var(--font-mono);font-size:12.5px;line-height:1.7;white-space:pre;overflow-x:auto;color:var(--fg)}
-.raw .rc{color:var(--accent)}
+.raw{margin:0;padding:8px 12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;font-family:var(--font-sheet);font-size:13px;line-height:1.55;white-space:pre;overflow:auto;max-height:300px;color:var(--fg)}
+.raw .hd{color:var(--muted)}
+.raw .rc{color:var(--accent);font-weight:700}
+.linkbtn{align-self:flex-start;font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:3px 12px;cursor:pointer}
 .q{font-size:13px;color:var(--muted);margin:0}
 .cands{display:flex;flex-direction:column;gap:6px}
 .cand{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;background:var(--surface)}
@@ -69,9 +88,10 @@ h1{font-size:24px;margin:0}
 .cand[aria-pressed="true"]{border-color:var(--ok);background:var(--ok-soft)}
 .cand .dot{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid var(--line)}
 .cand[aria-pressed="true"] .dot{border-color:var(--ok);background:radial-gradient(var(--ok) 45%,transparent 50%)}
+.cand .key{flex:none;font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--muted)}
 .cand .txt{min-width:0;flex:1}
 .cand .fn{font-weight:500;overflow-wrap:anywhere}
-.cand .fd{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.cand .fd{display:block;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .tag{font-size:11.5px;border-radius:5px;padding:0 6px;margin-left:6px;white-space:nowrap}
 .tag.star{background:var(--accent-soft);color:var(--accent)}
 .tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.part{background:var(--warn-soft);color:var(--warn)} .tag.bad{background:var(--bad-soft);color:var(--bad)}
@@ -80,12 +100,45 @@ h1{font-size:24px;margin:0}
 .btns button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:5px 14px;cursor:pointer}
 .btns button[aria-pressed="true"][data-v="none"]{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
 .btns button[aria-pressed="true"][data-v="unsure"]{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
-.locked .cand,.locked .btns button{pointer-events:none;opacity:.55}
+.locked .cand,.locked .btns button[data-v]{pointer-events:none;opacity:.55}
 textarea{font:inherit;font-size:14px;width:100%;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--bg);color:var(--fg);resize:vertical}
-.saved{font-size:13px;color:var(--ok)}
+.saved{font-size:13px;color:var(--ok);margin:0}
 .notice{font-size:14px;color:var(--bad);margin:0}
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:28px 16px;text-align:center;color:var(--muted)}
-button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,.cand:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 整頁漢書 */
+.pg{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;align-items:start}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:10px;height:calc(100vh - 150px);min-height:420px;overflow:auto;padding:6px 0;font-family:var(--font-sheet);font-size:13.5px;line-height:1.5}
+.sheet .l{white-space:pre;padding:0 10px;min-height:1.5em}
+.sheet .l.d{color:var(--muted);opacity:.5;font-size:11px;min-height:0;line-height:1.1}
+.sheet .l.sec{font-weight:700;color:var(--accent)}
+.sheet .l.t{cursor:default}
+.sheet .l.x{opacity:.45}
+.sheet .l.g{cursor:pointer}
+.sheet .l.g:hover{outline:1px solid var(--accent);outline-offset:-1px}
+.sheet .l.todo{background:var(--warn-soft);box-shadow:inset 4px 0 0 var(--warn-line)}
+.sheet .l.later{background:repeating-linear-gradient(135deg,transparent 0 6px,var(--warn-soft) 6px 9px)}
+.sheet .l.ok{background:var(--ok-soft);box-shadow:inset 4px 0 0 var(--ok)}
+.sheet .l.no{background:var(--bad-soft);box-shadow:inset 4px 0 0 var(--bad)}
+.sheet .l.sel{outline:2px solid var(--accent);outline-offset:-2px;position:relative}
+.side{position:sticky;top:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 20px);overflow:auto}
+.side h2{font-size:17px;margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px;font-size:12.5px}
+.legend span{border-radius:5px;padding:0 8px}
+.legend .a{background:var(--warn-soft);box-shadow:inset 3px 0 0 var(--warn-line)} .legend .b{background:var(--ok-soft);box-shadow:inset 3px 0 0 var(--ok)} .legend .c{background:var(--bad-soft);box-shadow:inset 3px 0 0 var(--bad)} .legend .e{background:repeating-linear-gradient(135deg,transparent 0 6px,var(--warn-soft) 6px 9px);border:1px solid var(--line)}
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:5px 12px;cursor:pointer}
+.nav button.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+kbd{font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--bg)}
+@media (max-width:900px){.pg{grid-template-columns:1fr}.sheet{height:55vh}.side{position:static;max-height:none}}
+
+/* 補檔清單 */
+.miss{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-size:14px}
+.miss th,.miss td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.miss th{font-size:12.5px;color:var(--muted);font-weight:500}
+.miss td.codes{font-family:var(--font-mono);font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.tblwrap{overflow-x:auto}
 </style>
 </head>
 <body>
@@ -94,12 +147,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
     <h1>行程確認表</h1>
     <p class="lede" id="lede">載入中…</p>
   </header>
-  <section class="how">
-    <div>1. 先填你的名字。</div>
-    <div>2. 每一張卡是一種「套路」（同產品、團型、天數、航空、航線、時段、出發地），底下列出系統找到的候選行程，<b>點正確的那一份</b>。有 ✓ 的代表 PDF 裡的航班跟漢書一樣，△ 部分一樣，✗ 不一樣（多半是舊版）。</div>
-    <div>3. 都不對或資料夾裡沒有這團的行程 → 按 <b>資料夾裡沒有</b>；真的看不出來 → 按 <b>看不出來</b>。點了就自動存，之後同套路的新團會自動沿用，不用再點。</div>
-    <div>4. 「請再看一次」的卡是以前確認過、但 PDF 換版或航班變了，請確認要不要沿用。</div>
-  </section>
+  <details class="how" id="how">
+    <summary>怎麼用（第一次請看）</summary>
+    <div>1. 先填你的名字，再<b>選一條產品線</b>（跟漢書分檔一樣：大陸B、日本A…）。預設只列 <b>45 天內要出發</b>、還沒確認的。</div>
+    <div>2. <b>整頁漢書</b>：左邊就是漢書整頁（業務名字、領隊已拿掉），黃色＝還沒確認、綠色＝已確認、紅色＝資料夾裡沒有。點黃色那一行，右邊列出候選行程，點正確那份就存，自動跳到下一組黃色。鍵盤：<kbd>1</kbd>～<kbd>8</kbd> 選檔、<kbd>0</kbd> 資料夾裡沒有、<kbd>J</kbd>/<kbd>K</kbd> 下一組／上一組。</div>
+    <div>3. <b>卡片</b>：一張卡＝同一組（同產品、團型、天數、航空、航線、時段、出發地），卡上有漢書的區塊標題、航班時刻和整組團，照漢書順序排。✓＝PDF 航班跟漢書一樣，△ 部分一樣，✗ 不一樣（多半是舊版）。</div>
+    <div>4. 都不對 → <b>資料夾裡沒有</b>（會進「產品部補檔清單」）；真的看不出來 → <b>看不出來</b>。點了就自動存，之後同一組的新團會自動沿用。</div>
+  </details>
   <div class="me">
     <label for="who">你的名字</label>
     <input id="who" type="text" autocomplete="name" placeholder="例如：產品部 王小明" maxlength="30">
@@ -108,21 +162,34 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
   <div class="stats" role="status">
     <div class="stat big"><span>網站可用率</span><strong id="sRate">–</strong></div>
     <div class="bar" aria-hidden="true"><i id="sBar"></i></div>
-    <div class="stat"><span>待確認套路</span><strong id="sPending">–</strong></div>
-    <div class="stat"><span>請再看一次</span><strong id="sReview">–</strong></div>
+    <div class="stat"><span id="sWinLb">45 天內待確認</span><strong id="sWin">–</strong></div>
+    <div class="stat"><span>全部待確認</span><strong id="sPending">–</strong></div>
     <div class="stat"><span>已確認（人工）</span><strong id="sConfirmed">–</strong></div>
     <div class="stat"><span>自動確認</span><strong id="sAuto">–</strong></div>
     <div class="stat"><span>資料時間</span><strong id="sStamp" style="font-size:13px">–</strong></div>
   </div>
-  <div class="filters" role="group" aria-label="篩選" id="filters">
-    <button data-f="todo" aria-pressed="true">待確認</button>
-    <button data-f="review" aria-pressed="false">請再看一次</button>
-    <button data-f="done" aria-pressed="false">已確認</button>
-    <button data-f="all" aria-pressed="false">全部</button>
+  <div class="ctl">
+    <div class="filters" role="group" aria-label="檢視" id="modes">
+      <button data-m="page" aria-pressed="true">整頁漢書</button>
+      <button data-m="card" aria-pressed="false">卡片</button>
+      <button data-m="miss" aria-pressed="false">產品部補檔清單</button>
+    </div>
+    <div class="filters" role="group" aria-label="出發日" id="wins">
+      <span class="lb">出發</span>
+      <button data-w="45" aria-pressed="true">45 天內</button>
+      <button data-w="90" aria-pressed="false">90 天內</button>
+      <button data-w="0" aria-pressed="false">全部日期</button>
+    </div>
+    <div class="filters" role="group" aria-label="狀態" id="filters">
+      <span class="lb">狀態</span>
+      <button data-f="todo" aria-pressed="true">待確認</button>
+      <button data-f="done" aria-pressed="false">已確認</button>
+      <button data-f="all" aria-pressed="false">全部</button>
+    </div>
   </div>
-  <div class="filters" role="group" aria-label="產品線" id="lines"></div>
+  <div class="tiles" role="group" aria-label="產品線" id="lines"></div>
   <p class="notice" id="notice" hidden></p>
-  <div class="list" id="list"></div>
+  <div id="main"></div>
 </div>
 <script>
 firebase.initializeApp({
@@ -138,117 +205,281 @@ const db = firebase.firestore();
   const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
   const notice = m => { $('notice').textContent = m || ''; $('notice').hidden = !m; };
+  // 本機預覽：?mock=mock.json 讀假資料、點了不寫雲端
+  const MOCK = new URLSearchParams(location.search).get('mock');
+  let mockData = null;
+
   $('who').value = lsGet('confirmName') || lsGet('matchPickName') || '';
   const myName = () => $('who').value.trim();
   $('who').addEventListener('input', () => { lsSet('confirmName', myName()); $('whoHint').hidden = !!myName(); render(); });
+  $('whoHint').hidden = !!myName();
+  if (!lsGet('confirmSeenHow2')) { $('how').open = true; lsSet('confirmSeenHow2', '1'); }
 
-  let docs = [], meta = null, answers = {}, filter = 'todo', line = '';
+  let docs = [], meta = null, answers = {};
+  let mode = lsGet('confirmMode') || 'page', win = +(lsGet('confirmWin') ?? 45), filter = 'todo', line = lsGet('confirmLine') || '';
+  if (!['page', 'card', 'miss'].includes(mode)) mode = 'page';
+  if (![0, 45, 90].includes(win)) win = 45;
   const drafts = {}, timers = {}, savedAt = {};
+  const pages = {};   // 檔號 → itin_pages 文件（整頁漢書）
+  let sel = null;     // 整頁模式選中的套路 id
+
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = ymd(new Date());
+  const winEnd = () => { if (!win) return '9999-12-31'; const d = new Date(); d.setDate(d.getDate() + win); return ymd(d); };
+  const inWin = d => !!d.nextDt && d.nextDt <= winEnd();
+  const md = s => (s || '').slice(5).replace('-', '/');
+
   // 狀態（含本機剛點的答案：同步一小時才合併，這裡先顯示成已確認）
   const effStatus = d => { const a = answers[d.id]; if (!a || !a.v) return d.status; return a.v === 'none' ? 'nofile' : a.v === 'unsure' ? 'pending' : 'confirmed'; };
   const isTodo = d => ['pending', 'review'].includes(effStatus(d));
+  const live = () => docs.filter(d => d.n);
+  const order = (a, b) => (+(a.f ?? 99) - +(b.f ?? 99)) || ((a.li ?? 1e9) - (b.li ?? 1e9)) || (b.n - a.n);
+  const lineList = () => {
+    const m = {};
+    for (const d of live()) { const x = m[d.ln] ??= { ln: d.ln, f: d.f ?? '99', todoWin: 0, todo: 0, n: 0 }; x.n++; if (isTodo(d)) { x.todo++; if (inWin(d)) x.todoWin++; } if (d.f && d.f < x.f) x.f = d.f; }
+    return Object.values(m).sort((a, b) => +a.f - +b.f);
+  };
+  const winLabel = () => win ? win + ' 天內' : '全部日期';
 
   function stats(){
     if (!meta) return;
-    const todo = docs.filter(d => effStatus(d) === 'pending').length, rev = docs.filter(d => effStatus(d) === 'review').length;
-    const conf = docs.filter(d => effStatus(d) === 'confirmed').length, auto = docs.filter(d => d.status === 'auto').length;
-    // 可用率：以團數計；本機剛點的也先算進去
+    const L = live();
+    const todo = L.filter(isTodo).length, todoWin = L.filter(d => isTodo(d) && inWin(d)).length;
+    const conf = L.filter(d => effStatus(d) === 'confirmed').length, auto = L.filter(d => d.status === 'auto').length;
     let usable = 0, total = 0;
-    for (const d of docs) { if (!d.n) continue; total += d.n; const s = effStatus(d); if (s === 'auto' || s === 'confirmed') usable += d.n; }
+    for (const d of L) { total += d.n; const s = effStatus(d); if (s === 'auto' || s === 'confirmed') usable += d.n; }
     const rate = total ? Math.round(usable / total * 100) : 0;
     $('sRate').textContent = rate + '%'; $('sBar').style.width = rate + '%';
-    $('sPending').textContent = todo; $('sReview').textContent = rev; $('sConfirmed').textContent = conf; $('sAuto').textContent = auto;
+    $('sWinLb').textContent = winLabel() + '待確認'; $('sWin').textContent = todoWin;
+    $('sPending').textContent = todo; $('sConfirmed').textContent = conf; $('sAuto').textContent = auto;
     $('sStamp').textContent = meta.stamp || '';
-    $('lede').textContent = `全公司未出發的正常團共 ${total} 團、${docs.filter(d => d.n).length} 種套路。系統自己有把握的 ${auto} 種已自動確認；還有 ${todo + rev} 種要請你點一下，點完網站就能全部掛上正確行程。`;
+    $('lede').textContent = `全公司未出發的正常團 ${total} 團、${L.length} 組。系統有把握的 ${auto} 組已自動確認；${winLabel()}要出發、還沒確認的有 ${todoWin} 組，先從這些點起。`;
   }
   function fcTag(fc){ return fc === 'ok' ? '<span class="tag ok">✓ 航班相符</span>' : fc === 'part' ? '<span class="tag part">△ 航班部分相符</span>' : fc === 'bad' ? '<span class="tag bad">✗ 航班不符</span>' : ''; }
-  function candHtml(d, c, pressed){
+  function candsOf(d){
+    const st = effStatus(d), a = answers[d.id] || {}, v = a.v || (['auto', 'confirmed', 'review'].includes(st) ? d.fileId : '') || '';
+    const cands = (d.cands || []).slice();
+    if (v && !cands.some(c => c.id === v) && d.fileId === v) cands.unshift({ id: v, n: d.fileName || v, path: '（先前確認的檔）', fc: null });
+    return { cands, v, a, st };
+  }
+  function candHtml(d, c, pressed, k){
     return '<div class="cand" role="button" tabindex="0" data-id="' + esc(d.id) + '" data-pick="' + esc(c.id) + '" aria-pressed="' + pressed + '">'
-      + '<span class="dot"></span><span class="txt"><span class="fn">' + esc(c.n.replace(/\.(pdf|docx?)$/i, '')) + '</span>'
+      + (k ? '<span class="key">' + k + '</span>' : '<span class="dot"></span>')
+      + '<span class="txt"><span class="fn">' + esc(String(c.n || '').replace(/\.(pdf|docx?)$/i, '')) + '</span>'
       + (c.star ? '<span class="tag star">系統首選</span>' : '') + fcTag(c.fc)
       + '<span class="fd">' + esc(c.path || '') + '</span></span>'
       + '<a href="https://drive.google.com/file/d/' + encodeURIComponent(c.id) + '/view" target="_blank" rel="noopener" data-stop="1">開啟</a></div>';
   }
   const KIND = { pending: '待確認', review: '請再看一次', auto: '自動確認', confirmed: '已確認', nofile: '資料夾裡沒有' };
-  function cardHtml(d, i){
-    const st = effStatus(d), a = answers[d.id] || {}, v = a.v || (st === 'auto' || st === 'confirmed' || st === 'review' ? d.fileId : '') || '';
-    const facts = [d.p, d.tt, d.dy ? d.dy + '天' : '', d.an || d.al, d.op && d.op !== '--' ? '航線 ' + d.op : '', d.fl ? '時段 ' + d.fl : '', d.dp && d.dp !== '台北' ? d.dp + '出發' : ''].filter(Boolean);
-    const fr = (d.fr || '').split(',').filter(Boolean).map(x => x.split(':')[1]).join('／');
-    let cands = (d.cands || []).slice();
-    if (v && !cands.some(c => c.id === v) && d.fileId === v) cands.unshift({ id: v, n: d.fileName || v, path: '（先前確認的檔）', fc: null });
-    let h = '<div class="card ' + (st === 'confirmed' || st === 'auto' ? 'done' : st === 'review' ? 'review' : '') + (myName() ? '' : ' locked') + '" data-card="' + esc(d.id) + '">'
-      + '<div class="top"><span class="num">' + (i + 1) + '.</span><span class="prod">' + esc(d.ln) + '｜' + esc(d.p || '') + '</span><span class="kind ' + st + '">' + KIND[st] + '</span>'
-      + '<span class="num">' + d.n + ' 團，最近出發 ' + esc((d.nextDt || '').slice(5).replace('-', '/')) + '</span></div>'
-      + '<div class="facts">' + facts.map(f => '<span class="chip hi">' + esc(f) + '</span>').join('') + (fr ? '<span class="chip">漢書航班 ' + esc(fr) + '</span>' : '') + '</div>'
-      + '<div class="codes">' + esc((d.codes || []).join('　')) + '</div>'
-      /* 原始動態（2026-10-19 Daniel：只看團號很難對，要看漢書那一行原文才認得出是哪團）：按了才去讀 dt_tours 那條線的文件，每條線只讀一次 */
-      + '<button type="button" class="rawbtn" data-raw="' + esc(d.id) + '" aria-expanded="false">看原始動態</button><pre class="raw" id="raw-' + esc(d.id) + '" hidden></pre>'
-      + (d.reason ? '<p class="q">' + esc(d.reason) + '</p>' : '')
-      + (st === 'auto' ? '<p class="q">' + (d.seasonal ? '系統自動確認（依出發期間分檔：每團各自配到唯一一份、航班相符）。' : '系統自動確認：唯一候選、航班相符、每團一致。') + '覺得不對可以改點別份。</p>' : '')
+  const factsOf = d => [d.tt, d.dy ? d.dy + '天' : '', d.an || d.al, d.op && d.op !== '--' ? '航線 ' + d.op : '', d.fl ? '時段 ' + d.fl : '', d.dp && d.dp !== '台北' ? d.dp + '出發' : ''].filter(Boolean);
+  // 漢書那幾行：區塊標題（灰）＋這組每一團（團號標紅）
+  function sheetLines(d, maxTours){
+    const hl = s => { const m = s.match(/[A-Z]{2,3}\d[A-Z0-9]{2}\d{4}[A-Z0-9]\d|={4,}\d{4}[A-Z0-9]\d/); return m ? esc(s.slice(0, m.index)) + '<span class="rc">' + esc(m[0]) + '</span>' + esc(s.slice(m.index + m[0].length)) : esc(s); };
+    if (Array.isArray(d.ra) && d.ra.length) {
+      const ra = d.ra.slice(0, maxTours || 999);
+      return (d.hd || []).map(s => '<span class="hd">' + esc(s) + '</span>').join('\n') + '\n' + ra.map(hl).join('\n')
+        + (d.n > ra.length ? '\n<span class="hd">…還有 ' + (d.n - ra.length) + ' 團</span>' : '');
+    }
+    return (d.rws || []).map(hl).join('\n') + '\n<span class="hd">（區塊標題要等下一次每小時同步後才有）</span>';
+  }
+  function decisionHtml(d, withKeys){
+    const { cands, v, a, st } = candsOf(d);
+    return (d.reason ? '<p class="q">系統：' + esc(d.reason) + '</p>' : '')
+      + (st === 'auto' ? '<p class="q">' + (d.seasonal ? '系統自動確認（依出發期間分檔）。' : '系統自動確認：唯一候選、航班相符、每團一致。') + '覺得不對可以改點別份。</p>' : '')
       + (a.by ? '<p class="saved">已由 ' + esc(a.by) + ' 於 ' + esc((a.at || '').slice(0, 16).replace('T', ' ')) + ' 確認' + (savedAt[d.id] ? '（已存）' : '') + '</p>' : (d.by && st !== 'review' ? '<p class="saved">已由 ' + esc(d.by) + ' 確認</p>' : ''))
-      + '<div class="cands">' + cands.map(c => candHtml(d, c, v === c.id)).join('') + (cands.length ? '' : '<p class="q">系統沒找到任何候選，請按「資料夾裡沒有」或先請產品部上傳。</p>') + '</div>'
-      + '<div class="btns"><button data-id="' + esc(d.id) + '" data-v="none" aria-pressed="' + (a.v === 'none') + '">資料夾裡沒有</button>'
+      + '<div class="cands">' + cands.map((c, i) => candHtml(d, c, v === c.id, withKeys && i < 8 ? i + 1 : 0)).join('') + (cands.length ? '' : '<p class="q">系統沒找到任何候選，請按「資料夾裡沒有」，會轉給產品部補檔。</p>') + '</div>'
+      + '<div class="btns"><button data-id="' + esc(d.id) + '" data-v="none" aria-pressed="' + (a.v === 'none') + '">' + (withKeys ? '<kbd>0</kbd> ' : '') + '資料夾裡沒有</button>'
       + '<button data-id="' + esc(d.id) + '" data-v="unsure" aria-pressed="' + (a.v === 'unsure') + '">看不出來</button></div>'
-      + '<textarea data-note="' + esc(d.id) + '" placeholder="備註（選填）：例如「這團其實走新版」「11 月起換檔」" maxlength="300">' + esc(drafts[d.id] ?? a.note ?? '') + '</textarea>'
+      + '<textarea data-note="' + esc(d.id) + '" placeholder="備註（選填）：例如「這團其實走新版」「11 月起換檔」" maxlength="300">' + esc(drafts[d.id] ?? a.note ?? '') + '</textarea>';
+  }
+  function cardHtml(d, i){
+    const st = effStatus(d);
+    return '<div class="card ' + (st === 'confirmed' || st === 'auto' ? 'done' : st === 'review' ? 'review' : '') + (myName() ? '' : ' locked') + '" data-card="' + esc(d.id) + '">'
+      + '<div class="top"><span class="num">' + (i + 1) + '.</span><span class="prod">' + esc(d.p || '') + '</span><span class="kind ' + st + '">' + KIND[st] + '</span>'
+      + '<span class="num">' + d.n + ' 團，最近出發 ' + esc(md(d.nextDt)) + '</span></div>'
+      + '<div class="facts">' + factsOf(d).map(f => '<span class="chip hi">' + esc(f) + '</span>').join('') + '</div>'
+      + '<pre class="raw">' + sheetLines(d, 12) + '</pre>'
+      + (d.li !== undefined ? '<button type="button" class="linkbtn" data-goto="' + esc(d.id) + '">在整頁漢書裡看這組</button>' : '')
+      + decisionHtml(d, false)
       + '</div>';
-    return h;
+  }
+
+  function renderLines(){
+    const ls = lineList();
+    $('lines').innerHTML = ls.map(x => '<button class="tile" data-l="' + esc(x.ln) + '" aria-pressed="' + (line === x.ln) + '"><b>' + esc(x.ln) + '</b>'
+      + '<span class="n' + (x.todoWin ? '' : ' zero') + '">' + (x.todoWin ? '<span class="w">' + winLabel() + ' </span>' + x.todoWin + ' 組待確認' : '<span class="w">' + winLabel() + '</span>都確認了') + '</span>'
+      + '<span class="m">全部待確認 ' + x.todo + '／共 ' + x.n + ' 組</span></button>').join('');
+    $('lines').hidden = mode === 'miss';
   }
   function render(){
     stats();
-    const lines = [...new Set(docs.filter(d => d.n).map(d => d.ln))].sort();
-    $('lines').innerHTML = '<button data-l="" aria-pressed="' + (line === '') + '">全部線</button>' + lines.map(l => '<button data-l="' + esc(l) + '" aria-pressed="' + (line === l) + '">' + esc(l) + ' <span class="num">' + docs.filter(d => d.ln === l && isTodo(d)).length + '</span></button>').join('');
-    const list = docs.filter(d => d.n).filter(d => !line || d.ln === line).filter(d => filter === 'all' ? true : filter === 'todo' ? effStatus(d) === 'pending' : filter === 'review' ? effStatus(d) === 'review' : ['auto', 'confirmed', 'nofile'].includes(effStatus(d)))
-      .sort((a, b) => (b.n - a.n));
-    $('list').innerHTML = list.length ? list.map(cardHtml).join('') : '<div class="empty">這個篩選沒有項目</div>';
+    document.body.classList.toggle('pagemode', mode === 'page' && !!line);
+    for (const b of $('modes').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.m === mode));
+    for (const b of $('wins').querySelectorAll('button')) b.setAttribute('aria-pressed', String(+b.dataset.w === win));
+    for (const b of $('filters').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.f === filter));
+    $('filters').hidden = mode !== 'card';
+    renderLines();
+    if (mode === 'miss') return renderMiss();
+    if (!line) { $('main').innerHTML = '<div class="empty">先點上面一條產品線（跟漢書分檔一樣）。數字是 ' + esc(winLabel()) + '要出發、還沒確認的組數。</div>'; return; }
+    if (mode === 'page') return renderPage();
+    const list = live().filter(d => d.ln === line && inWin(d))
+      .filter(d => filter === 'all' ? true : filter === 'todo' ? isTodo(d) : ['auto', 'confirmed', 'nofile'].includes(effStatus(d)))
+      .sort(order);
+    let h = '', lastB = null;
+    list.forEach((d, i) => {
+      const bk = (d.f ?? '') + ':' + (d.bi ?? '');
+      if (bk !== lastB) { h += '<h3 class="blk">漢書區塊 <b>' + esc(d.bt || d.p || '') + '</b></h3>'; lastB = bk; }
+      h += cardHtml(d, i);
+    });
+    $('main').innerHTML = '<div class="list">' + (list.length ? h : '<div class="empty">' + esc(line) + ' 在' + esc(winLabel()) + '沒有這個狀態的組。可以改看「90 天內」或「全部日期」。</div>') + '</div>';
   }
+
+  // ── 整頁漢書 ──
+  const lineDocs = () => live().filter(d => d.ln === line);
+  const todoSeq = () => lineDocs().filter(d => isTodo(d) && inWin(d) && d.li !== undefined).sort(order);
+  async function getPage(f){
+    if (pages[f]) return pages[f];
+    if (MOCK) return pages[f] = (mockData.pages || {})[f] || null;
+    const s = await db.collection('itin_pages').doc(f).get();
+    return pages[f] = s.exists ? s.data() : null;
+  }
+  function lineClass(d){
+    const st = effStatus(d);
+    if (st === 'auto' || st === 'confirmed') return 'ok';
+    if (st === 'nofile') return 'no';
+    return inWin(d) ? 'todo' : 'later';
+  }
+  let pageBusy = '';
+  async function renderPage(){
+    const ds = lineDocs(); const f = (ds.find(d => d.f) || {}).f;
+    if (!f) { $('main').innerHTML = '<div class="empty">' + esc(line) + ' 的整頁漢書要等下一次每小時同步後才有，先用「卡片」。</div>'; return; }
+    const key = line + '|' + win;
+    if (!pages[f]) {
+      $('main').innerHTML = '<div class="empty">讀取漢書整頁中…</div>'; pageBusy = key;
+      try { await getPage(f); } catch (e) { $('main').innerHTML = '<div class="empty">讀不到整頁漢書：' + esc(e.message) + '（雲端權限可能還沒開，先用「卡片」）</div>'; return; }
+      if (pageBusy !== key || mode !== 'page') return;
+    }
+    const pg = pages[f];
+    if (!pg) { $('main').innerHTML = '<div class="empty">' + esc(line) + ' 的整頁漢書要等下一次每小時同步後才有，先用「卡片」。</div>'; return; }
+    const byId = Object.fromEntries(ds.map(d => [d.id, d]));
+    const xs = new Set(pg.x || []);
+    let h = '';
+    (pg.L || []).forEach((s, i) => {
+      const gid = (pg.g || {})[i];
+      if (gid && byId[gid]) h += '<div class="l t g ' + lineClass(byId[gid]) + (gid === sel ? ' sel' : '') + '" data-g="' + esc(gid) + '" data-i="' + i + '">' + esc(s) + '</div>';
+      else if (xs.has(i) || gid) h += '<div class="l t x">' + esc(s) + '</div>';
+      else if (s === '—') h += '<div class="l d">' + '─'.repeat(40) + '</div>';
+      else h += '<div class="l' + ((pg.s || {})[i] !== undefined ? ' sec' : '') + '">' + esc(s) + '</div>';
+    });
+    const sheetEl = document.querySelector('.sheet');
+    const keepTop = sheetEl && sheetEl.dataset.f === f ? sheetEl.scrollTop : null;
+    $('main').innerHTML = '<div class="pg"><div class="sheet" data-f="' + esc(f) + '" tabindex="0" aria-label="漢書整頁 ' + esc(pg.name || line) + '">' + h + '</div><aside class="side" id="side"></aside></div>';
+    if (keepTop !== null) document.querySelector('.sheet').scrollTop = keepTop;
+    renderSide();
+  }
+  function renderSide(){
+    const el = $('side'); if (!el) return;
+    const seq = todoSeq();
+    const legend = '<div class="legend"><span class="a">黃＝' + esc(winLabel()) + '待確認</span><span class="e">斜紋＝較晚出發待確認</span><span class="b">綠＝已確認</span><span class="c">紅＝資料夾裡沒有</span></div>';
+    const d = sel && docs.find(x => x.id === sel);
+    if (!d) {
+      el.innerHTML = '<h2>' + esc(line) + '</h2>' + legend
+        + '<p class="q">' + (seq.length ? esc(winLabel()) + '還有 <b>' + seq.length + '</b> 組待確認。點左邊黃色那一行，或從第一組開始。' : esc(winLabel()) + '這條線都確認完了 🎉 可以改看「90 天內」。') + '</p>'
+        + (seq.length ? '<div class="nav"><button class="primary" data-nav="first">從第一組開始 <kbd>J</kbd></button></div>' : '');
+      return;
+    }
+    const st = effStatus(d), pos = seq.findIndex(x => x.id === d.id);
+    el.innerHTML = '<div class="nav"><button data-nav="prev">‹ 上一組 <kbd>K</kbd></button><button class="primary" data-nav="next">下一組 › <kbd>J</kbd></button>'
+      + '<span class="num" style="align-self:center">' + (pos >= 0 ? (pos + 1) + '／' + seq.length : '剩 ' + seq.length + ' 組') + '</span></div>'
+      + '<div class="' + (myName() ? '' : 'locked') + '" style="display:flex;flex-direction:column;gap:10px">'
+      + '<div class="top"><h2>' + esc(d.p || '') + ' <span class="kind ' + st + '">' + KIND[st] + '</span></h2>'
+      + '<span class="num">漢書區塊「' + esc(d.bt || '') + '」・' + d.n + ' 團・最近出發 ' + esc(md(d.nextDt)) + '</span></div>'
+      + '<div class="facts">' + factsOf(d).map(x => '<span class="chip hi">' + esc(x) + '</span>').join('') + '</div>'
+      + '<p class="q">左邊框起來的就是這組的團。哪一份是它的行程表？</p>'
+      + decisionHtml(d, true) + '</div>' + legend;
+  }
+  function select(id, scroll){
+    sel = id;
+    for (const n of document.querySelectorAll('.sheet .l.sel')) n.classList.remove('sel');
+    let first = null;
+    for (const n of document.querySelectorAll('.sheet .l[data-g="' + CSS.escape(id) + '"]')) { n.classList.add('sel'); first = first || n; }
+    if (scroll && first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    renderSide();
+  }
+  function step(dir){
+    const seq = todoSeq(); if (!seq.length) { sel = null; renderSide(); return; }
+    const cur = sel && lineDocs().find(x => x.id === sel);
+    let nx;
+    if (!cur) nx = dir > 0 ? seq[0] : seq[seq.length - 1];
+    else if (dir > 0) nx = seq.find(x => order(x, cur) > 0) || seq[0];
+    else nx = [...seq].reverse().find(x => order(x, cur) < 0) || seq[seq.length - 1];
+    select(nx.id, true);
+  }
+  function refreshPageClasses(){
+    const ds = Object.fromEntries(lineDocs().map(d => [d.id, d]));
+    for (const n of document.querySelectorAll('.sheet .l.g')) {
+      const d = ds[n.dataset.g]; if (!d) continue;
+      n.classList.remove('todo', 'later', 'ok', 'no'); n.classList.add(lineClass(d));
+    }
+  }
+
+  // ── 產品部補檔清單：點了「資料夾裡沒有」的＋系統一份候選都沒有的 ──
+  function renderMiss(){
+    const rows = live().filter(d => inWin(d) && (effStatus(d) === 'nofile' || (isTodo(d) && !(d.cands || []).length))).sort(order);
+    const txt = rows.map(d => `・${d.ln}｜${d.p}${d.tt ? ' ' + d.tt : ''}${d.dy ? ' ' + d.dy + '天' : ''} ${d.an || d.al || ''}${d.dp && d.dp !== '台北' ? ' ' + d.dp + '出發' : ''}\n　最近出發 ${md(d.nextDt)}，${d.n} 團：${(d.codes || []).slice(0, 3).join('、')}${(answers[d.id] || {}).note ? '\n　備註：' + answers[d.id].note : ''}`).join('\n');
+    $('main').innerHTML = '<div class="list"><p class="q">' + esc(winLabel()) + '要出發、但雲端「行程檔案」資料夾裡找不到行程表的組（助理按了「資料夾裡沒有」，或系統一份候選都沒有）。請產品部把行程表 PDF 放進對應資料夾，下一次每小時同步就會出現在候選裡。舊版 PDF 請移到名稱有「舊」的資料夾，系統就不會拿來配。</p>'
+      + (rows.length ? '<div class="nav"><button class="primary" data-copy="1">複製清單文字（貼 LINE 給產品部）</button></div>'
+        + '<div class="tblwrap"><table class="miss"><thead><tr><th>產品線</th><th>產品</th><th>團型／天數／航空／出發地</th><th>最近出發</th><th>團數</th><th>團號</th><th>誰標的・備註</th></tr></thead><tbody>'
+        + rows.map(d => { const a = answers[d.id] || {}; return '<tr><td>' + esc(d.ln) + '</td><td>' + esc(d.p) + (d.bt && d.bt !== d.p ? '<br><span class="num">區塊 ' + esc(d.bt) + '</span>' : '') + '</td><td>' + esc(factsOf(d).join('・')) + '</td><td>' + esc(md(d.nextDt)) + '</td><td>' + d.n + '</td><td class="codes">' + esc((d.codes || []).join(' ')) + '</td><td>' + (effStatus(d) === 'nofile' ? esc(a.by || d.by || '') + (a.note || d.reason ? '：' + esc(a.note || d.reason) : '') : '<span class="num">系統沒找到候選</span>') + '</td></tr>'; }).join('')
+        + '</tbody></table></div>' : '<div class="empty">' + esc(winLabel()) + '沒有缺行程表的組。</div>')
+      + '</div>';
+    $('main').dataset.copy = '行程表缺檔清單（' + winLabel() + '出發）\n' + txt;
+  }
+
   async function save(id, patch){
     const d = docs.find(x => x.id === id); if (!d) return;
     const cur = answers[id] || {};
     const next = { v: patch.v ?? cur.v ?? '', note: patch.note ?? cur.note ?? drafts[id] ?? '', by: myName(), at: new Date().toISOString(), key: d.key };
     if (!next.v) return;   // 只改備註還沒選 → 不存
     if (!next.note) delete next.note;
+    const wasPick = patch.v !== undefined;
     answers[id] = next;
-    try { await db.collection('itin_pick_answers').doc(id).set(next); savedAt[id] = Date.now(); notice(''); }
+    try { if (!MOCK) await db.collection('itin_pick_answers').doc(id).set(next); savedAt[id] = Date.now(); notice(''); }
     catch (e) { notice('存檔失敗：' + e.message + '（可能是權限還沒開）'); }
-    render();
-  }
-  // 原始動態：dt_tours 一條線一份文件（rows 是 JSON 字串，每列 rw＝漢書原文那一行）。線名 → 文件編號 從 dt_tours/_meta.files 查
-  const rawLine = {}; let rawMeta = null;
-  async function rawRows(ln){
-    if (rawLine[ln]) return rawLine[ln];
-    return rawLine[ln] = (async () => {
-      if (!rawMeta) rawMeta = (await db.collection('dt_tours').doc('_meta').get()).data() || {};
-      const f = (rawMeta.files || []).find(x => x.line === ln); if (!f) throw new Error('找不到「' + ln + '」的漢書檔');
-      const doc = await db.collection('dt_tours').doc(f.f).get(); if (!doc.exists) throw new Error('漢書檔 ' + f.f + ' 不存在');
-      const rows = JSON.parse(doc.data().rows || '[]'); const byCode = {};
-      for (const r of rows) { if (!r.c || !r.rw) continue; (byCode[r.c] = byCode[r.c] || []).push(r.rw); }
-      return { byCode, stamp: doc.data().stamp || '' };
-    })().catch(e => { delete rawLine[ln]; throw e; });
-  }
-  async function toggleRaw(btn){
-    const d = docs.find(x => x.id === btn.dataset.raw); const pre = $('raw-' + btn.dataset.raw); if (!d || !pre) return;
-    const open = btn.getAttribute('aria-expanded') === 'true';
-    btn.setAttribute('aria-expanded', String(!open)); pre.hidden = open; if (open) return;
-    pre.textContent = '讀取漢書中…';
-    const show = (lines, stamp) => {
-      const seen = new Set(); const out = [];
-      for (const [c, rw] of lines) { if (!rw || seen.has(rw)) continue; seen.add(rw); out.push(rw.replace(c, '\u0000' + c + '\u0001')); }
-      pre.innerHTML = (out.length ? out.map(esc).join('\n').replace(/\u0000/g, '<span class="rc">').replace(/\u0001/g, '</span>') : '這幾團在目前的漢書檔裡找不到（可能已出發或改團號）')
-        + '\n<span class="q">漢書 ' + esc(stamp) + '・' + out.length + ' 行（最多列 5 團）</span>';
-    };
-    // 優先用確認表文件自帶的 rws（confirm.mjs 每小時跟 codes 一起寫，不登入也讀得到）；舊文件沒有 rws 才退回讀 dt_tours（要有 D1 系統登入）
-    if (Array.isArray(d.rws) && d.rws.length) { show((d.codes || []).map((c, i) => [c, d.rws[i] || '']), d.stamp || ''); return; }
-    try { const { byCode, stamp } = await rawRows(d.ln); show((d.codes || []).flatMap(c => (byCode[c] || []).map(rw => [c, rw])), stamp); }
-    catch (e) { pre.textContent = /permission|insufficient/i.test(e.message) ? '這張卡的原始動態要等下一次每小時同步後才有（新欄位 rws）。' : '讀不到原始動態：' + e.message; }
+    if (mode === 'page' && document.querySelector('.sheet')) {
+      stats(); renderLines(); refreshPageClasses();
+      if (wasPick && next.v !== 'unsure') step(1); else renderSide();
+    } else render();
   }
   document.addEventListener('click', e => {
-    const stop = e.target.closest('[data-stop]'); if (stop) return;
-    const rb = e.target.closest('.rawbtn'); if (rb) { toggleRaw(rb); return; }
+    if (e.target.closest('[data-stop]')) return;
+    const m = e.target.closest('#modes button'); if (m) { mode = m.dataset.m; lsSet('confirmMode', mode); render(); return; }
+    const w = e.target.closest('#wins button'); if (w) { win = +w.dataset.w; lsSet('confirmWin', String(win)); render(); return; }
     const f = e.target.closest('#filters button'); if (f) { filter = f.dataset.f; render(); return; }
-    const l = e.target.closest('#lines button'); if (l) { line = l.dataset.l; render(); return; }
+    const l = e.target.closest('#lines .tile'); if (l) { line = l.dataset.l; sel = null; lsSet('confirmLine', line); if (mode === 'miss') mode = 'page'; render(); return; }
+    const gt = e.target.closest('[data-goto]'); if (gt) { mode = 'page'; lsSet('confirmMode', mode); sel = gt.dataset.goto; render(); setTimeout(() => sel && select(sel, true), 60); return; }
+    const nv = e.target.closest('[data-nav]'); if (nv) { step(nv.dataset.nav === 'prev' ? -1 : 1); return; }
+    const cp = e.target.closest('[data-copy]'); if (cp) { navigator.clipboard.writeText($('main').dataset.copy || '').then(() => { cp.textContent = '已複製'; }, () => notice('複製失敗，請手動選取表格')); return; }
+    const g = e.target.closest('.sheet .l.g'); if (g) { select(g.dataset.g, false); return; }
     if (!myName()) { const c0 = e.target.closest('.cand,.btns button'); if (c0) { notice('先填名字再點選'); $('who').focus(); } return; }
     const c = e.target.closest('.cand'); if (c) { save(c.dataset.id, { v: c.dataset.pick }); return; }
     const b = e.target.closest('.btns button'); if (b) { save(b.dataset.id, { v: b.dataset.v }); return; }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.closest('input,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest('.cand') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.target.closest('.cand').click(); return; }
+    if (mode !== 'page' || !document.querySelector('.sheet')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'j') { e.preventDefault(); step(1); return; }
+    if (k === 'k') { e.preventDefault(); step(-1); return; }
+    if (!sel) return;
+    if (/^[0-8]$/.test(k)) {
+      if (!myName()) { notice('先填名字再點選'); $('who').focus(); return; }
+      e.preventDefault();
+      if (k === '0') { save(sel, { v: 'none' }); return; }
+      const c = document.querySelectorAll('#side .cand')[+k - 1]; if (c) c.click();
+    }
   });
   document.addEventListener('input', e => {
     const t = e.target.closest('textarea[data-note]'); if (!t) return;
@@ -257,10 +488,16 @@ const db = firebase.firestore();
   });
   async function load(){
     try {
-      const [cs, as] = await Promise.all([db.collection('itin_confirm').get(), db.collection('itin_pick_answers').get()]);
-      docs = []; cs.forEach(x => { if (x.id === '_meta') meta = x.data(); else docs.push({ id: x.id, ...x.data() }); });
-      as.forEach(x => { answers[x.id] = x.data(); });
-      if (!meta) meta = { stamp: '' };
+      if (MOCK) {
+        mockData = await (await fetch(MOCK)).json();
+        meta = mockData.meta || { stamp: '' }; docs = mockData.confirm || []; answers = mockData.answers || {};
+      } else {
+        const [cs, as] = await Promise.all([db.collection('itin_confirm').get(), db.collection('itin_pick_answers').get()]);
+        docs = []; cs.forEach(x => { if (x.id === '_meta') meta = x.data(); else docs.push({ id: x.id, ...x.data() }); });
+        as.forEach(x => { answers[x.id] = x.data(); });
+        if (!meta) meta = { stamp: '' };
+      }
+      if (line && !docs.some(d => d.n && d.ln === line)) line = '';
       render();
     } catch (e) { $('lede').textContent = '讀不到確認表：' + e.message + '（Firestore 規則可能還沒開放這個頁面）'; }
   }
