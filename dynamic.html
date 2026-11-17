@@ -2592,10 +2592,13 @@ $('convert-btn').onclick = async () => {
 // ── 建立合約：帶團號＋團費開合約系統（findit-contract 會自動解析團號選範本、算費用×人數）──
 //   合約系統有自己的登入門禁（跟舊外掛同一批白名單帳號），這裡只負責把資料帶過去。
 // ── 貼文產生器入口（Daniel 2026-11-09）：頂欄＝從零開始；選取卡＝帶團號直達（官網業務頁 sales.html?post=1&c=團號，同一組 D1 員編登入） ──
-$('post-btn').onclick = () => { window.open(`${ITIN_BASE}/daren/sales.html?post=1`, '_blank', 'noopener'); };
+// 大仁哥本人（官網管理員）按的時候直接開官網「管理後台」的貼文分頁，其他業務照舊開業務專屬頁後台（Daniel 2026-11-17）
+const POST_OWNERS = ['69660@d-group.app'];
+const postUrl = c => { const own = !!(auth.currentUser && POST_OWNERS.includes(String(auth.currentUser.email || '').toLowerCase())), q = c ? 'c=' + encodeURIComponent(c) : ''; return own ? `${ITIN_BASE}/daren/admin.html${q ? '?' + q : ''}#post` : `${ITIN_BASE}/daren/sales.html?post=1${q ? '&' + q : ''}`; };
+$('post-btn').onclick = () => { window.open(postUrl(''), '_blank', 'noopener'); };
 $('post-gen-btn').onclick = () => {
   const rows = selRows(); if (rows.length !== 1 || !webOf(rows[0].c)) return;
-  window.open(`${ITIN_BASE}/daren/sales.html?post=1&c=${encodeURIComponent(rows[0].c)}`, '_blank', 'noopener');
+  window.open(postUrl(rows[0].c), '_blank', 'noopener');
   toast('已開啟貼文產生器，帶入 ' + rows[0].c);
 };
 $('contract-btn').onclick = () => {
