@@ -96,6 +96,14 @@ body.pagemode .tile .n .w{display:none}
 .tag.star{background:var(--accent-soft);color:var(--accent)}
 .tag.ok{background:var(--ok-soft);color:var(--ok)} .tag.part{background:var(--warn-soft);color:var(--warn)} .tag.bad{background:var(--bad-soft);color:var(--bad)}
 .cand a{flex:none;font-size:13px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);border-radius:6px;padding:2px 8px}
+mark.g,mark.r{border-radius:3px;padding:0 2px;font-weight:700}
+mark.g{background:var(--ok-soft);color:var(--ok)} mark.r{background:var(--bad-soft);color:var(--bad)}
+.cand.conf{border-color:var(--bad)} .cand .why{display:block;font-size:12.5px;color:var(--bad);margin-top:2px}
+.tile.cnfold{border-style:dashed;color:var(--muted)}
+.aud{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--bad);border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.aud.muted{border-left-color:var(--line);opacity:.7}
+.aud.hit{box-shadow:0 0 0 3px var(--accent-soft)}
+.aud .why{font-weight:600}
 .btns{display:flex;flex-wrap:wrap;gap:6px}
 .btns button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:5px 14px;cursor:pointer}
 .btns button[aria-pressed="true"][data-v="none"]{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
@@ -161,6 +169,8 @@ kbd{font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--line);b
     <div>2. <b>整頁漢書</b>：左邊就是漢書整頁（業務名字、領隊已拿掉），黃色＝還沒確認、綠色＝已確認、紅色＝資料夾裡沒有。點黃色那一行，右邊列出候選行程，點正確那份就存，自動跳到下一組黃色。鍵盤：<kbd>1</kbd>～<kbd>8</kbd> 選檔、<kbd>0</kbd> 資料夾裡沒有、<kbd>J</kbd>/<kbd>K</kbd> 下一組／上一組。</div>
     <div>3. <b>卡片</b>：一張卡＝同一組（同產品、團型、天數、航空、航線、時段、出發地），卡上有漢書的區塊標題、航班時刻和整組團，照漢書順序排。✓＝PDF 航班跟漢書一樣，△ 部分一樣，✗ 不一樣（多半是舊版）。</div>
     <div>4. 都不對 → <b>資料夾裡沒有</b>（會進「產品部補檔清單」）；真的看不出來 → <b>看不出來</b>。點了就自動存，之後同一組的新團會自動沿用。</div>
+    <div>5. 候選檔名裡<mark class="g">綠字</mark>＝跟漢書團型對得上、<mark class="r">紅字</mark>＝對不上（例如漢書「豪華」、檔名「櫻花」），選紅字的會再問一次。大陸線官網不上架，收在最後。</div>
+    <div>6. <b>疑似掛錯</b>：每天早上 6 點系統核對官網，怪怪的列在這裡（LINE 清單的連結也是點到這裡）。真的錯 →「去改這組」；沒錯 →「這是誤報」，之後不再報。</div>
   </details>
   <div class="me">
     <label for="who">你的名字</label>
@@ -180,6 +190,7 @@ kbd{font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--line);b
     <div class="filters" role="group" aria-label="檢視" id="modes">
       <button data-m="page" aria-pressed="true">整頁漢書</button>
       <button data-m="card" aria-pressed="false">卡片</button>
+      <button data-m="audit" aria-pressed="false">疑似掛錯</button>
       <button data-m="miss" aria-pressed="false">產品部補檔清單</button>
       <button data-m="log" aria-pressed="false">助理工作紀錄</button>
     </div>
@@ -226,7 +237,8 @@ const db = firebase.firestore();
 
   let docs = [], meta = null, answers = {};
   let mode = lsGet('confirmMode') || 'page', win = +(lsGet('confirmWin') ?? 45), filter = 'todo', line = lsGet('confirmLine') || '';
-  if (!['page', 'card', 'miss'].includes(mode)) mode = 'page';
+  if (!['page', 'card', 'miss', 'audit'].includes(mode)) mode = 'page';
+  let audit = null, auditOk = {}, showCN = lsGet('confirmShowCN') === '1', hitCode = '';
   if (![0, 45, 90].includes(win)) win = 45;
   const drafts = {}, timers = {}, savedAt = {};
   const pages = {};   // 檔號 → itin_pages 文件（整頁漢書）
@@ -248,9 +260,41 @@ const db = firebase.firestore();
   const lineList = () => {
     const m = {};
     for (const d of live()) { const x = m[d.ln] ??= { ln: d.ln, f: d.f ?? '99', todoWin: 0, todo: 0, n: 0 }; x.n++; if (isTodo(d)) { x.todo++; if (inWin(d)) x.todoWin++; } if (d.f && d.f < x.f) x.f = d.f; }
-    return Object.values(m).sort((a, b) => +a.f - +b.f);
+    return Object.values(m).sort((a, b) => (isCN(a.ln) - isCN(b.ln)) || (+a.f - +b.f));
   };
   const winLabel = () => win ? win + ' 天內' : '全部日期';
+  const isCN = ln => /大陸/.test(ln || '');   // 大陸線：法規關係官網不上架，收到最後（2026-11-17 Daniel）
+
+  // ── 團型 vs 行程表檔名：相符字綠、矛盾字紅（規則跟 findit-hanshu/team-theme.mjs 同一套，改這裡要一起改）──
+  const TNORM = s => String(s || '').replace(/芝櫻|櫻紫藤/g, '芝◇');
+  const THEMES = [['櫻', /櫻/, /(?<!芝)櫻(?!紫藤)/g], ['樹冰', /樹冰/, /樹冰/g], ['雪壁', /雪壁|立山/, /雪壁|立山/g], ['楓', /楓/, /楓/g], ['富士山', /富士山/, /富士山/g], ['湯樂城', /湯樂城/, /湯樂城/g], ['螃蟹', /螃蟹|蟹/, /螃蟹|蟹/g], ['極光', /極光/, /極光/g], ['破冰', /破冰/, /破冰/g], ['芝櫻', /芝◇/, /芝櫻/g]];
+  const themesOf = s => THEMES.filter(([, re]) => re.test(TNORM(s))).map(([k]) => k);
+  const TIERS = ['超值', '精彩', '豪華', '樂活', '快閃', '尊爵', '經典', '特惠'];
+  const tierOf = s => TIERS.find(w => String(s || '').includes(w)) || '';
+  const DEP = { 台中: /台中|中出|２中/g, 高雄: /高雄|高出|２高|小港/g };
+  let altsByLn = {};
+  function teamMarks(d, name){
+    const tt = d.tt || '', want = themesOf(tt), have = themesOf(name), good = [], bad = [], why = [];
+    const reOf = k => THEMES.find(x => x[0] === k)[2];
+    for (const w of want) { if (have.includes(w)) good.push(reOf(w)); else why.push('漢書團型「' + tt + '」，這份沒有「' + w + '」'); }
+    if (!want.length) {
+      for (const h of have) if (h !== '極光') { const o = (altsByLn[d.ln] || []).find(a => a !== tt && themesOf(a).includes(h)); if (o) { bad.push(reOf(h)); why.push('漢書團型「' + tt + '」，這份是「' + h + '」版（「' + o + '」團才用）'); } }
+      const a = tierOf(tt), b = tierOf(name);
+      if (a && b) { if (a === b) good.push(new RegExp(a, 'g')); else { bad.push(new RegExp(b, 'g')); why.push('漢書團型「' + tt + '」，這份是「' + b + '」版'); } }
+    }
+    const dp = d.dp || '台北';
+    for (const [k, re] of Object.entries(DEP)) { re.lastIndex = 0; if (re.test(name)) { if (dp === k) good.push(DEP[k]); else { bad.push(DEP[k]); why.push('團從' + dp + '出發，這份寫' + k); } } }
+    return { good, bad, why: isCN(d.ln) ? [] : why };
+  }
+  function markName(name, m){
+    const rs = [];
+    for (const [cls, list] of [['r', m.bad], ['g', m.good]]) for (const re of list) { re.lastIndex = 0; let x; while ((x = re.exec(name))) { rs.push([x.index, x.index + x[0].length, cls]); if (!x[0].length) re.lastIndex++; } }
+    rs.sort((a, b) => a[0] - b[0]);
+    let h = '', p = 0;
+    for (const [a, b, cls] of rs) { if (a < p) continue; h += esc(name.slice(p, a)) + '<mark class="' + cls + '">' + esc(name.slice(a, b)) + '</mark>'; p = b; }
+    return h + esc(name.slice(p));
+  }
+  const groupOfCode = c => c && live().find(d => (d.codes || []).includes(c) || (d.ra || []).some(s => s.includes(c)) || (d.rws || []).some(s => s.includes(c)));
 
   function stats(){
     if (!meta) return;
@@ -261,10 +305,11 @@ const db = firebase.firestore();
     for (const d of L) { total += d.n; const s = effStatus(d); if (s === 'auto' || s === 'confirmed') usable += d.n; }
     const rate = total ? Math.round(usable / total * 100) : 0;
     $('sRate').textContent = rate + '%'; $('sBar').style.width = rate + '%';
-    $('sWinLb').textContent = winLabel() + '待確認'; $('sWin').textContent = todoWin;
+    const cnWin = L.filter(d => isTodo(d) && inWin(d) && isCN(d.ln)).length;
+    $('sWinLb').textContent = winLabel() + '待確認' + (cnWin ? '（不含大陸）' : ''); $('sWin').textContent = todoWin - cnWin;
     $('sPending').textContent = todo; $('sConfirmed').textContent = conf; $('sAuto').textContent = auto;
     $('sStamp').textContent = meta.stamp || '';
-    $('lede').textContent = `全公司未出發的正常團 ${total} 團、${L.length} 組。系統有把握的 ${auto} 組已自動確認；${winLabel()}要出發、還沒確認的有 ${todoWin} 組，先從這些點起。`;
+    $('lede').textContent = `全公司未出發的正常團 ${total} 團、${L.length} 組。系統有把握的 ${auto} 組已自動確認；${winLabel()}要出發、還沒確認的有 ${todoWin - cnWin} 組（大陸線另 ${cnWin} 組，官網不上架，可以最後再看），先從這些點起。`;
   }
   function fcTag(fc){ return fc === 'ok' ? '<span class="tag ok">✓ 航班相符</span>' : fc === 'part' ? '<span class="tag part">△ 航班部分相符</span>' : fc === 'bad' ? '<span class="tag bad">✗ 航班不符</span>' : ''; }
   function candsOf(d){
@@ -274,10 +319,12 @@ const db = firebase.firestore();
     return { cands, v, a, st };
   }
   function candHtml(d, c, pressed, k){
-    return '<div class="cand" role="button" tabindex="0" data-id="' + esc(d.id) + '" data-pick="' + esc(c.id) + '" aria-pressed="' + pressed + '">'
+    const nm = String(c.n || '').replace(/\.(pdf|docx?)$/i, ''), mk = teamMarks(d, nm);
+    return '<div class="cand' + (mk.why.length ? ' conf' : '') + '" role="button" tabindex="0" data-id="' + esc(d.id) + '" data-pick="' + esc(c.id) + '" aria-pressed="' + pressed + '"' + (mk.why.length ? ' data-warn="' + esc(mk.why.join('\n')) + '"' : '') + '>'
       + (k ? '<span class="key">' + k + '</span>' : '<span class="dot"></span>')
-      + '<span class="txt"><span class="fn">' + esc(String(c.n || '').replace(/\.(pdf|docx?)$/i, '')) + '</span>'
+      + '<span class="txt"><span class="fn">' + markName(nm, mk) + '</span>'
       + (c.star ? '<span class="tag star">系統首選</span>' : '') + fcTag(c.fc)
+      + (mk.why.length ? '<span class="why">⚠ ' + esc(mk.why[0]) + '</span>' : '')
       + '<span class="fd">' + esc(c.path || '') + '</span></span>'
       + '<a href="https://drive.google.com/file/d/' + encodeURIComponent(c.id) + '/view" target="_blank" rel="noopener" data-stop="1">開啟</a></div>';
   }
@@ -296,6 +343,7 @@ const db = firebase.firestore();
   function decisionHtml(d, withKeys){
     const { cands, v, a, st } = candsOf(d);
     return (d.reason ? '<p class="q">系統：' + esc(d.reason) + '</p>' : '')
+      + (d.tt && !isCN(d.ln) ? '<p class="q">檔名裡<mark class="g">綠字</mark>＝跟漢書團型「' + esc(d.tt) + '」對得上，<mark class="r">紅字</mark>＝對不上（選了會再問一次）。</p>' : '')
       + (st === 'auto' ? '<p class="q">' + (d.seasonal ? '系統自動確認（依出發期間分檔）。' : '系統自動確認：唯一候選、航班相符、每團一致。') + '覺得不對可以改點別份。</p>' : '')
       + (a.by ? '<p class="saved">已由 ' + esc(a.by) + ' 於 ' + esc((a.at || '').slice(0, 16).replace('T', ' ')) + ' 確認' + (savedAt[d.id] ? '（已存）' : '') + '</p>' : (d.by && st !== 'review' ? '<p class="saved">已由 ' + esc(d.by) + ' 確認</p>' : ''))
       + '<div class="cands">' + cands.map((c, i) => candHtml(d, c, v === c.id, withKeys && i < 8 ? i + 1 : 0)).join('') + (cands.length ? '' : '<p class="q">系統沒找到任何候選，請按「資料夾裡沒有」，會轉給產品部補檔。</p>') + '</div>'
@@ -316,11 +364,13 @@ const db = firebase.firestore();
   }
 
   function renderLines(){
-    const ls = lineList();
+    const all = lineList(), cn = all.filter(x => isCN(x.ln)), open = showCN || isCN(line);
+    const ls = all.filter(x => !isCN(x.ln) || open);
     $('lines').innerHTML = ls.map(x => '<button class="tile" data-l="' + esc(x.ln) + '" aria-pressed="' + (line === x.ln) + '"><b>' + esc(x.ln) + '</b>'
       + '<span class="n' + (x.todoWin ? '' : ' zero') + '">' + (x.todoWin ? '<span class="w">' + winLabel() + ' </span>' + x.todoWin + ' 組待確認' : '<span class="w">' + winLabel() + '</span>都確認了') + '</span>'
-      + '<span class="m">全部待確認 ' + x.todo + '／共 ' + x.n + ' 組</span></button>').join('');
-    $('lines').hidden = mode === 'miss';
+      + '<span class="m">全部待確認 ' + x.todo + '／共 ' + x.n + ' 組</span></button>').join('')
+      + (cn.length ? '<button class="tile cnfold" data-cn="1" aria-expanded="' + open + '"><b>' + (open ? '收起大陸線 ▴' : '大陸線 ▾') + '</b><span class="n">官網不上架，最後再看</span><span class="m">' + cn.reduce((a, x) => a + x.todoWin, 0) + ' 組待確認</span></button>' : '');
+    $('lines').hidden = mode === 'miss' || mode === 'audit';
   }
   function render(){
     stats();
@@ -329,8 +379,10 @@ const db = firebase.firestore();
     for (const b of $('wins').querySelectorAll('button')) b.setAttribute('aria-pressed', String(+b.dataset.w === win));
     for (const b of $('filters').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.f === filter));
     $('filters').hidden = mode !== 'card';
+    const ab = $('modes').querySelector('[data-m="audit"]'); if (ab) { const n = audit ? audit.list.filter(x => !auditOk[x.k]).length : 0; ab.textContent = '疑似掛錯' + (n ? '（' + n + '）' : ''); }
     renderLines();
     if (mode === 'miss') return renderMiss();
+    if (mode === 'audit') return renderAudit();
     if (mode === 'log') return renderLog();
     if (!line) { $('main').innerHTML = '<div class="empty">先點上面一條產品線（跟漢書分檔一樣）。數字是 ' + esc(winLabel()) + '要出發、還沒確認的組數。</div>'; return; }
     if (mode === 'page') return renderPage();
@@ -435,6 +487,40 @@ const db = firebase.firestore();
     }
   }
 
+  // ── 疑似掛錯：每天早上 6 點核對官網（findit-hanshu/itin-audit.mjs → itin_audit/latest），LINE 清單點進來就是這頁 ──
+  function renderAudit(){
+    if (!audit) { $('main').innerHTML = '<div class="empty">今天的核對結果還沒上傳（每天早上 6 點跑）。</div>'; return; }
+    const card = x => {
+      const ok = auditOk[x.k], g = groupOfCode(x.code), hit = hitCode && (x.code === hitCode || x.codes.some(c => c.startsWith(hitCode)));
+      return '<div class="aud' + (ok ? ' muted' : '') + (hit ? ' hit' : '') + '" data-aud="' + esc(x.k) + '">'
+        + '<div class="top"><span class="kind review">' + esc(x.kind) + '</span> <b>' + esc(x.section) + '</b> <span class="num">' + x.codes.length + ' 團</span></div>'
+        + '<div class="why">' + esc(x.why) + '</div>'
+        + '<div class="q">官網現在掛的行程表：' + esc(x.file) + '</div>'
+        + '<div class="q">團號：' + esc(x.codes.slice(0, 10).join('、')) + (x.codes.length > 10 ? ' 等 ' + x.codes.length + ' 團' : '') + '</div>'
+        + (ok ? '<p class="saved">' + esc(ok.by || '') + ' 標了「這是誤報」（' + esc(ok.at ? hm(ok.at) : '') + '），之後不再報。 <button class="linkbtn" data-aundo="' + esc(x.k) + '">取消誤報</button></p>'
+          : '<div class="btns">'
+            + (x.ov ? '<span class="q">這幾團是 Claude 強制指定的行程表，這裡改不動：真的掛錯請直接跟 Claude 說。</span>'
+              : g ? '<button data-goto="' + esc(g.id) + '">去改這組（整頁漢書）</button>' : '<span class="q">確認表找不到這團（可能已出發或是包團），請跟 Claude 說。</span>')
+            + '<button data-aok="' + esc(x.k) + '">這是誤報，不是掛錯</button></div>')
+        + '</div>';
+    };
+    const on = audit.list.filter(x => !auditOk[x.k]), off = audit.list.filter(x => auditOk[x.k]);
+    $('main').innerHTML = '<div class="list"><p class="q">每天早上 6 點，系統拿漢書的團型、天數、出發地、航空去對官網掛的行程表，怪怪的列在這裡（' + esc(audit.at ? hm(audit.at) : '') + ' 跑的）。'
+      + '真的掛錯 → 按「去改這組」選對的行程表；其實沒錯 → 按「這是誤報」，明天起就不再報。</p>'
+      + (on.length ? on.map(card).join('') : '<div class="empty">沒有疑似掛錯的團 👍</div>')
+      + (off.length ? '<h3 class="blk">已標誤報</h3>' + off.map(card).join('') : '') + '</div>';
+    if (hitCode) { const el = document.querySelector('.aud.hit'); if (el) el.scrollIntoView({ block: 'center' }); }
+  }
+  async function markAudit(k, on){
+    const x = audit && audit.list.find(y => y.k === k); if (!x) return;
+    try {
+      if (on) { const v = { by: myName(), at: new Date().toISOString(), kind: String(x.kind).slice(0, 20), file: String(x.file).slice(0, 200), why: String(x.why).slice(0, 200) }; if (!MOCK) await db.collection('itin_audit_ok').doc(k).set(v); auditOk[k] = v; }
+      else { if (!MOCK) await db.collection('itin_audit_ok').doc(k).delete(); delete auditOk[k]; }
+      notice('');
+    } catch (e) { notice('存檔失敗：' + e.message + '（可能是權限還沒開）'); }
+    render();
+  }
+
   // ── 產品部補檔清單：點了「資料夾裡沒有」的＋系統一份候選都沒有的 ──
   function renderMiss(){
     const rows = live().filter(d => inWin(d) && (effStatus(d) === 'nofile' || (isTodo(d) && !(d.cands || []).length))).sort(order);
@@ -532,11 +618,18 @@ const db = firebase.firestore();
     const f = e.target.closest('#filters button'); if (f) { filter = f.dataset.f; render(); return; }
     const l = e.target.closest('#lines .tile'); if (l) { line = l.dataset.l; sel = null; lsSet('confirmLine', line); if (mode === 'miss') mode = 'page'; render(); return; }
     const gt = e.target.closest('[data-goto]'); if (gt) { mode = 'page'; lsSet('confirmMode', mode); sel = gt.dataset.goto; const gd = docs.find(x => x.id === sel); if (gd) { line = gd.ln; if (!inWin(gd)) win = 0; } render(); setTimeout(() => sel && select(sel, true), 60); return; }
+    const cnb = e.target.closest('[data-cn]'); if (cnb) { const open = showCN || isCN(line); showCN = !open; if (open && isCN(line)) { line = ''; sel = null; } lsSet('confirmShowCN', showCN ? '1' : '0'); render(); return; }
+    const au = e.target.closest('[data-aundo]'); if (au) { markAudit(au.dataset.aundo, false); return; }
     const nv = e.target.closest('[data-nav]'); if (nv) { step(nv.dataset.nav === 'prev' ? -1 : 1); return; }
     const cp = e.target.closest('[data-copy]'); if (cp) { navigator.clipboard.writeText($('main').dataset.copy || '').then(() => { cp.textContent = '已複製'; }, () => notice('複製失敗，請手動選取表格')); return; }
     const g = e.target.closest('.sheet .l.g'); if (g) { select(g.dataset.g, false); return; }
+    const aok = e.target.closest('[data-aok]'); if (aok && !myName()) { notice('先填名字再按'); $('who').focus(); return; }
+    if (aok) { markAudit(aok.dataset.aok, true); return; }
     if (!myName()) { const c0 = e.target.closest('.cand,.btns button'); if (c0) { notice('先填名字再點選'); $('who').focus(); } return; }
-    const c = e.target.closest('.cand'); if (c) { save(c.dataset.id, { v: c.dataset.pick }); return; }
+    const c = e.target.closest('.cand'); if (c) {
+      // 選了跟漢書團型對不上的（紅字）→ 再問一次（2026-11-17 會診第一包）
+      if (c.dataset.warn && c.getAttribute('aria-pressed') !== 'true' && !confirm('這份行程表跟漢書對不上：\n' + c.dataset.warn + '\n\n確定這組就是用這一份嗎？')) return;
+      save(c.dataset.id, { v: c.dataset.pick }); return; }
     const b = e.target.closest('.btns button'); if (b) { save(b.dataset.id, { v: b.dataset.v }); return; }
   });
   document.addEventListener('keydown', e => {
@@ -563,15 +656,26 @@ const db = firebase.firestore();
     try {
       if (MOCK) {
         mockData = await (await fetch(MOCK)).json();
-        meta = mockData.meta || { stamp: '' }; docs = mockData.confirm || []; answers = mockData.answers || {};
+        meta = mockData.meta || { stamp: '' }; docs = mockData.confirm || []; answers = mockData.answers || {}; audit = mockData.audit || null; auditOk = mockData.auditOk || {};
       } else {
         const [cs, as] = await Promise.all([db.collection('itin_confirm').get(), db.collection('itin_pick_answers').get()]);
         docs = []; cs.forEach(x => { if (x.id === '_meta') meta = x.data(); else docs.push({ id: x.id, ...x.data() }); });
         as.forEach(x => { answers[x.id] = x.data(); });
+        try { const a = await db.collection('itin_audit').doc('latest').get(); if (a.exists) audit = a.data(); (await db.collection('itin_audit_ok').get()).forEach(x => { auditOk[x.id] = x.data(); }); } catch (e) { /* 規則還沒開就不顯示疑似掛錯 */ }
         try { (await db.collection('itin_pick_log').orderBy('at', 'desc').limit(3000).get()).forEach(x => logs.push(x.data())); } catch (e) { /* 規則還沒開就只看 answers */ }
         if (!meta) meta = { stamp: '' };
       }
+      altsByLn = {}; for (const d of docs) if (d.n && d.tt) { const a = (altsByLn[d.ln] ??= []); if (!a.includes(d.tt)) a.push(d.tt); }
       if (line && !docs.some(d => d.n && d.ln === line)) line = '';
+      // 直達連結：confirm.html?c=團號（LINE 核對清單每一條都帶）→ 疑似掛錯清單裡有就先停在那一條；沒有就直接跳到那一組
+      const qc = (new URLSearchParams(location.search).get('c') || '').trim().toUpperCase();
+      if (qc) {
+        hitCode = qc;
+        const g = groupOfCode(qc);
+        if (audit && audit.list.some(x => x.code === qc || x.codes.some(c => c.startsWith(qc)))) mode = 'audit';
+        else if (g) { mode = 'page'; line = g.ln; sel = g.id; if (!inWin(g)) win = 0; render(); setTimeout(() => select(g.id, true), 300); return; }
+        else notice('確認表找不到團號 ' + qc + '（可能已出發、或是包團）');
+      }
       render();
     } catch (e) { $('lede').textContent = '讀不到確認表：' + e.message + '（Firestore 規則可能還沒開放這個頁面）'; }
   }

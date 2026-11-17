@@ -180,6 +180,24 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // itin_audit：每天早上的官網行程核對結果（findit-hanshu/itin-audit.mjs 寫），確認表「疑似掛錯」分頁讀（2026-11-17）
+    match /itin_audit/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // itin_audit_ok：確認表按「這是誤報」→ 之後同一份行程表＋同一個原因不再報；可取消（刪除）。欄位固定、字數有限
+    match /itin_audit_ok/{docId} {
+      allow read: if true;
+      allow create, update: if docId.size() <= 20
+                    && request.resource.data.keys().hasOnly(['by', 'at', 'kind', 'file', 'why'])
+                    && request.resource.data.by is string && request.resource.data.by.size() <= 40
+                    && request.resource.data.at is string && request.resource.data.at.size() <= 40
+                    && request.resource.data.kind is string && request.resource.data.kind.size() <= 20
+                    && request.resource.data.file is string && request.resource.data.file.size() <= 200
+                    && request.resource.data.why is string && request.resource.data.why.size() <= 200;
+      allow delete: if true;
+    }
+
     // dt_agent：動態查詢的業務個人設定（轉換連結用的名片資料），只能讀寫自己的
     match /dt_agent/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId && !isRecorder();
