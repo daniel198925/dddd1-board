@@ -2556,7 +2556,7 @@ $('convert-btn').onclick = async () => {
       const idToken = await auth.currentUser.getIdToken();
       const links = {};
       for (const { file, codes, pv, picks, prods } of byFile.values()) {
-        let longUrl = `${ITIN_BASE}/?id=${file.id}&n=${encodeURIComponent(AGENT.name)}`;
+        let longUrl = `${ITIN_BASE}/itinerary/?id=${file.id}&n=${encodeURIComponent(AGENT.name)}`;   // 專屬行程表 2026-11-18 從 / 搬到 /itinerary/（官網搬到根網域）；舊的 /?id= 會自動轉過來
         if (AGENT.phone) longUrl += `&p=${encodeURIComponent(AGENT.phone)}`;
         if (AGENT.line)  longUrl += `&l=${encodeURIComponent(AGENT.line)}`;
         if (AGENT.fb)    longUrl += `&fb=${encodeURIComponent(AGENT.fb)}`;

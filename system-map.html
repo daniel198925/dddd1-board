@@ -424,6 +424,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <h2>10/19 之後新增</h2>
     <p class="sub">上次畫圖以後加上去的功能，新的在前面。</p>
     <ul class="list two">
+      <li><span class="time">11/18</span><span>官網搬到根網域：對外網址拿掉 /daren（首頁 discoveredtrip.com/、團頁 /t/團名、專欄 /a/、地區 /r/、目的地 /d/、/about、/cny、/aurora、/snow；報名進度查詢 /order、防詐騙須知 /notice），舊網址自動轉到新網址（11/20 後改永久轉址）；業務專屬行程表搬到 /itinerary/（舊的 /?id= 連結照常能開），動態查詢「轉連結」改成直接產生新格式；圖片、資料檔、管理後台（/daren/admin.html）、業務後台（/daren/sales.html）位置不變；首頁與列表的團卡、地區、目的地連結改成 Google 看得懂的真網址；閱讀頁帶推薦碼進來會保存。</span></li>
       <li><span class="time">11/17</span><span>官網首頁輪播加「歐洲河輪講座」橫幅：列出 12 月 5 場說明會日期（估價平台 seminars 的 SEM-20261201～1230），點日期直接開那一場報名表並記成 D1 組（?s=場次&amp;g=D1）；過了的場次自動拿掉，5 場都過就整張消失。底圖是 GPT 照禾岳號實船照片畫的布達佩斯夜景，中文是網頁疊字。客人從業務專屬連結（?r=）進站，報名表「配合的業務」自動填那位業務（1811ec9）。itinerary-page main 4ce0738。</span></li>
       <li><span class="time">11/17</span><span>估價平台業務自報價可退回業務（v1.3.135）：產品部在免估價直轉的待出團單按「退回業務」必填原因→已退回＋業務新進度通知；業務「修正後重新送出」填新售價→直接回待出團；鎖團中不能退、團號行程表保留、退回紀錄存 meta.directReturnHistory。另：漢書名冊本部兼業務用 roster.mjs EXTRA_SALES（林昱辰＝昱→B組）。</span></li>
       <li><span class="time">11/17</span><span>估價平台帳號管理「疑似離職」提醒（v1.3.134）：每天拿業務帳號比對漢書「００人員」名冊，名冊沒有、帳號還能登入的列黃色區塊，一鍵停用／在職略過／是同一人（存 roster_review/state，可取消）；管理部看全公司、業務主管看本組；同日停用 10 位已離職業務（停用名單 30→40）；登入擋非數字英文開頭的代號。</span></li>
