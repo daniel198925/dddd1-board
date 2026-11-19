@@ -95,6 +95,21 @@ const half = s => (s || '').replace(/[０-９]/g, d => String.fromCharCode(d.cha
 //   （2026-10-01 抽查：大阪＝AK 京阪團的正解「京阪合掌村五日」檔名沒寫大阪被擋，反而星到「大阪櫻花五日」）
 const pNorm = s => nz(s || '').replace(/[＝=].*$/, '').trim();
 const ttNorm = s => nz(s || '').replace(/[ＮN]$/, '');
+// 團型 → 比對用的字（2026-11-19）：{ main: 具體玩法字, grade: 等級全名（豪華／精彩／超值／尊爵）, all: 全部 }
+const TT_GRADE = { 豪: '豪華', 精: '精彩', 超: '超值', 尊: '尊爵' };
+function ttWords(rawTT, myTT) {
+  if (!myTT) return { main: [], grade: '', all: [] };
+  if (TT_ALIAS[rawTT]) return { main: TT_ALIAS[rawTT], grade: '', all: TT_ALIAS[rawTT].concat([myTT]) };
+  if (TT_ALIAS[myTT]) return { main: TT_ALIAS[myTT], grade: '', all: TT_ALIAS[myTT].concat([myTT]) };
+  const main = [myTT];
+  for (const k of Object.keys(TT_ALIAS)) if (k !== myTT && k.length >= 2 && myTT.includes(k)) main.push(...TT_ALIAS[k]);
+  let grade = '';
+  const g = TT_GRADE[myTT[0]];
+  if (g && myTT.length >= 3 && !myTT.startsWith(g)) grade = g;
+  const rest = myTT.slice(1);
+  if (grade && rest.length >= 2 && !main.includes(rest)) main.push(rest);   // 豪賞櫻 → 賞櫻（就算別名表沒有也拿尾巴比）
+  return { main: [...new Set(main)], grade, all: [...new Set(main.concat(grade ? [grade] : []))] };
+}
 function bestMatchIds(folder, t) {
   // 帶著「所在資料夾路徑」一起評分——時段（午/早/晚）常寫在資料夾名（酷航(午晚)），不在檔名
   const all = [];
@@ -423,9 +438,13 @@ function scoreFile(t, f, path, hasDash) {
   }
   //   「標準團」是漢書的通用佔位名、不是真團型（2026-10-16 大仁哥對照表發現）→ 當未知團型，不加分也不套「別的團型」扣分
   const myTT = ttNorm(t.tt) === '標準團' ? '' : ttNorm(t.tt);
-  const al = myTT ? (TT_ALIAS[t.tt] || [myTT]) : [];
-  const ttHit = al.some(a => nm.includes(a));
+  // 組合團型（2026-11-19 高／東京＝FD「豪賞櫻」）：漢書把「豪華＋賞櫻」縮成三個字，TT_ALIAS 查不到。
+  //   拆法：① 團型名裡含別名表的 key（賞櫻）→ 借它的別名（櫻花／賞櫻）；② 開頭的 豪／精／超／尊 是 豪華／精彩／超值／尊爵 的縮寫。
+  //   檔名命中具體玩法字 +10，再命中等級字（豪華）+4；兩者都沒有就當沒命中。
+  const tw = ttWords(t.tt, myTT);
+  const ttHit = tw.main.some(a => nm.includes(a));
   if (ttHit) s += 10;
+  if (ttHit && tw.grade && nm.includes(tw.grade)) s += 4;
   // 同區塊有多個團型時要分乾淨（芬蘭：玻璃屋／破冰船／破＋玻）。
   //   「玻璃屋」是「破冰船+玻璃屋」的子字串，光用包含比對會兩個都中（使用者 2026-07-21 回報）
   if (myTT && t.alt) {
@@ -435,7 +454,7 @@ function scoreFile(t, f, path, hasDash) {
       // 組合團型：漢書寫縮寫「破＋玻」，檔名寫全名「破冰船+玻璃屋」→ 用同區塊選項還原縮寫
       const full = myTT.split(/[＋+]/).filter(Boolean).map(p => solo.find(n => n.startsWith(p)) || p);
       if (full.length > 1 && full.every(f => nm.includes(f))) s += 12;
-    } else if (solo.some(n => n !== myTT && nm.includes(n))) {
+    } else if (solo.some(n => n !== myTT && !tw.all.includes(n) && nm.includes(n))) {   // 自己團型的一部分（豪賞櫻的「豪華」）不算別種
       // 檔名出現同區塊「別的」團型 → 是別的商品或組合行程，不是這團。
       //   2026-10-16 查過「江西賞楓(限1015-1231)八日」輸給通用檔的案子：真因是團型被填成「標準團」（上面已改成當未知），
       //   不是這條扣分；試過「連寫就不扣」反而把山東團配到泰山檔，所以這條維持原樣。
