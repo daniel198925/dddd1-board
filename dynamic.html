@@ -1765,7 +1765,7 @@ function groupBlock(g, multi) {
     parts.push(line('官網', w
       ? `<span class="inline-flex items-center gap-1.5 flex-wrap justify-end"><span class="text-emerald-400 text-xs"><i class="fa-solid fa-globe mr-1"></i>已上線</span>
           <button class="web-open chip bg-blue-600 hover:bg-blue-500 text-white" data-c="${esc(r0.c)}" title="在新分頁打開官網這團的頁面${refTip}"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>開啟</button>
-          <button class="web-copy chip bg-[#1a2c50] hover:bg-[#24407a] text-slate-100" data-c="${esc(r0.c)}" title="複製官網團頁連結${refTip}"><i class="fa-regular fa-copy mr-1"></i>複製</button></span>`
+          <button class="web-copy chip bg-[#1a2c50] hover:bg-[#24407a] text-slate-100" data-c="${esc(r0.c)}" title="複製一段分享文：團名／出發日／航空／團費＋官網連結${refTip}"><i class="fa-regular fa-copy mr-1"></i>複製</button></span>`
       : `<span class="m3 font-normal text-xs">${WEB ? '未上線<span class="m4 ml-1">' + esc(webWhy(r0.c)) + '</span>' : '…'}</span>`)); }
 
   const cols = PERTOUR.filter(f => dshow[f.k]);
@@ -1881,8 +1881,8 @@ function showDetail() {
   // 官網連結：複製（手機 Safari 要同步寫剪貼簿，不先 await）
   $('detail-body').querySelectorAll('.web-copy').forEach(btn => {
     btn.onpointerdown = e => e.stopPropagation();
-    btn.onclick = e => { e.stopPropagation(); const u = webUrl(btn.dataset.c); if (!u) return;
-      try { navigator.clipboard.writeText(u).then(() => toast(MYREF ? '已複製官網連結（帶你的推薦碼）' : '已複製官網連結'), () => prompt('複製這段：', u)); } catch (err) { prompt('複製這段：', u); } };
+    btn.onclick = e => { e.stopPropagation(); const u = webShareText(btn.dataset.c); if (!u) return;
+      try { navigator.clipboard.writeText(u).then(() => toast(MYREF ? '已複製官網分享文（帶你的推薦碼）' : '已複製官網分享文'), () => prompt('複製這段：', u)); } catch (err) { prompt('複製這段：', u); } };
   });
   // 同班機其他目的地：點了跳到那一列
   $('detail-body').querySelectorAll('.sf-jump').forEach(btn => {
@@ -2029,6 +2029,29 @@ async function loadMyRef(){
 }
 const webOf = c => (WEB && WEB.codes && c && WEB.codes[c]) || null;
 const webWhy = c => !WEB ? '' : webOf(c) ? '' : (WEB.why || {})[c] === 'hidden' ? '目的地在官網隱藏中' : (WEB.why || {})[c] === 'nopdf' ? '沒有行程表' : '官網團庫沒有這團';
+// 官網分享文（2026-11-23 Daniel 要「複製」出來是好看的一段，不是光一條網址）：
+//   🌏 峴港 精彩 6天（高雄出發）
+//   📅 01/14（四）出發｜剩 29 位
+//   ✈️ 台灣虎航｜團費 26,900
+//   👉 看行程、線上報名：<短網址帶推薦碼>
+//   同一組選了多個出發日就列在同一行；團費照卡片顯示（切了團型就用切後的價）；國旅／郵輪沒航空那行省略
+function webShareText(c){
+  const u = webUrl(c); if (!u) return '';
+  const rows = selRows(); const r0 = rows.find(r => r.c === c) || (LINES.find(l => l.row && l.row.c === c) || {}).row;
+  if (!r0) return u;
+  const gk = groupKey(r0);
+  const same = rows.filter(r => groupKey(r) === gk); const g = same.length ? same : [r0];
+  const { price, tt } = priceOfRow(r0);
+  const anFull = an => /航$|航空$/.test(an) ? an : an + '航空';
+  const name = [r0.p, tt && tt !== '標準團' ? tt : '', r0.dy ? r0.dy + '天' : ''].filter(Boolean).join(' ') + (r0.dp && r0.dp !== '台北' ? `（${r0.dp}出發）` : '');
+  const dates = g.map(r => fmtDt(r.dt, true).replace(/\((.)\)/, '（$1）')).join('、');
+  const left = g.length === 1 ? (r0.r === 0 ? '已滿' : r0.r != null ? `剩 ${r0.r} 位` : '') : '';
+  const ls = [`🌏 ${name}`, `📅 ${dates} 出發${left ? '｜' + left : ''}`];
+  const fee = price != null ? `團費 ${fmt$(price)}` : '';
+  if (!r0.sp && r0.an) ls.push(`✈️ ${anFull(r0.an)}${fee ? '｜' + fee : ''}`); else if (fee) ls.push(`💰 ${fee}`);
+  ls.push(`👉 看行程、線上報名：${u}`);
+  return ls.join('\n');
+}
 function webUrl(c){ if (!webOf(c)) return ''; return `${ITIN_BASE}/api/go/${encodeURIComponent(c)}${MYREF ? '?r=' + MYREF : ''}`; }   // 短網址（Daniel 2026-11-10）：只放團號＋推薦碼，api/go 點下去才查團頁；對照表裡的團都在賣場快照，轉得到
 
 async function copyText(buildText) {
