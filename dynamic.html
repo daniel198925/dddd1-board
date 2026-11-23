@@ -1759,10 +1759,13 @@ function groupBlock(g, multi) {
   if (dshow.dt) parts.push(line('出發日', `<span class="inline-flex flex-wrap gap-1 justify-end">${g.map(r => `<span class="chip bg-[#1a2c50] text-slate-200" title="${esc(r.c)}">${fmtDt(r.dt, !!dshow.wk)}</span>`).join('')}</span>`));
   if (dshow.dy) parts.push(line('天數', r0.dy ? r0.dy + '天' : '--'));
   if (dshow.p)  parts.push(line('產品', `${esc(r0.p)}${r0.gw !== '直飛' ? '｜' + esc(r0.gw) : ''}${r0.dp !== '台北' ? '｜' + esc(r0.dp) + '出發' : ''}`));
-  // 官網（2026-11-09 Daniel）：已上線＝一鍵複製官網團頁連結（有推薦碼就帶上）；沒上線寫原因
+  // 官網（2026-11-09 Daniel；2026-11-23 改兩顆）：已上線＝「開啟」新分頁打開官網團頁、「複製」複製連結（有推薦碼就帶上）；沒上線寫原因
   { const w = webOf(r0.c);
+    const refTip = MYREF ? '（帶你的推薦碼，客人報名算你的）' : '（你還沒有推薦碼，用的是一般連結）';
     parts.push(line('官網', w
-      ? `<button class="web-copy text-blue-400 hover:underline" data-c="${esc(r0.c)}" title="複製官網團頁連結${MYREF ? '（帶你的推薦碼，客人報名算你的）' : '（你還沒有推薦碼，複製的是一般連結）'}"><i class="fa-solid fa-globe mr-1"></i>已上線・複製連結</button>`
+      ? `<span class="inline-flex items-center gap-1.5 flex-wrap justify-end"><span class="text-emerald-400 text-xs"><i class="fa-solid fa-globe mr-1"></i>已上線</span>
+          <button class="web-open chip bg-blue-600 hover:bg-blue-500 text-white" data-c="${esc(r0.c)}" title="在新分頁打開官網這團的頁面${refTip}"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>開啟</button>
+          <button class="web-copy chip bg-[#1a2c50] hover:bg-[#24407a] text-slate-100" data-c="${esc(r0.c)}" title="複製官網團頁連結${refTip}"><i class="fa-regular fa-copy mr-1"></i>複製</button></span>`
       : `<span class="m3 font-normal text-xs">${WEB ? '未上線<span class="m4 ml-1">' + esc(webWhy(r0.c)) + '</span>' : '…'}</span>`)); }
 
   const cols = PERTOUR.filter(f => dshow[f.k]);
@@ -1869,6 +1872,11 @@ function showDetail() {
       showDetail();
     };
     sel.onpointerdown = e => e.stopPropagation();
+  });
+  // 官網連結：開啟（新分頁；手機也是開新頁，回來動態查詢不會掉選取）
+  $('detail-body').querySelectorAll('.web-open').forEach(btn => {
+    btn.onpointerdown = e => e.stopPropagation();
+    btn.onclick = e => { e.stopPropagation(); const u = webUrl(btn.dataset.c); if (!u) return; window.open(u, '_blank', 'noopener'); };
   });
   // 官網連結：複製（手機 Safari 要同步寫剪貼簿，不先 await）
   $('detail-body').querySelectorAll('.web-copy').forEach(btn => {

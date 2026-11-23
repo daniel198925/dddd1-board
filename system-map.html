@@ -1,3 +1,6 @@
+      <li><span class="time">11/19</span><span>官網頂欄「主題旅遊」選單與首頁「依主題找行程」加上 ⛳ 高爾夫，固定連到高爾夫專區（不靠團名關鍵字，因為團庫沒有高爾夫團）。</span></li>
+      <li><span class="time">11/19</span><span>高爾夫專區富士山路線換照片：改用看得到富士山的球場照（Pexels 免費商用 px14745766，裁成橫幅），舊雪山照留在圖庫。Depositphotos 包月庫沒有富士山＋球場的實拍照。</span></li>
+      <li><span class="time">11/18</span><span>高爾夫專區補照片與球場官網：11 條路線換成圖庫實拍球場照（Depositphotos 標準授權，示意照非實際球場，記入授權台帳 paid-ledger 與圖庫總目錄），32 座球場中 30 座加上「官網 ↗」連結（新分頁開、nofollow；日本 PGM 球場連到太平洋高爾夫介紹頁）。資料都在 daren/golf.json 的 img、url 欄位。</span></li>
       <li><span class="time">11/18</span><span>官網高爾夫專區上線：discoveredtrip.com/golf（Google 搜得到）與前台 #/golf，首頁輪播加高爾夫橫幅、搜尋「高爾夫」直接帶到專區。日本 4 條（大阪、名古屋、東京茨城、富士山；國泰五天三場、15 人成行、參考價 39,900／45,900 起）＋東南亞 7 條（曼谷、清邁、吉隆坡、沙巴、峴港、富國島、北越；4 人成行、價格請洽專員）。路線內容在 itinerary-page 的 daren/golf.json，照雲端硬碟行程表手動維護（漢書沒有團號）；團庫以後出現行程名含「高爾夫」的固定出發團，專區上方會自動列出。</span></li>
 <!doctype html>
 <html lang="zh-Hant">
@@ -425,6 +428,11 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <h2>10/19 之後新增</h2>
     <p class="sub">上次畫圖以後加上去的功能，新的在前面。</p>
     <ul class="list two">
+      <li><span class="time">11/19</span><span>VIP 旅行護照（已上線 合約系統 main 1a2e243＋官網 main d62b8b2）（點數）：簽約時用簽約人身分證雜湊記會員、每人點數查官網 /daren/vip.json（漢書括號第二個數）寫進合約 vip 欄位，簽完畫面顯示「這趟可累積 X 點」＋護照連結；客人專屬連結 passport.html?k=亂碼（/api/sign action=vip 代查，只回遮罩姓名與點數）；業務後台 vip-admin.html：複製護照連結、待補每人點數、轉點給同行者（填身分證、只存雜湊）、不計點、回溯舊合約。新 collection vip_members（規則限自己人）。回國後才入帳；作廢／國內不算。</span></li>
+      <li><span class="time">11/23</span><span>動態查詢選取卡「官網」改兩顆按鈕（動態查詢）：「開啟」新分頁打開官網這團的頁面、「複製」複製連結，兩顆都帶自己的推薦碼；沒上線的團照舊寫原因。</span></li>
+      <li><span class="time">11/23</span><span>官網 VIP 入口（已上線 官網 main 7d13dea）（官網）：上方選單加「👑 VIP 會員」；行程卡片加「VIP 每人折 $X」小標，標價那天不適用時寫「部分日期」；行程頁價格下方沒選日期顯示「起」、選到不適用日期顯示灰色說明（原本整條不見，因為預設選最便宜那天常不適用）</span></li>
+      <li><span class="time">11/20</span><span>VIP 三個點數池（已上線 合約系統 main fe15b05、官網 main 9cef5e8）（合約／官網）：照公司規章改成個人卡／親友卡／無限卡各一個池，一趟人數上限 2／6／不限，同時累積、哪個先到門檻升哪張；用 VIP 價的人不計點並佔掉名額（vip.disc）；建合約必選「一般直客價／有人用 VIP 價 N 位／這份不計點」；護照頁與 VIP 後台顯示三張卡進度；官網 VIP 頁撤企業卡、下殺團不適用、同業轉報名不計點、常見問題 14 題</span></li>
+      <li><span class="time">11/19</span><span>簽約打中文姓名（已上線 合約系統 main 7d1f246）（合約）：簽約頁第一格必填「中文姓名」（團體／自由行／國內／MSC 兩版／麗星），存 customer.name 並帶進 VIP 會員；PDF 第 1 頁立契約書人印「姓名 等N人」（自由行／MSC／麗星印在簽名前），最後簽名頁只印等N人；VIP 後台沒姓名的會員顯示電話末3碼＋最近出發日、可「補姓名」（只存 vip_members）。</span></li>
       <li><span class="time">11/18</span><span>官網搬到根網域：對外網址拿掉 /daren（首頁 discoveredtrip.com/、團頁 /t/團名、專欄 /a/、地區 /r/、目的地 /d/、/about、/cny、/aurora、/snow；報名進度查詢 /order、防詐騙須知 /notice），舊網址自動轉到新網址（11/20 後改永久轉址）；業務專屬行程表搬到 /itinerary/（舊的 /?id= 連結照常能開），動態查詢「轉連結」改成直接產生新格式；圖片、資料檔、管理後台（/daren/admin.html）、業務後台（/daren/sales.html）位置不變；首頁與列表的團卡、地區、目的地連結改成 Google 看得懂的真網址；閱讀頁帶推薦碼進來會保存。</span></li>
       <li><span class="time">11/17</span><span>官網首頁輪播加「歐洲河輪講座」橫幅：列出 12 月 5 場說明會日期（估價平台 seminars 的 SEM-20261201～1230），點日期直接開那一場報名表並記成 D1 組（?s=場次&amp;g=D1）；過了的場次自動拿掉，5 場都過就整張消失。底圖是 GPT 照禾岳號實船照片畫的布達佩斯夜景，中文是網頁疊字。客人從業務專屬連結（?r=）進站，報名表「配合的業務」自動填那位業務（1811ec9）。itinerary-page main 4ce0738。</span></li>
       <li><span class="time">11/17</span><span>估價平台業務自報價可退回業務（v1.3.135）：產品部在免估價直轉的待出團單按「退回業務」必填原因→已退回＋業務新進度通知；業務「修正後重新送出」填新售價→直接回待出團；鎖團中不能退、團號行程表保留、退回紀錄存 meta.directReturnHistory。另：漢書名冊本部兼業務用 roster.mjs EXTRA_SALES（林昱辰＝昱→B組）。</span></li>
