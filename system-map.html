@@ -147,7 +147,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">findit-contract ・ 更新到 2026-11-23</div>
+    <div class="eyebrow">findit-contract ・ 更新到 2026-11-24</div>
     <h1>線上合約系統地圖</h1>
     <p class="lede">合約系統裡有兩條簽署線：客人簽旅遊合約、領隊簽出團文件。兩條線共用同一個上了鎖的資料庫，簽好的 PDF 每 10 分鐘由公司常駐機搬回 NAS。另外還有一條通知線：開群連結和客人下單，都由 D1小助手私訊給 D1 業務。</p>
     <ul class="facts">
@@ -428,6 +428,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <h2>10/19 之後新增</h2>
     <p class="sub">上次畫圖以後加上去的功能，新的在前面。</p>
     <ul class="list two">
+      <li><span class="time">11/24</span><span>估價平台公佈欄加「稽核」分類＋會計／IT／稽核帳號（v1.3.137，findit-quote main a4cadf2）：帳號管理多三種角色 accounting／it／audit；登入後頂欄只剩公佈欄、首頁就是公佈欄，不掛詢價單監聽、不抓單團通知；可發公告但只能選自己的分類，勾重要一樣跳視窗通知全部業務、自己發的看得到已讀名單；不能發也看不到單團通知。</span></li>
       <li><span class="time">11/23</span><span>估價平台「公佈欄」上線（v1.3.136，findit-quote main 60e73cb）：產品部發公告（9 個分類，可附 PDF／Word／圖片最多 5 個、每個 20MB，存 Storage bulletins/）與單團通知（貼團號，用 upcoming_tours/summary＋新的 upcoming_tours/far 找有收客的業務，只通知他們）；重要公告與單團通知業務會跳視窗要按「我知道了」，產品部看已讀名單（可複製未確認名單）；一般公告只亮紅點。新 collection：bulletins（每則公告）、bulletin_feed/main（一般公告總表，大家共讀一份）、bulletin_reads（每人已讀）、bulletin_readmap（每則已讀名單）。常駐機每小時同步（upcoming-to-quote.mjs）多寫 upcoming_tours/far＝60 天以後出發的團，「我的團」也看得到更遠的團。</span></li>
       <li><span class="time">11/19</span><span>VIP 旅行護照（已上線 合約系統 main 1a2e243＋官網 main d62b8b2）（點數）：簽約時用簽約人身分證雜湊記會員、每人點數查官網 /daren/vip.json（漢書括號第二個數）寫進合約 vip 欄位，簽完畫面顯示「這趟可累積 X 點」＋護照連結；客人專屬連結 passport.html?k=亂碼（/api/sign action=vip 代查，只回遮罩姓名與點數）；業務後台 vip-admin.html：複製護照連結、待補每人點數、轉點給同行者（填身分證、只存雜湊）、不計點、回溯舊合約。新 collection vip_members（規則限自己人）。回國後才入帳；作廢／國內不算。</span></li>
       <li><span class="time">11/23</span><span>動態查詢選取卡「官網」改兩顆按鈕（動態查詢）：「開啟」新分頁打開官網這團的頁面、「複製」複製一段分享文（🌏 團名／📅 出發日與剩位／✈️ 航空與團費／👉 官網連結），兩顆都帶自己的推薦碼；沒上線的團照舊寫原因。</span></li>
