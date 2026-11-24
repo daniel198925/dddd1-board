@@ -430,6 +430,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <ul class="list two">
       <li><span class="time">11/24</span><span>官網行程頁標題下改一排「複製行程資訊（手機：分享給朋友）｜存成圖片」：手機叫出系統分享選單（LINE／FB），電腦複製整段（團名、日期～回程、價格、團位、團號、航空・出發地＋短網址），都帶推薦碼；新短網址 discoveredtrip.com/go/團號（vercel.json → api/go，同團號多團型退回長網址）（main 592568c）</span></li>
       <li><span class="time">11/24</span><span>官網後台「行程包裝→首頁主打」改拖拉：已放的系列變成 1～8 號卡片（輪播順序），拖拉調順序、✕ 或拖回下面拿掉、下面系列可直接拖上來；未放的系列加南線／日本／韓國／長線／郵輪分頁（daren/admin.html，存在 store-admin 的 featured 陣列順序）</span></li>
+      <li><span class="time">11/24</span><span>估價平台公佈欄分類篩選改一個字（v1.3.140，findit-quote main 690c242）：個（單團通知）／全／陸／南／日／韓／長／國／會／IT／稽／人／總，「全部」不變，滑鼠停上去看全名；卡片上的分類標籤照舊全名。</span></li>
       <li><span class="time">11/24</span><span>估價平台公佈欄內勤帳號都能自己選分類（v1.3.139，findit-quote main 2c8c064）：會計、總務、人資、IT、稽核發公告都可選全公司＋會計／總務／人資／稽核／IT，預設停在自己部門那類；產品部照舊只發全公司＋各產品線。</span></li>
       <li><span class="time">11/24</span><span>估價平台公佈欄加「人資」「總務」分類（v1.3.138，findit-quote main 7115b5e）：帳號管理多兩種角色 hr／ga（同會計／IT／稽核只看公佈欄）；會計、總務發公告可選全公司＋會計／總務／人資／稽核／IT；人資、IT、稽核只能發自己的分類；產品部發公告只剩全公司＋各產品線（不發內勤分類），單團通知照舊。</span></li>
       <li><span class="time">11/24</span><span>估價平台公佈欄加「稽核」分類＋會計／IT／稽核帳號（v1.3.137，findit-quote main a4cadf2）：帳號管理多三種角色 accounting／it／audit；登入後頂欄只剩公佈欄、首頁就是公佈欄，不掛詢價單監聽、不抓單團通知；可發公告但只能選自己的分類，勾重要一樣跳視窗通知全部業務、自己發的看得到已讀名單；不能發也看不到單團通知。</span></li>
