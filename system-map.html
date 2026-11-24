@@ -428,6 +428,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <h2>10/19 之後新增</h2>
     <p class="sub">上次畫圖以後加上去的功能，新的在前面。</p>
     <ul class="list two">
+      <li><span class="time">11/24</span><span>官網行程頁標題下改一排「複製行程資訊（手機：分享給朋友）｜存成圖片」：手機叫出系統分享選單（LINE／FB），電腦複製整段（團名、日期～回程、價格、團位、團號、航空・出發地＋短網址），都帶推薦碼；新短網址 discoveredtrip.com/go/團號（vercel.json → api/go，同團號多團型退回長網址）（main 592568c）</span></li>
       <li><span class="time">11/24</span><span>官網後台「行程包裝→首頁主打」改拖拉：已放的系列變成 1～8 號卡片（輪播順序），拖拉調順序、✕ 或拖回下面拿掉、下面系列可直接拖上來；未放的系列加南線／日本／韓國／長線／郵輪分頁（daren/admin.html，存在 store-admin 的 featured 陣列順序）</span></li>
       <li><span class="time">11/24</span><span>估價平台公佈欄加「稽核」分類＋會計／IT／稽核帳號（v1.3.137，findit-quote main a4cadf2）：帳號管理多三種角色 accounting／it／audit；登入後頂欄只剩公佈欄、首頁就是公佈欄，不掛詢價單監聽、不抓單團通知；可發公告但只能選自己的分類，勾重要一樣跳視窗通知全部業務、自己發的看得到已讀名單；不能發也看不到單團通知。</span></li>
       <li><span class="time">11/23</span><span>估價平台「公佈欄」上線（v1.3.136，findit-quote main 60e73cb）：產品部發公告（9 個分類，可附 PDF／Word／圖片最多 5 個、每個 20MB，存 Storage bulletins/）與單團通知（貼團號，用 upcoming_tours/summary＋新的 upcoming_tours/far 找有收客的業務，只通知他們）；重要公告與單團通知業務會跳視窗要按「我知道了」，產品部看已讀名單（可複製未確認名單）；一般公告只亮紅點。新 collection：bulletins（每則公告）、bulletin_feed/main（一般公告總表，大家共讀一份）、bulletin_reads（每人已讀）、bulletin_readmap（每則已讀名單）。常駐機每小時同步（upcoming-to-quote.mjs）多寫 upcoming_tours/far＝60 天以後出發的團，「我的團」也看得到更遠的團。</span></li>
