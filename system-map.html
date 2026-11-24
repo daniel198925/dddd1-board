@@ -369,7 +369,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
         <div class="side"><b>同一支常駐機合約歸檔器</b><small>搬到 NAS 已簽合約存放區</small></div>
         <div class="flow">
           <span class="dirlabel">估價平台 → 合約系統的歸檔器</span>
-          <span>業務上傳的掃描檔或手機照片，搬完回寫「已歸檔」</span>
+          <span>業務上傳的掃描檔或手機照片，搬完回寫「已歸檔」；滿 7 天自動刪掉雲端那份（11/24 起）</span>
           <span class="arrow left"><i></i></span>
           <span class="freq">每 10 分</span>
         </div>
@@ -428,6 +428,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <h2>10/19 之後新增</h2>
     <p class="sub">上次畫圖以後加上去的功能，新的在前面。</p>
     <ul class="list two">
+      <li><span class="time">11/24</span><span>官網後台「行程包裝→首頁主打」改拖拉：已放的系列變成 1～8 號卡片（輪播順序），拖拉調順序、✕ 或拖回下面拿掉、下面系列可直接拖上來；未放的系列加南線／日本／韓國／長線／郵輪分頁（daren/admin.html，存在 store-admin 的 featured 陣列順序）</span></li>
       <li><span class="time">11/24</span><span>估價平台公佈欄加「稽核」分類＋會計／IT／稽核帳號（v1.3.137，findit-quote main a4cadf2）：帳號管理多三種角色 accounting／it／audit；登入後頂欄只剩公佈欄、首頁就是公佈欄，不掛詢價單監聽、不抓單團通知；可發公告但只能選自己的分類，勾重要一樣跳視窗通知全部業務、自己發的看得到已讀名單；不能發也看不到單團通知。</span></li>
       <li><span class="time">11/23</span><span>估價平台「公佈欄」上線（v1.3.136，findit-quote main 60e73cb）：產品部發公告（9 個分類，可附 PDF／Word／圖片最多 5 個、每個 20MB，存 Storage bulletins/）與單團通知（貼團號，用 upcoming_tours/summary＋新的 upcoming_tours/far 找有收客的業務，只通知他們）；重要公告與單團通知業務會跳視窗要按「我知道了」，產品部看已讀名單（可複製未確認名單）；一般公告只亮紅點。新 collection：bulletins（每則公告）、bulletin_feed/main（一般公告總表，大家共讀一份）、bulletin_reads（每人已讀）、bulletin_readmap（每則已讀名單）。常駐機每小時同步（upcoming-to-quote.mjs）多寫 upcoming_tours/far＝60 天以後出發的團，「我的團」也看得到更遠的團。</span></li>
       <li><span class="time">11/19</span><span>VIP 旅行護照（已上線 合約系統 main 1a2e243＋官網 main d62b8b2）（點數）：簽約時用簽約人身分證雜湊記會員、每人點數查官網 /daren/vip.json（漢書括號第二個數）寫進合約 vip 欄位，簽完畫面顯示「這趟可累積 X 點」＋護照連結；客人專屬連結 passport.html?k=亂碼（/api/sign action=vip 代查，只回遮罩姓名與點數）；業務後台 vip-admin.html：複製護照連結、待補每人點數、轉點給同行者（填身分證、只存雜湊）、不計點、回溯舊合約。新 collection vip_members（規則限自己人）。回國後才入帳；作廢／國內不算。</span></li>
@@ -483,6 +484,8 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
       <p class="sub">沒有人按按鈕，時間到就跑。</p>
       <ul class="list">
         <li><span class="time">每 10 分</span><span>常駐機歸檔器把新簽好的合約 PDF 存進公司 NAS，順便把歸檔狀態抄給估價平台「我的團」。</span></li>
+        <li><span class="time">業務綁定時</span><span>（資安 11/24）LINE 綁定資料已上鎖：外人只能按信箱查單筆（常駐機腳本靠這個私訊），不能列名單、不能寫；綁定碼只有業務本人能產生、30 分鐘過期，由 LINE webhook 用服務帳號寫入。</span></li>
+        <li><span class="time">每小時</span><span>同一支歸檔器把「已送進 NAS 滿 7 天」的合約副本從估價平台雲端刪掉，歸檔紀錄標成已清除（2026-11-24 起；估價平台只是通道，保管在業務與 NAS）。</span></li>
         <li><span class="time">每小時</span><span>台灣 9～21 點巡查 30 天內出發的團：領隊填好群組連結，就私訊該團收客的 D1 業務。換連結或換領隊會再發一則更新，發過的不重發。</span></li>
         <li><span class="time">08:00</span><span>領隊總機自動發隔天出團的領隊文件，並提醒還沒簽的領隊。長線和日韓郵輪不自動發，由 OP 手動發。</span></li>
         <li><span class="time">09:00</span><span>巡邏未簽合約：連結 36 小時沒簽先催業務，72 小時失效再通知重發。出團前整團還沒建合約的 D1 業務也會收到 LINE。</span></li>
