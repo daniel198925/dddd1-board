@@ -147,7 +147,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">findit-contract ・ 更新到 2026-11-24</div>
+    <div class="eyebrow">findit-contract ・ 更新到 2026-11-25</div>
     <h1>線上合約系統地圖</h1>
     <p class="lede">合約系統裡有兩條簽署線：客人簽旅遊合約、領隊簽出團文件。兩條線共用同一個上了鎖的資料庫，簽好的 PDF 每 10 分鐘由公司常駐機搬回 NAS。另外還有一條通知線：開群連結和客人下單，都由 D1小助手私訊給 D1 業務。</p>
     <ul class="facts">
@@ -433,6 +433,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
       <li><span class="time">11/25</span><span>官網手機首頁精簡第一包（四方會診）：頂部紅色防詐條→一行淺灰小字「全程免領隊服務費・本站不收款・防詐須知」、頂欄拿掉標語與綠色線上服務（底部列已有線上詢問）、大標說明藏起來（h1 留給搜尋引擎）、目的地／出發時間／出發地收進「更多條件」、首頁 emoji 全拿掉、精選推薦移到搜尋下第一區、講座橫幅手機 340→190；米色底維持（main b1162f1）。第二包（漢堡選單、地區文字格、好評信任合併）未做</span></li>
       <li><span class="time">11/24</span><span>官網行程頁標題下改一排「複製行程資訊（手機：分享給朋友）｜存成圖片」：手機叫出系統分享選單（LINE／FB），電腦複製整段（團名、日期～回程、價格、團位、團號、航空・出發地＋短網址），都帶推薦碼；新短網址 discoveredtrip.com/go/團號（vercel.json → api/go，同團號多團型退回長網址）（main 592568c）</span></li>
       <li><span class="time">11/24</span><span>官網後台「行程包裝→首頁主打」改拖拉：已放的系列變成 1～8 號卡片（輪播順序），拖拉調順序、✕ 或拖回下面拿掉、下面系列可直接拖上來；未放的系列加南線／日本／韓國／長線／郵輪分頁（daren/admin.html，存在 store-admin 的 featured 陣列順序）</span></li>
+      <li><span class="time">11/25</span><span>估價平台公佈欄加「教育訓練」（v1.3.141，findit-quote main 2987943）：產品部按「開課程」（課名、日期、時間、地點、講師），全部業務登入跳視窗選「我要上課／不上課」（每堂都回覆才關得掉、開課前可改）；報名名單分上課／還沒回覆／不上課＋回覆進度；匯出「教育訓練簽到表」CSV，點我要上課即視同簽到、簽到時間系統記在上課前 30 分鐘內（每人固定）。答案存 bulletin_reads 的 a 欄與 bulletin_readmap 的 ans。</span></li>
       <li><span class="time">11/24</span><span>估價平台公佈欄分類篩選改一個字（v1.3.140，findit-quote main 690c242）：個（單團通知）／全／陸／南／日／韓／長／國／會／IT／稽／人／總，「全部」不變，滑鼠停上去看全名；卡片上的分類標籤照舊全名。</span></li>
       <li><span class="time">11/24</span><span>估價平台公佈欄內勤帳號都能自己選分類（v1.3.139，findit-quote main 2c8c064）：會計、總務、人資、IT、稽核發公告都可選全公司＋會計／總務／人資／稽核／IT，預設停在自己部門那類；產品部照舊只發全公司＋各產品線。</span></li>
       <li><span class="time">11/24</span><span>估價平台公佈欄加「人資」「總務」分類（v1.3.138，findit-quote main 7115b5e）：帳號管理多兩種角色 hr／ga（同會計／IT／稽核只看公佈欄）；會計、總務發公告可選全公司＋會計／總務／人資／稽核／IT；人資、IT、稽核只能發自己的分類；產品部發公告只剩全公司＋各產品線（不發內勤分類），單團通知照舊。</span></li>
