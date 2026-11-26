@@ -428,6 +428,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <h2>10/19 之後新增</h2>
     <p class="sub">上次畫圖以後加上去的功能，新的在前面。</p>
     <ul class="list two">
+      <li><span class="time">11/26</span><span>估價平台開課程表單加上課時數（course.hours，依開始結束自動算）與參加對象（aud，同發給誰六選項；只有對象跳視窗、看得到，會計總務仍看報名名單）；結束時間、講師、課程內容必填；簽到表印時數與對象（v1.3.146，findit-quote main 613e7f3）。</span></li>
       <li><span class="time">11/26</span><span>估價平台公佈欄發公告加「發給誰」下拉選單（v1.3.145，findit-quote main 5d0c79e）：業務部／產品部／財會部（會計＋稽核）／管理部（管理部＋IT＋人資＋總務）／全公司／協理（含）以上主管（業務主管＋產品主管＋管理部）；沒選到的部門看不到，發文者、同部門、管理部看得到；重要公告只跳對象視窗、推播照 audienceIds 只給對象；管理部也能發。公告存 aud 欄位，舊公告沒有 aud 照舊（全員看、只算業務未讀）。</span></li>
       <li><span class="time">11/26</span><span>估價平台公佈欄內文網址變成可點的連結（v1.3.144，findit-quote main a04dc57）：另開分頁，中文標點不算進網址。</span></li>
       <li><span class="time">11/26</span><span>估價平台網頁推播通知（v1.3.143，findit-quote main c533a96）：重要公告、新的教育訓練、單團通知直接跳到業務的電腦（Chrome／Edge）或手機（Android；iPhone 要加入主畫面），估價平台沒開著也收得到；通知只寫固定字不放內容，點了打開那一則。網頁存訂閱到 push_subs（每台一筆、規則禁列表），常駐機排程 Findit-PushSender 每分鐘看新公告→push_jobs 防重複→標準 Web Push（VAPID、零套件）；金鑰在常駐機 Documents\findit-push\keys；監視器加「推播發送」心跳檢查。</span></li>
