@@ -428,6 +428,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <h2>10/19 之後新增</h2>
     <p class="sub">上次畫圖以後加上去的功能，新的在前面。</p>
     <ul class="list two">
+      <li><span class="time">11/26</span><span>估價平台單團通知可發已出發的團（v1.3.148，findit-quote main 0cd4476）：常駐機 findit-hanshu upcoming-to-quote.mjs 每小時多寫 upcoming_tours/recent＝已出發、還在回國後 3 天內的團（從 snapshots 出發前一晚那份取 bs＋hd 組 bp；出發前最後一份快照不在＝取消／改號不算；最新快照檔名當快取鍵 .upq-recent-cache.json）；前端動態查不到時改查這份，標「已出發第 N 天」；失敗 LINE 仁（alertOnce recent）。舊檔 .bak-20261126。</span></li>
       <li><span class="time">11/26</span><span>估價平台離職業務估價單轉移（v1.3.147，findit-quote main 196c01c）：進度通知加「轉移給您」（PROG_KINDS.transfer）；D組何信毅（70166）5 張估價單用服務帳號腳本轉給盧永易（70101），salesInfo 加 transferredFrom、留言加系統訊息，接手業務登入跳通知；挪團與漢書資料不轉；備份在 findit-backupmanual-transfer。</span></li>
       <li><span class="time">11/26</span><span>估價平台開課程表單加上課時數（course.hours，依開始結束自動算）與參加對象（aud，同發給誰六選項；只有對象跳視窗、看得到，會計總務仍看報名名單）；結束時間、講師、課程內容必填；簽到表印時數與對象（v1.3.146，findit-quote main 613e7f3）。</span></li>
       <li><span class="time">11/26</span><span>估價平台公佈欄發公告加「發給誰」下拉選單（v1.3.145，findit-quote main 5d0c79e）：業務部／產品部／財會部（會計＋稽核）／管理部（管理部＋IT＋人資＋總務）／全公司／協理（含）以上主管（業務主管＋產品主管＋管理部）；沒選到的部門看不到，發文者、同部門、管理部看得到；重要公告只跳對象視窗、推播照 audienceIds 只給對象；管理部也能發。公告存 aud 欄位，舊公告沒有 aud 照舊（全員看、只算業務未讀）。</span></li>
