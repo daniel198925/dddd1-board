@@ -428,6 +428,7 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <h2>10/19 之後新增</h2>
     <p class="sub">上次畫圖以後加上去的功能，新的在前面。</p>
     <ul class="list two">
+      <li><span class="time">11/27</span><span>估價平台手機版優化第二包（v1.3.150，findit-quote main b66e9a2）：我的團／領隊群／挪團表的 &lt;table&gt; 加 class m-cards＋m-cards-tours／-leader／-nuo，≤767px 用 grid＋td:nth-child 排成卡片（同一套表格、欄位順序改了樣式要跟著改；電腦仍是表格）；手機返回鍵 mNav：MutationObserver 看哪一頁顯示，離開首頁列表（點進估價單或切到別頁）就 history.pushState，popstate 回首頁列表，「更多」選單與通知抽屜開著先關；只在手機生效。</span></li>
       <li><span class="time">11/27</span><span>估價平台手機版優化第一包（v1.3.149，findit-quote main 2e49ce1；四方會診分三包）：全部包在 ≤767px、電腦版不動。手機登入自動停在有資料的分頁（salesTabAutoFor，估價中是空的就跳報價結果）；首頁統計卡一行、階段四格並排（#sales-tabs）、子狀態單排橫滑；手機不顯示電腦用的空白詳情面板；點進估價單頂欄 display:none（頂欄收合程式加 H&gt;0 防呆）；五頁大標題卡加 .pg-head 縮小；輸入框 16px；viewport-fit=cover＋safe-area 留白。第二包＝表格變卡片＋手機返回鍵、第三包＝頂欄瘦身，未做。</span></li>
       <li><span class="time">11/26</span><span>估價平台單團通知可發已出發的團（v1.3.148，findit-quote main 0cd4476）：常駐機 findit-hanshu upcoming-to-quote.mjs 每小時多寫 upcoming_tours/recent＝已出發、還在回國後 3 天內的團（從 snapshots 出發前一晚那份取 bs＋hd 組 bp；出發前最後一份快照不在＝取消／改號不算；最新快照檔名當快取鍵 .upq-recent-cache.json）；前端動態查不到時改查這份，標「已出發第 N 天」；失敗 LINE 仁（alertOnce recent）。舊檔 .bak-20261126。</span></li>
       <li><span class="time">11/26</span><span>估價平台離職業務估價單轉移（v1.3.147，findit-quote main 196c01c）：進度通知加「轉移給您」（PROG_KINDS.transfer）；D組何信毅（70166）5 張估價單用服務帳號腳本轉給盧永易（70101），salesInfo 加 transferredFrom、留言加系統訊息，接手業務登入跳通知；挪團與漢書資料不轉；備份在 findit-backupmanual-transfer。</span></li>
